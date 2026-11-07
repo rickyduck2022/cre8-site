@@ -1,0 +1,28 @@
+.notification-viewport {
+  bottom: calc(var(--app-player-height, 5rem) + 1rem);
+  display: grid;
+  gap: 0.625rem;
+  justify-items: end;
+  pointer-events: none;
+  position: fixed;
+  right: 1rem;
+  z-index: 50;
+}
+
+.notification-viewport > * {
+  pointer-events: auto;
+}
+
+@media (max-width: 48rem) {
+  .notification-viewport {
+    bottom: calc(var(--app-player-height, 5rem) + 4.5rem);
+    left: 1rem;
+    right: 1rem;
+  }
+
+  .notification-viewport > * {
+    max-width: none;
+    min-width: 0;
+    width: 100%;
+  }
+}

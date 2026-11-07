@@ -1,0 +1,21 @@
+.progress-bar {
+  background: var(--audio-inactive);
+  border-radius: 999px;
+  height: 0.3rem;
+  overflow: hidden;
+  width: 100%;
+}
+
+.progress-bar__value {
+  background: var(--audio-active);
+  border-radius: inherit;
+  display: block;
+  height: 100%;
+  transition: width 160ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .progress-bar__value {
+    transition: none;
+  }
+}

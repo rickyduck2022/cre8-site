@@ -1,0 +1,52 @@
+.notification-toast {
+  align-items: center;
+  background: var(--surface-raised);
+  border: 1px solid var(--border-default);
+  border-radius: 0.625rem;
+  box-shadow: 0 0.75rem 2rem rgb(0 0 0 / 30%);
+  color: var(--text-primary);
+  display: flex;
+  gap: 0.75rem;
+  max-width: min(28rem, calc(100vw - 2rem));
+  min-width: min(20rem, calc(100vw - 2rem));
+  padding: 0.75rem 0.875rem;
+}
+
+.notification-toast__marker {
+  background: var(--audio-active);
+  border-radius: 50%;
+  flex: none;
+  height: 0.5rem;
+  width: 0.5rem;
+}
+
+.notification-toast--error .notification-toast__marker {
+  background: var(--color-danger, #ff7777);
+}
+
+.notification-toast__message {
+  flex: 1;
+  font-size: var(--font-size-11);
+  line-height: 1.5;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.notification-toast__dismiss {
+  background: transparent;
+  border: 0;
+  border-radius: 0.25rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+  flex: none;
+  font: inherit;
+  font-size: 1.25rem;
+  line-height: 1;
+  padding: 0.2rem;
+}
+
+.notification-toast__dismiss:hover,
+.notification-toast__dismiss:focus-visible {
+  color: var(--text-primary);
+  outline: 2px solid var(--focus-ring);
+}

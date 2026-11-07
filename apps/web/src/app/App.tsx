@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
 import {
-  Check,
   Friends,
   FriendsFeed,
   Folder,
@@ -23,8 +22,10 @@ import {
   MessengerTemplate,
   Modal,
   Navigation,
+  NotificationViewport,
   ProfileTemplate,
   TrackArtwork,
+  type NotificationMessage,
   type NavigationSection,
 } from "@craft/ui";
 import { DemoModeNotice } from "../components/DemoModeNotice";
@@ -98,8 +99,15 @@ export function App() {
     chatConnectionStatus,
     loading,
     error,
-    toast,
+    notifications,
+    activeNotifications,
+    unreadNotificationCount,
+    uploadProgress,
+    uploadError,
     notify,
+    dismissNotification,
+    clearNotifications,
+    markNotificationsRead,
     login,
     registerArtist,
     logout,
@@ -198,6 +206,10 @@ export function App() {
     navigateTo("messenger");
   }
 
+  function openNotification(notification: NotificationMessage) {
+    if (notification.conversationId) openChat(notification.conversationId);
+  }
+
   async function startConversation(username: string) {
     const buddyId = await addBuddy(username);
     if (!buddyId) return;
@@ -215,6 +227,15 @@ export function App() {
     if (!cratePickerDubId) return;
     void updateCrateDub(crateId, cratePickerDubId, true);
     setCratePickerDubId(null);
+  }
+
+  async function handleShareDub(values: Parameters<typeof addDub>[0]) {
+    const succeeded = await addDub(values);
+    if (succeeded) {
+      setIsUploadOpen(false);
+      navigateTo("dubs");
+    }
+    return succeeded;
   }
 
   async function handleLogin(event: FormEvent<HTMLFormElement>) {
@@ -340,13 +361,19 @@ export function App() {
                 logoutError instanceof Error
                   ? logoutError.message
                   : "Sign out failed.",
+                "error",
               );
             });
           }}
-          onNotifications={() => navigateTo("messenger")}
+          notifications={notifications}
+          onClearNotifications={clearNotifications}
+          onDismissNotification={dismissNotification}
+          onActivateNotification={openNotification}
+          onNotifications={markNotificationsRead}
           onSearchChange={setSearchQuery}
           searchPlaceholder="Search tracks or members"
           searchValue={searchQuery}
+          unreadNotificationCount={unreadNotificationCount}
           userName={state.member.displayName}
           variant="compact"
         />
@@ -479,25 +506,23 @@ export function App() {
         ))}
       </nav>
 
-      {toast && (
-        <div className="app-toast" role="status">
-          <Check aria-hidden="true" />
-          {toast}
-        </div>
-      )}
+      <NotificationViewport
+        notifications={activeNotifications}
+        onDismiss={dismissNotification}
+      />
       <Modal
         isOpen={isUploadOpen}
-        onClose={() => setIsUploadOpen(false)}
+        onClose={() => {
+          if (!uploadProgress) setIsUploadOpen(false);
+        }}
         title="Share a dub"
       >
         <DubUploadForm
           artists={state.artists}
+          onSubmit={handleShareDub}
+          submissionError={uploadError}
+          uploadProgress={uploadProgress}
           onCancel={() => setIsUploadOpen(false)}
-          onSubmit={(values) => {
-            void addDub(values);
-            setIsUploadOpen(false);
-            navigateTo("dubs");
-          }}
         />
       </Modal>
       <Modal

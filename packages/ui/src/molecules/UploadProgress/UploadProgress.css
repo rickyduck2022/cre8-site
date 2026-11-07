@@ -1,0 +1,31 @@
+.upload-progress {
+  background: var(--surface-canvas);
+  border: 1px solid var(--border-default);
+  border-radius: 0.625rem;
+  display: grid;
+  gap: 0.625rem;
+  padding: 0.875rem;
+}
+
+.upload-progress__copy {
+  align-items: center;
+  color: var(--text-primary);
+  display: flex;
+  font-size: var(--font-size-11);
+  gap: 1rem;
+  justify-content: space-between;
+}
+
+.upload-progress__copy > :last-child {
+  color: var(--audio-active);
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-10);
+}
+
+.upload-progress__hint {
+  color: var(--text-secondary);
+  font-size: var(--font-size-10);
+  line-height: 1.4;
+  margin: 0;
+}

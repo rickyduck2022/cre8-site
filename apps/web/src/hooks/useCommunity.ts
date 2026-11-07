@@ -8,8 +8,12 @@ import type {
   Dub,
   DubUploadFormValues,
   MemberProfile,
+  NotificationMessage,
+  NotificationType,
+  UploadProgressState,
   ArtistRegistrationValues,
 } from "@craft/ui";
+import { uploadFile } from "../services/uploadFile";
 
 export interface Crate {
   id: string;
@@ -97,20 +101,83 @@ function jsonBody(value: unknown) {
 export function useCommunity() {
   const [state, setState] = useState(initialState);
   const [loading, setLoading] = useState(true);
-  const [toast, setToast] = useState("");
+  const [notifications, setNotifications] = useState<NotificationMessage[]>([]);
+  const [activeNotificationIds, setActiveNotificationIds] = useState<string[]>([]);
+  const [uploadProgress, setUploadProgress] = useState<UploadProgressState | null>(null);
+  const [uploadError, setUploadError] = useState("");
   const [error, setError] = useState("");
   const [chatConnectionStatus, setChatConnectionStatus] =
     useState<ChatConnectionStatus>("disconnected");
-  const toastTimeout = useRef<number | undefined>(undefined);
+  const notificationTimers = useRef(new Map<string, number>());
+  const seenMessageIds = useRef(new Set<string>());
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  function notify(message: string) {
-    if (toastTimeout.current !== undefined) window.clearTimeout(toastTimeout.current);
-    setToast(message);
-    toastTimeout.current = window.setTimeout(() => setToast(""), 3800);
+  function notify(
+    message: string,
+    type: NotificationType = "success",
+    conversationId?: string,
+  ) {
+    const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    setNotifications((current) => [
+      {
+        id,
+        message,
+        type,
+        createdAt: new Date().toISOString(),
+        read: false,
+        conversationId,
+      },
+      ...current,
+    ].slice(0, 20));
+    setActiveNotificationIds((current) => [id, ...current].slice(0, 3));
+    const timeout = window.setTimeout(() => {
+      setActiveNotificationIds((current) => current.filter((item) => item !== id));
+      notificationTimers.current.delete(id);
+    }, type === "error" ? 7000 : 4500);
+    notificationTimers.current.set(id, timeout);
   }
 
-  function applySnapshot(snapshot: CommunitySnapshot) {
+  function dismissNotification(id: string) {
+    const timeout = notificationTimers.current.get(id);
+    if (timeout !== undefined) window.clearTimeout(timeout);
+    notificationTimers.current.delete(id);
+    setNotifications((current) => current.filter((item) => item.id !== id));
+    setActiveNotificationIds((current) => current.filter((item) => item !== id));
+  }
+
+  function clearNotifications() {
+    for (const timeout of notificationTimers.current.values()) {
+      window.clearTimeout(timeout);
+    }
+    notificationTimers.current.clear();
+    setNotifications([]);
+    setActiveNotificationIds([]);
+  }
+
+  function markNotificationsRead() {
+    setNotifications((current) => current.map((item) => ({ ...item, read: true })));
+  }
+
+  function applySnapshot(
+    snapshot: CommunitySnapshot,
+    announceIncomingMessages = false,
+  ) {
+    const newMessages: Array<{ conversationId: string; message: string }> = [];
+    for (const conversation of snapshot.conversations) {
+      for (const message of conversation.messages) {
+        if (
+          announceIncomingMessages &&
+          message.sender === "them" &&
+          !seenMessageIds.current.has(message.id)
+        ) {
+          newMessages.push({
+            conversationId: conversation.buddyId,
+            message: message.text,
+          });
+        }
+        seenMessageIds.current.add(message.id);
+      }
+    }
     setState((current) => ({
       ...current,
       member: snapshot.member,
@@ -122,6 +189,15 @@ export function useCommunity() {
       suggestedMembers: snapshot.suggestedMembers,
       crates: snapshot.crates,
     }));
+    for (const incoming of newMessages) {
+      const buddyName = snapshot.buddies.find(
+        (buddy) => buddy.id === incoming.conversationId,
+      )?.displayName ?? "A buddy";
+      const excerpt = incoming.message.length > 100
+        ? `${incoming.message.slice(0, 100)}...`
+        : incoming.message;
+      notify(`${buddyName} sent you a message: ${excerpt}`, "info", incoming.conversationId);
+    }
   }
 
   async function refreshCommunity() {
@@ -173,7 +249,10 @@ export function useCommunity() {
       audio.pause();
       audio.removeAttribute("src");
       audioRef.current = null;
-      if (toastTimeout.current !== undefined) window.clearTimeout(toastTimeout.current);
+      for (const timeout of notificationTimers.current.values()) {
+        window.clearTimeout(timeout);
+      }
+      notificationTimers.current.clear();
     };
   }, []);
 
@@ -203,7 +282,7 @@ export function useCommunity() {
         retryAttempt = 0;
         setChatConnectionStatus("connected");
         void requestApi<CommunitySnapshot>("/api/community")
-          .then(applySnapshot)
+          .then((snapshot) => applySnapshot(snapshot, true))
           .catch((connectionError: unknown) => {
             if (active && connectionError instanceof Error && !connectionError.message.includes("Sign in")) {
               setError(connectionError.message);
@@ -219,7 +298,7 @@ export function useCommunity() {
           return;
         }
         if (payload.type === "community.snapshot" && payload.snapshot) {
-          applySnapshot(payload.snapshot);
+          applySnapshot(payload.snapshot, true);
         }
       };
       socket.onerror = () => {
@@ -265,6 +344,8 @@ export function useCommunity() {
   async function logout() {
     await requestApi("/api/logout", { method: "POST" });
     audioRef.current?.pause();
+    seenMessageIds.current.clear();
+    clearNotifications();
     setState(initialState);
   }
 
@@ -283,20 +364,20 @@ export function useCommunity() {
       await refreshCommunity();
       notify(`Download recorded for ${dub.title}. Your like is counted once.`);
     } catch (requestError) {
-      notify(requestError instanceof Error ? requestError.message : "The download failed.");
+      notify(requestError instanceof Error ? requestError.message : "The download failed.", "error");
     }
   }
 
   function togglePlayback(dub: Dub) {
     const audio = audioRef.current;
     if (!audio) {
-      notify("Audio playback is not ready yet. Please try again.");
+      notify("Audio playback is not ready yet. Please try again.", "error");
       return;
     }
     if (!dub.audioUrl) {
       const message = `The audio file for ${dub.title} is unavailable.`;
       setState((current) => ({ ...current, playbackError: message }));
-      notify(message);
+      notify(message, "error");
       return;
     }
     const isCurrentTrack = audio.dataset.dubId === dub.id;
@@ -321,7 +402,7 @@ export function useCommunity() {
     void audio.play().catch(() => {
       const message = `Unable to play ${dub.title}. Check that the audio file is available.`;
       setState((current) => ({ ...current, playbackError: message, isPlaying: false }));
-      notify(message);
+      notify(message, "error");
     });
   }
 
@@ -358,28 +439,44 @@ export function useCommunity() {
     togglePlayback(state.dubs[nextIndex]);
   }
 
-  async function addDub(values: DubUploadFormValues) {
+  async function addDub(values: DubUploadFormValues): Promise<boolean> {
     let uploadId: string | undefined;
     let artworkUploadId: string | undefined;
+    const totalBytes = values.audioFile.size + (values.artworkFile?.size ?? 0);
+    let completedBytes = 0;
+    setUploadError("");
+    setUploadProgress({
+      phase: "uploading",
+      fileName: values.audioFile.name,
+      progress: 0,
+    });
     try {
-      const uploadFile = async (file: File, type: "audio" | "artwork") =>
-        requestApi<{ uploadId: string }>(
-          `/api/uploads${type === "artwork" ? "?type=artwork" : ""}`,
-          {
-            method: "POST",
-            headers: {
-              "content-type": file.type || "application/octet-stream",
-              "x-file-name": encodeURIComponent(file.name),
-            },
-            body: file,
-          },
-        );
-      const upload = await uploadFile(values.audioFile, "audio");
+      const onFileProgress = (file: File) => (loaded: number, total: number) => {
+        const fileProgress = total > 0 ? Math.min(1, loaded / total) : 0;
+        const progress = totalBytes > 0
+          ? Math.floor(((completedBytes + file.size * fileProgress) / totalBytes) * 100)
+          : 0;
+        setUploadProgress({ phase: "uploading", fileName: file.name, progress });
+      };
+      const upload = await uploadFile(values.audioFile, "audio", onFileProgress(values.audioFile));
       uploadId = upload.uploadId;
+      completedBytes += values.audioFile.size;
       if (values.artworkFile) {
-        const artworkUpload = await uploadFile(values.artworkFile, "artwork");
+        setUploadProgress({
+          phase: "uploading",
+          fileName: values.artworkFile.name,
+          progress: totalBytes > 0
+            ? Math.floor((completedBytes / totalBytes) * 100)
+            : 0,
+        });
+        const artworkUpload = await uploadFile(
+          values.artworkFile,
+          "artwork",
+          onFileProgress(values.artworkFile),
+        );
         artworkUploadId = artworkUpload.uploadId;
       }
+      setUploadProgress({ phase: "publishing", fileName: "", progress: 100 });
       await requestApi("/api/dubs", {
         method: "POST",
         body: jsonBody({
@@ -394,20 +491,28 @@ export function useCommunity() {
       });
       await refreshCommunity();
       notify(`${values.title.trim()} was added to Latest Dubs.`);
+      return true;
     } catch (requestError) {
+      const message = requestError instanceof Error
+        ? requestError.message
+        : "The dub could not be uploaded.";
+      setUploadError(message);
       if (uploadId) {
         await requestApi(`/api/uploads/${encodeURIComponent(uploadId)}`, { method: "DELETE" })
           .catch((cleanupError: unknown) => {
-            notify(cleanupError instanceof Error ? cleanupError.message : "An unfinished upload could not be removed.");
+            notify(cleanupError instanceof Error ? cleanupError.message : "An unfinished upload could not be removed.", "error");
           });
       }
       if (artworkUploadId) {
         await requestApi(`/api/uploads/${encodeURIComponent(artworkUploadId)}`, { method: "DELETE" })
           .catch((cleanupError: unknown) => {
-            notify(cleanupError instanceof Error ? cleanupError.message : "Unattached track artwork could not be removed.");
+            notify(cleanupError instanceof Error ? cleanupError.message : "Unattached track artwork could not be removed.", "error");
           });
       }
-      notify(requestError instanceof Error ? requestError.message : "The dub could not be uploaded.");
+      notify(message, "error");
+      return false;
+    } finally {
+      setUploadProgress(null);
     }
   }
 
@@ -421,7 +526,7 @@ export function useCommunity() {
       notify(`${username} added to your Buddy List.`);
       return snapshot.buddies.find((buddy) => buddy.username === username)?.id ?? null;
     } catch (requestError) {
-      notify(requestError instanceof Error ? requestError.message : "The friend could not be added.");
+      notify(requestError instanceof Error ? requestError.message : "The friend could not be added.", "error");
       return null;
     }
   }
@@ -434,7 +539,7 @@ export function useCommunity() {
       applySnapshot(snapshot);
       notify("Friend removed from your Buddy List.");
     } catch (requestError) {
-      notify(requestError instanceof Error ? requestError.message : "The friend could not be removed.");
+      notify(requestError instanceof Error ? requestError.message : "The friend could not be removed.", "error");
     }
   }
 
@@ -445,7 +550,7 @@ export function useCommunity() {
         { method: "POST" },
       ));
     } catch (requestError) {
-      notify(requestError instanceof Error ? requestError.message : "Conversation could not be marked read.");
+      notify(requestError instanceof Error ? requestError.message : "Conversation could not be marked read.", "error");
     }
   }
 
@@ -457,7 +562,7 @@ export function useCommunity() {
       ));
       return true;
     } catch (requestError) {
-      notify(requestError instanceof Error ? requestError.message : "Message could not be sent.");
+      notify(requestError instanceof Error ? requestError.message : "Message could not be sent.", "error");
       return false;
     }
   }
@@ -471,7 +576,7 @@ export function useCommunity() {
       setState((current) => ({ ...current, crates: [...current.crates, crate] }));
       notify(`${crate.name} crate created.`);
     } catch (requestError) {
-      notify(requestError instanceof Error ? requestError.message : "Crate could not be created.");
+      notify(requestError instanceof Error ? requestError.message : "Crate could not be created.", "error");
     }
   }
 
@@ -487,7 +592,7 @@ export function useCommunity() {
       }));
       notify(add ? "Dub saved to crate." : "Dub removed from crate.");
     } catch (requestError) {
-      notify(requestError instanceof Error ? requestError.message : "Crate could not be updated.");
+      notify(requestError instanceof Error ? requestError.message : "Crate could not be updated.", "error");
     }
   }
 
@@ -499,18 +604,26 @@ export function useCommunity() {
       }));
       notify("Profile updated.");
     } catch (requestError) {
-      notify(requestError instanceof Error ? requestError.message : "Profile could not be updated.");
+      notify(requestError instanceof Error ? requestError.message : "Profile could not be updated.", "error");
     }
   }
 
   const unreadCount = state.buddies.reduce((total, buddy) => total + (buddy.unread ?? 0), 0);
+  const unreadNotificationCount = notifications.filter((item) => !item.read).length;
 
   return {
     state,
     loading,
     error,
-    toast,
+    notifications,
+    activeNotifications: notifications.filter((item) => activeNotificationIds.includes(item.id)),
+    unreadNotificationCount,
+    uploadProgress,
+    uploadError,
     notify,
+    dismissNotification,
+    clearNotifications,
+    markNotificationsRead,
     login,
     registerArtist,
     logout,

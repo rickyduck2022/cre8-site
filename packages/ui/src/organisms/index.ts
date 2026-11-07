@@ -8,4 +8,6 @@ export * from "./FriendRequests/FriendRequests";
 export * from "./InviteCard/InviteCard";
 export * from "./Navigation/Navigation";
 export * from "./Modal/Modal";
+export * from "./NotificationCenter/NotificationCenter";
+export * from "./NotificationViewport/NotificationViewport";
 export * from "./OnlineFriends/OnlineFriends";

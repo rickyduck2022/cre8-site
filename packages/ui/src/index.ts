@@ -5,6 +5,7 @@ export * from "./atoms/Action/Action";
 export * from "./atoms/Avatar/Avatar";
 export * from "./atoms/Badge/Badge";
 export * from "./atoms/FilterTab/FilterTab";
+export * from "./atoms/ProgressBar/ProgressBar";
 export * from "./atoms/TrackTag/TrackTag";
 export * from "./molecules";
 export * from "./organisms";
