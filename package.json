@@ -1,12 +1,19 @@
 {
-  "name": "cre8-site",
-  "version": "1.0.0",
-  "description": "",
-  "license": "ISC",
-  "author": "",
-  "type": "commonjs",
-  "main": "index.js",
+  "name": "craft",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@9.15.4",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "turbo run build",
+    "dev": "node scripts/dev.mjs",
+    "dev:api": "pnpm --filter @craft/api dev",
+    "dev:web": "node scripts/dev.mjs",
+    "storybook": "pnpm --filter @craft/ui storybook",
+    "test": "turbo run test",
+    "typecheck": "turbo run typecheck"
+  },
+  "devDependencies": {
+    "turbo": "^2.3.3",
+    "typescript": "^5.7.2"
   }
 }
