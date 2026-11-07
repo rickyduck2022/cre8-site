@@ -1,6 +1,18 @@
+# Dependencies
 node_modules/
-dist/
-storybook-static/
-coverage/
-.turbo/
+
+# Build output and caches
+**/dist/
+**/build/
+**/out/
+**/coverage/
+**/storybook-static/
+**/.turbo/
+**/.vite/
+**/.cache/
+
+# Local data and environment
 apps/api/data/
+.env
+.env.*
+!.env.example
