@@ -1,0 +1,38 @@
+[17:45:59.310] [INFO] storybook v10.6.6
+[17:46:00.238] [DEBUG] Command "yarn.cmd" not found, trying next variation...
+[17:46:00.281] [DEBUG] Command "yarn.exe" not found, trying next variation...
+[17:46:00.323] [DEBUG] Command "yarn.ps1" not found, trying next variation...
+[17:46:01.032] [DEBUG] Getting package.json info for C:/Users/PATCHES/cre8-site/packages/ui/package.json...
+[17:46:01.046] [WARN] Could not resolve addon "@storybook/addon-essentials", skipping. Is it installed?
+[17:46:01.049] [ERROR] [38;2;241;97;97mSB_CORE-SERVER_0002 (CriticalPresetLoadError): Storybook failed to load the following preset: @storybook/react-vite/preset.
+
+Please check whether your setup is correct, the Storybook dependencies (and their peer dependencies) are installed correctly and there are no package version clashes.
+
+If you believe this is a bug, please open an issue on Github.
+
+Error [ERR_MODULE_NOT_FOUND]: Cannot find package '@storybook/react-vite' imported from C:\Users\PATCHES\AppData\Roaming\npm\node_modules\storybook\dist\_node-chunks\chunk-LIC6G4BL.js
+    at Object.getPackageJSONURL (node:internal/modules/package_json_reader:343:9)
+    at packageResolve (node:internal/modules/esm/resolve:751:25)
+    at moduleResolve (node:internal/modules/esm/resolve:840:18)
+    at defaultResolve (node:internal/modules/esm/resolve:973:11)
+    at nextResolve (node:internal/modules/esm/hooks:769:28)
+    at AsyncLoaderHooksOnLoaderHookWorker.resolve (node:internal/modules/esm/hooks:265:30)
+    at MessagePort.handleMessage (node:internal/modules/esm/worker:251:24)
+    at [nodejs.internal.kHybridDispatch] (node:internal/event_target:872:20)
+    at MessagePort.<anonymous> (node:internal/per_context/messageport:23:28)
+
+More info: 
+[39m
+    at loadPreset (file:///C:/Users/PATCHES/AppData/Roaming/npm/node_modules/storybook/dist/_node-chunks/chunk-VNC56V3E.js:13294:13)
+    at async Promise.all (index 0)
+    at async loadPresets (file:///C:/Users/PATCHES/AppData/Roaming/npm/node_modules/storybook/dist/_node-chunks/chunk-VNC56V3E.js:13303:73)
+    at async getPresets (file:///C:/Users/PATCHES/AppData/Roaming/npm/node_modules/storybook/dist/_node-chunks/chunk-VNC56V3E.js:13334:23)
+    at async buildDevStandalone (file:///C:/Users/PATCHES/AppData/Roaming/npm/node_modules/storybook/dist/core-server/index.js:9478:52)
+    at async withTelemetry (file:///C:/Users/PATCHES/AppData/Roaming/npm/node_modules/storybook/dist/_node-chunks/chunk-44BW7MFU.js:142:12)
+    at async dev (file:///C:/Users/PATCHES/AppData/Roaming/npm/node_modules/storybook/dist/bin/core.js:4877:3)
+    at async _Command.<anonymous> (file:///C:/Users/PATCHES/AppData/Roaming/npm/node_modules/storybook/dist/bin/core.js:4985:3)
+[17:46:01.052] [WARN] Broken build, fix the error above.
+You may need to refresh the browser.
+[17:46:01.054] [WARN] Could not resolve addon "@storybook/addon-essentials", skipping. Is it installed?
+[17:46:03.975] [PROMPT] Would you like to send anonymous crash reports to improve Storybook and fix bugs faster? {"choice":true}
+[17:46:03.977] [INFO] Storybook collects completely anonymous usage telemetry. We use it to shape Storybook's roadmap and prioritize features. You can learn more, including how to opt out, at https://storybook.js.org/telemetry

@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: cre8-demo
+    runtime: docker
+    plan: 0.5c-512mb
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+    disk:
+      name: cre8-data
+      mountPath: /var/data
+      sizeGB: 1

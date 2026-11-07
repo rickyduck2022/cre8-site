@@ -1,0 +1,83 @@
+.app-login {
+  align-items: center;
+  background: var(--surface-canvas);
+  color: var(--text-primary);
+  display: grid;
+  min-height: 100vh;
+  padding: 1.5rem;
+  place-items: center;
+}
+
+.app-login__card {
+  background: var(--surface-raised);
+  border: 1px solid var(--border-default);
+  border-radius: 1rem;
+  display: grid;
+  gap: 1rem;
+  max-width: 24rem;
+  padding: 2rem;
+  width: 100%;
+}
+
+.app-login__card h1,
+.app-login__card p {
+  margin: 0;
+}
+
+.app-login__form {
+  display: grid;
+  gap: 1rem;
+}
+
+.app-login__form > label {
+  color: var(--text-secondary);
+  display: grid;
+  font-size: var(--font-size-11);
+  gap: 0.4rem;
+}
+
+.app-login__form input {
+  background: var(--surface-canvas);
+  border: 1px solid var(--border-default);
+  border-radius: 0.5rem;
+  color: var(--text-primary);
+  font: inherit;
+  min-height: 2.5rem;
+  padding: 0.5rem 0.75rem;
+}
+
+.app-login__form input:focus {
+  border-color: var(--focus-ring);
+  outline: 2px solid color-mix(in srgb, var(--focus-ring) 25%, transparent);
+}
+
+.app-login__error {
+  color: var(--color-danger);
+  margin: 0;
+}
+
+.app-login__register {
+  align-items: center;
+  border-top: 1px solid var(--border-default);
+  color: var(--text-secondary);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  justify-content: center;
+  padding-top: 0.75rem;
+}
+
+.app-login__card small {
+  color: var(--text-secondary);
+  text-align: center;
+}
+
+.start-conversation-list {
+  display: grid;
+  gap: 0.5rem;
+  min-width: min(22rem, 70vw);
+}
+
+.start-conversation-list > button {
+  justify-content: flex-start;
+}

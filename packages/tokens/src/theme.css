@@ -1,0 +1,71 @@
+:root {
+  /* Primitives */
+  --color-neutral-50: #F2F3F5;
+  --color-neutral-400: #9299A5;
+  --color-neutral-700: #3A414E;
+  --color-neutral-800: #303746;
+  --color-neutral-900: #222630;
+  --color-neutral-950: #171A20;
+
+  --color-orange-400: #FF922B;
+  --color-orange-500: #F57C00;
+  --color-orange-600: #D46B00;
+
+  --color-cyan-400: #35C5D8;
+  --color-blue-500: #4285F4;
+
+  /* Semantics */
+  --surface-canvas: var(--color-neutral-950);
+  --surface-raised: var(--color-neutral-900);
+  --surface-control: var(--color-neutral-800);
+
+  --border-default: var(--color-neutral-700);
+
+  --text-primary: var(--color-neutral-50);
+  --text-secondary: var(--color-neutral-400);
+  --text-on-accent: var(--color-neutral-950);
+
+  --action-primary: var(--color-orange-500);
+  --action-primary-hover: var(--color-orange-400);
+  --action-primary-pressed: var(--color-orange-600);
+
+  --audio-active: var(--color-cyan-400);
+  --audio-inactive: var(--color-neutral-700);
+
+  --focus-ring: var(--color-cyan-400);
+  --link-default: var(--color-blue-500);
+
+  /* Fonts */
+  --font-interface: 'Inter', sans-serif;
+  --font-mono: 'IBM Plex Mono', monospace;
+
+  /* Typography scale: retain the optical sizes used in the foundations source. */
+  --font-size-9: 9px;
+  --font-size-10: 10px;
+  --font-size-10-2: 10.2px;
+  --font-size-10-54: 10.54px;
+  --font-size-10-8: 10.8px;
+  --font-size-11: 11px;
+  --font-size-11-16: 11.16px;
+  --font-size-12: 12px;
+  --font-size-12-4: 12.4px;
+  --font-size-13: 13px;
+  --font-size-14: 14px;
+  --font-size-17: 17px;
+  --font-size-18: 18px;
+  --font-size-20: 20px;
+  --font-size-21: 21px;
+  --font-size-23: 23px;
+  --font-size-29: 29px;
+  --font-size-30: 30px;
+
+  --text-caption: var(--font-size-9);
+  --text-label: var(--font-size-11);
+  --text-body: var(--font-size-14);
+  --text-title: var(--font-size-20);
+}
+
+body {
+  font-family: var(--font-interface);
+  font-size: var(--text-body);
+}

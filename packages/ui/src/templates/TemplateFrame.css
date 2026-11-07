@@ -1,0 +1,5 @@
+.template-frame {
+  background: var(--surface-canvas);
+  color: var(--text-primary);
+  min-height: 100vh;
+}

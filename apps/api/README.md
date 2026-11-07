@@ -1,0 +1,40 @@
+# Community API and demo deployment
+
+Run the app and API together with `pnpm dev`, or start the backend alone with
+`pnpm dev:api`. The API listens on port 3001 and the Vite development server
+proxies `/api` requests to it.
+
+## Render demo
+
+The root `render.yaml` and `Dockerfile` configure a single Render web service.
+It serves the built Vite app, API, and authenticated chat WebSocket on the same
+origin. The Render Blueprint attaches a 1 GB persistent disk at `/var/data`;
+the JSON database and uploaded media are stored there. The service uses
+`PORT` (defaulting to 3001 for local use) and binds to `0.0.0.0` in production.
+The storage locations can be changed with `COMMUNITY_DATA_PATH` and
+`COMMUNITY_MEDIA_DIRECTORY`; `WEB_DIST_DIRECTORY` selects the built frontend
+directory.
+
+To deploy, push this repository to a Git provider, create a Render Blueprint
+from the repository, and apply the `render.yaml` configuration. The disk
+requires a paid web-service instance. A service with a persistent disk runs as
+a single instance, and Render briefly takes it offline during deploys to avoid
+concurrent disk access. See Render's [persistent disk limitations](https://render.com/docs/disks#disk-limitations-and-considerations).
+
+The demo is intentionally file-backed and single-process; do not use it as a
+production service for public users or sensitive data. It has no automated
+backups beyond Render's disk snapshots. For a production launch, replace the
+JSON store and in-memory sessions with managed database/session services,
+configure backups, and change/remove the built-in demo credentials.
+
+New artists can register with an artist name, unique username, password, and an
+optional genre. Registration creates a linked artist profile and signs the
+artist in immediately. Signing out clears the server-side session and expires
+the session cookie.
+
+The seeded demo accounts are `meladee` / `meladee` and `holik` / `holik`.
+Passwords are stored as salted scrypt hashes. On a local run, community records,
+uploaded audio, and optional dub artwork are stored under `apps/api/data/`;
+remove that directory to reset the local seed. The seed dubs are associated
+with the `artist-meladee` profile. Dubs without an uploaded image use the
+built-in whitelabel artwork.

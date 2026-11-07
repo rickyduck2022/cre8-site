@@ -1,0 +1,9 @@
+.git
+.turbo
+node_modules
+**/node_modules
+**/dist
+apps/api/data
+.env
+.env.*
+package-lock.json

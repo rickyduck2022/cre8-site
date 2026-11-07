@@ -1,0 +1,108 @@
+import { useState } from "react";
+import { AudioLines, Pause, Play, Shuffle, SkipBack, SkipForward } from "@craft/icons";
+import { Button } from "../../atoms/Button/Button";
+import "../Molecules.css";
+
+export interface TransportControlsProps {
+  playing?: boolean;
+  shuffle?: boolean;
+  repeat?: boolean;
+  onPlayChange?: (playing: boolean) => void;
+  onPrevious?: () => void;
+  onNext?: () => void;
+  onShuffleChange?: (enabled: boolean) => void;
+  onRepeatChange?: (enabled: boolean) => void;
+  className?: string;
+}
+
+export function TransportControls({
+  className,
+  onNext,
+  onPlayChange,
+  onPrevious,
+  onRepeatChange,
+  onShuffleChange,
+  playing: playingProp,
+  repeat: repeatProp,
+  shuffle: shuffleProp,
+}: TransportControlsProps) {
+  const [internalPlaying, setInternalPlaying] = useState(false);
+  const [internalShuffle, setInternalShuffle] = useState(false);
+  const [internalRepeat, setInternalRepeat] = useState(false);
+  const isControlled = playingProp !== undefined;
+  const playing = isControlled ? playingProp : internalPlaying;
+  const shuffle = shuffleProp ?? internalShuffle;
+  const repeat = repeatProp ?? internalRepeat;
+
+  function togglePlaying() {
+    const next = !playing;
+    if (!isControlled) setInternalPlaying(next);
+    onPlayChange?.(next);
+  }
+
+  function toggleShuffle() {
+    const next = !shuffle;
+    if (shuffleProp === undefined) setInternalShuffle(next);
+    onShuffleChange?.(next);
+  }
+
+  function toggleRepeat() {
+    const next = !repeat;
+    if (repeatProp === undefined) setInternalRepeat(next);
+    onRepeatChange?.(next);
+  }
+
+  return (
+    <div className={["transport-controls", className].filter(Boolean).join(" ")}>
+      <Button
+        aria-label={shuffle ? "Disable shuffle" : "Enable shuffle"}
+        aria-pressed={shuffle}
+        className={`transport-controls__button${shuffle ? " is-active" : ""}`}
+        leadingIcon={<Shuffle aria-hidden="true" />}
+        onClick={toggleShuffle}
+        size="small"
+        variant="tertiary"
+        type="button"
+      />
+      <Button
+        aria-label="Previous track"
+        className="transport-controls__button"
+        leadingIcon={<SkipBack aria-hidden="true" />}
+        onClick={onPrevious}
+        size="small"
+        variant="tertiary"
+        type="button"
+      />
+      <Button
+        aria-label={playing ? "Pause" : "Play"}
+        className="transport-controls__play"
+        leadingIcon={
+          playing ? <Pause aria-hidden="true" /> : <Play aria-hidden="true" />
+        }
+        onClick={togglePlaying}
+        size="small"
+        variant="secondary"
+        type="button"
+      />
+      <Button
+        aria-label="Next track"
+        className="transport-controls__button"
+        leadingIcon={<SkipForward aria-hidden="true" />}
+        onClick={onNext}
+        size="small"
+        variant="tertiary"
+        type="button"
+      />
+      <Button
+        aria-label={repeat ? "Disable repeat" : "Enable repeat"}
+        aria-pressed={repeat}
+        className={`transport-controls__button${repeat ? " is-active" : ""}`}
+        leadingIcon={<AudioLines aria-hidden="true" />}
+        onClick={toggleRepeat}
+        size="small"
+        variant="tertiary"
+        type="button"
+      />
+    </div>
+  );
+}

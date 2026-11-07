@@ -1,0 +1,30 @@
+.mobile-template {
+  margin: 0 auto;
+  max-width: 30rem;
+  min-height: 100vh;
+  padding-bottom: 8rem;
+  position: relative;
+}
+
+.mobile-template__body {
+  display: grid;
+  gap: 1rem;
+  padding: 1rem;
+}
+
+.mobile-template__community {
+  display: grid;
+  gap: 1rem;
+}
+
+.mobile-template__footer {
+  background: var(--surface-canvas);
+  bottom: 0;
+  display: grid;
+  gap: 0.25rem;
+  left: 0;
+  padding: 0.5rem;
+  position: fixed;
+  right: 0;
+  z-index: 5;
+}
