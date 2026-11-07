@@ -74,7 +74,7 @@ export function BuddyListTemplate({
       <section className="page-intro">
         <div>
           <span className="eyebrow">YOUR PEOPLE</span>
-          <h1>Buddy List</h1>
+          <h1>Friend List</h1>
           <p>Your friends, just like the good old days.</p>
         </div>
         <Button
@@ -82,7 +82,7 @@ export function BuddyListTemplate({
           onClick={() => onQueryChange?.("")}
           size="small"
         >
-          Find buddies
+          Find friends
         </Button>
       </section>
 
@@ -117,9 +117,9 @@ export function BuddyListTemplate({
       </div>
 
       <SearchField
-        aria-label="Search buddies"
+        aria-label="Search friends"
         onChange={(event) => onQueryChange?.(event.target.value)}
-        placeholder="Search buddies by name or genre"
+        placeholder="Search friends by name or genre"
         value={query}
       />
 
@@ -177,14 +177,14 @@ export function BuddyListTemplate({
         {filteredBuddies.length === 0 && (
           <div className="empty-state">
             <Users aria-hidden="true" />
-            <strong>No buddies match</strong>
+            <strong>No friends match</strong>
             <span>Try a different search or presence filter.</span>
           </div>
         )}
       </section>
       <Pagination
         itemCount={filteredBuddies.length}
-        label="Buddies"
+        label="Friends"
         onPageChange={buddyPagination.setPage}
         onPageSizeChange={buddyPagination.setPageSize}
         page={buddyPagination.page}
@@ -230,7 +230,7 @@ export function BuddyListTemplate({
         </div>
         <Pagination
           itemCount={filteredSuggestions.length}
-          label="Suggested buddies"
+          label="Suggested friends"
           onPageChange={suggestionPagination.setPage}
           onPageSizeChange={suggestionPagination.setPageSize}
           page={suggestionPagination.page}

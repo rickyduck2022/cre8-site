@@ -27,7 +27,7 @@ const buddies = [
 ] satisfies Buddy[];
 
 const meta = {
-  title: "Templates/Buddy List",
+  title: "Templates/Friend List",
   component: BuddyListTemplate,
   parameters: { layout: "fullscreen" },
   args: {

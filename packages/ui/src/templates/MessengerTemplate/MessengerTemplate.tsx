@@ -269,7 +269,7 @@ export function MessengerTemplate({
           <div className="empty-state">
             <MessageCircle aria-hidden="true" />
             <strong>No conversations yet</strong>
-            <span>Add a buddy to start a conversation.</span>
+            <span>Add a friend to start a conversation.</span>
           </div>
         )}
       </section>

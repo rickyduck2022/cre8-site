@@ -36,7 +36,7 @@ const dubs: Dub[] = [
 ];
 
 const meta = {
-  title: "Templates/Latest Dubs",
+  title: "Templates/Dub Feed",
   component: LatestDubsTemplate,
   parameters: { layout: "fullscreen" },
   args: {

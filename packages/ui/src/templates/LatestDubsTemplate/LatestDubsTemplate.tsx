@@ -89,7 +89,7 @@ export function LatestDubsTemplate({
       <section className="page-intro">
         <div>
           <span className="eyebrow">YOUR COMMUNITY, IN ROTATION</span>
-          <h1>{crateName ?? "Latest Dubs"}</h1>
+          <h1>{crateName ?? "Dub Feed"}</h1>
           <p>
             {crateName
               ? "Dubs saved in this crate."

@@ -192,7 +192,7 @@ export function useCommunity() {
     for (const incoming of newMessages) {
       const buddyName = snapshot.buddies.find(
         (buddy) => buddy.id === incoming.conversationId,
-      )?.displayName ?? "A buddy";
+      )?.displayName ?? "A friend";
       const excerpt = incoming.message.length > 100
         ? `${incoming.message.slice(0, 100)}...`
         : incoming.message;
@@ -490,7 +490,7 @@ export function useCommunity() {
         }),
       });
       await refreshCommunity();
-      notify(`${values.title.trim()} was added to Latest Dubs.`);
+      notify(`${values.title.trim()} was added to the Dub Feed.`);
       return true;
     } catch (requestError) {
       const message = requestError instanceof Error
@@ -523,7 +523,7 @@ export function useCommunity() {
         body: jsonBody({ username }),
       });
       applySnapshot(snapshot);
-      notify(`${username} added to your Buddy List.`);
+      notify(`${username} added to your Friend List.`);
       return snapshot.buddies.find((buddy) => buddy.username === username)?.id ?? null;
     } catch (requestError) {
       notify(requestError instanceof Error ? requestError.message : "The friend could not be added.", "error");
@@ -537,7 +537,7 @@ export function useCommunity() {
         method: "DELETE",
       });
       applySnapshot(snapshot);
-      notify("Friend removed from your Buddy List.");
+      notify("Friend removed from your Friend List.");
     } catch (requestError) {
       notify(requestError instanceof Error ? requestError.message : "The friend could not be removed.", "error");
     }

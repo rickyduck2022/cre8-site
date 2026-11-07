@@ -34,8 +34,8 @@ import type { CommunitySection } from "../types/community";
 import "./App.css";
 
 const sectionLabels: Record<CommunitySection, string> = {
-  dubs: "Latest Dubs",
-  buddies: "Buddy List",
+  dubs: "Dub Feed",
+  buddies: "Friend List",
   messenger: "Messenger",
   profile: "My Profile",
 };

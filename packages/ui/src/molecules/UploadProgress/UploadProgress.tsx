@@ -21,7 +21,7 @@ export function UploadProgress({ progress }: UploadProgressProps) {
       <ProgressBar label={label} value={progress.progress} />
       <p className="upload-progress__hint">
         {publishing
-          ? "Finishing your post and updating Latest Dubs."
+          ? "Finishing your post and updating the Dub Feed."
           : "Keep this window open while your file uploads."}
       </p>
     </section>
