@@ -35,6 +35,6 @@ the session cookie.
 The seeded demo accounts are `meladee` / `meladee` and `holik` / `holik`.
 Passwords are stored as salted scrypt hashes. On a local run, community records,
 uploaded audio, and optional dub artwork are stored under `apps/api/data/`;
-remove that directory to reset the local seed. The seed dubs are associated
-with the `artist-meladee` profile. Dubs without an uploaded image use the
-built-in whitelabel artwork.
+remove that directory to reset the local seed. New accounts start without
+tracks; artists can add tracks by uploading audio. Dubs without an uploaded
+image use the built-in whitelabel artwork.

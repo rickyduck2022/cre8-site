@@ -14,18 +14,17 @@ const defaultWebDirectory = resolve(process.env.WEB_DIST_DIRECTORY ?? resolve(ap
 const maxAudioUploadBytes = 100 * 1024 * 1024;
 const maxArtworkUploadBytes = 10 * 1024 * 1024;
 const sessionLifetimeSeconds = 60 * 60 * 24 * 7;
-const dataSchemaVersion = 2;
-
-const seededDubs = [
-  ["dub-coffeeshop", "COFFEESHOP", "MELADEE", "MELADEE - COFFEESHOP.wav", "2026-11-07T19:00:00.000Z", "04:25", "artwork-cyan"],
-  ["dub-miller", "MiLLER", "MELADEE", "MELADEE - MiLLER.wav", "2026-11-07T18:00:00.000Z", "04:25", "artwork-violet"],
-  ["dub-ozone", "OZONE", "MELADEE", "MELADEE - OZONE.wav", "2026-11-07T17:00:00.000Z", "04:25", "artwork-orange"],
-  ["dub-phoenix", "Phoenix", "Meladee", "Meladee - Phoenix.wav", "2026-11-07T16:00:00.000Z", "04:28", "artwork-green"],
-  ["dub-wizard", "Wizard", "Meladee", "Meladee - Wizard.wav", "2026-11-07T15:00:00.000Z", "04:25", "artwork-cyan"],
-  ["dub-jungle-tunes", "Jungle Tunes", "Meladee ft Banner", "Meladee Ft Banner - Jungle Tunes.wav", "2026-11-07T14:00:00.000Z", "04:31", "artwork-violet"],
-  ["dub-ketterings-kitchen", "Kettering's Kitchen", "MELADEE ft HOLiK", "MELADEE ft HOLiK - KETTERiNG'S KiTCHEN.wav", "2026-11-07T13:00:00.000Z", "04:25", "artwork-orange"],
-  ["dub-renegade", "RENEGADE", "MELADEE ft HOLIK", "MELADEE ft HOLIK - RENEGADE.wav", "2026-11-07T12:00:00.000Z", "04:25", "artwork-green"],
-];
+const dataSchemaVersion = 3;
+const removedSeedDubIds = new Set([
+  "dub-coffeeshop",
+  "dub-miller",
+  "dub-ozone",
+  "dub-phoenix",
+  "dub-wizard",
+  "dub-jungle-tunes",
+  "dub-ketterings-kitchen",
+  "dub-renegade",
+]);
 
 function hashPassword(password, salt = randomBytes(16).toString("hex")) {
   return {
@@ -78,26 +77,7 @@ function createSeedState() {
         role: "DJ / Producer",
       },
     ],
-    dubs: seededDubs.map(([id, title, artist, audioFileName, uploadedAt, duration, artwork]) => ({
-      id,
-      title,
-      artist,
-      artistId: "artist-meladee",
-      uploaderId: meladee.id,
-      uploader: meladee.username,
-      uploaderDisplayName: meladee.displayName,
-      uploadedAt,
-      bpm: 0,
-      genre: "Uncategorized",
-      duration,
-      likes: 0,
-      downloads: 0,
-      artwork: "whitelabel",
-      message: "A dub from the studio.",
-      audioUrl: `/api/dubs/${id}/audio`,
-      audioFileName,
-      audioSource: "seed",
-    })),
+    dubs: [],
     friendships: [],
     conversations: [],
     likes: [],
@@ -134,6 +114,17 @@ export function initializeData(dataPath = defaultDataPath, mediaDirectory = defa
     writeFileSync(dataPath, `${JSON.stringify(freshData, null, 2)}\n`);
     return freshData;
   }
+  if (data.schemaVersion === 2) {
+    data.dubs = data.dubs.filter((dub) => !removedSeedDubIds.has(dub.id));
+    data.likes = (data.likes ?? []).filter((like) => !removedSeedDubIds.has(like.dubId));
+    data.downloads = (data.downloads ?? []).filter((download) => !removedSeedDubIds.has(download.dubId));
+    const remainingDubIds = new Set(data.dubs.map((dub) => dub.id));
+    data.crates = (data.crates ?? []).map((crate) => ({
+      ...crate,
+      dubIds: (crate.dubIds ?? []).filter((dubId) => remainingDubIds.has(dubId)),
+    }));
+    data.schemaVersion = dataSchemaVersion;
+  }
   if (data.schemaVersion !== dataSchemaVersion) {
     throw new Error(`Unsupported community data schema version: ${data.schemaVersion}.`);
   }
@@ -142,17 +133,16 @@ export function initializeData(dataPath = defaultDataPath, mediaDirectory = defa
   if (!data.artists.some((artist) => artist.id === "artist-meladee")) {
     data.artists.push({ id: "artist-meladee", userId: meladee.id, name: "Meladee", genres: ["UK Garage", "Bassline"], role: "DJ / Producer" });
   }
-  data.dubs = data.dubs.map((dub) => {
-    const isSeededDub = seededDubs.some(([seededId]) => seededId === dub.id);
-    return {
-      ...dub,
-      artistId: isSeededDub ? "artist-meladee" : dub.artistId ?? "artist-meladee",
-      uploaderId: dub.uploaderId ?? meladee.id,
-      audioUrl: isSeededDub ? `/api/dubs/${dub.id}/audio` : dub.audioUrl,
-      artwork: dub.artworkUrl ? dub.artwork : "whitelabel",
-      audioSource: dub.audioSource ?? "seed",
-    };
-  });
+  data.dubs = data.dubs.map((dub) => ({
+    ...dub,
+    artistId: dub.artistId ?? "artist-meladee",
+    uploaderId: dub.uploaderId ?? meladee.id,
+    artwork: dub.artworkUrl ? dub.artwork : "whitelabel",
+    audioSource: dub.audioSource ?? "upload",
+  }));
+  for (const dub of data.dubs) {
+    dub.audioUrl ??= `/api/dubs/${dub.id}/audio`;
+  }
   for (const key of ["friendships", "conversations", "likes", "downloads", "crates", "uploads"]) {
     data[key] ??= [];
   }

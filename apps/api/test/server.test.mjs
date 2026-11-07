@@ -202,7 +202,7 @@ test("artists can register, sign in immediately, and retain their linked profile
   }
 });
 
-test("starter account loads seed dubs on the Meladee artist and persists crate/download activity", async () => {
+test("starter account has no seeded tracks and retains uploaded community activity", async () => {
   let server = await startTestServer();
   try {
     const invalidLogin = await fetch(`${server.baseUrl}/api/login`, {
@@ -225,9 +225,7 @@ test("starter account loads seed dubs on the Meladee artist and persists crate/d
     const community = await communityResponse.json();
     assert.equal(community.member.username, "meladee");
     assert.equal(community.artists[0].id, "artist-meladee");
-    assert.equal(community.dubs.length, 8);
-    assert.ok(community.dubs.every((dub) => dub.artistId === "artist-meladee"));
-    assert.ok(community.dubs.every((dub) => dub.artwork === "whitelabel" && !dub.artworkUrl));
+    assert.deepEqual(community.dubs, []);
     const storedData = JSON.parse(readFileSync(join(server.directory, "community.json"), "utf8"));
     assert.deepEqual(storedData.users.map((user) => user.username).sort(), ["holik", "meladee"]);
     assert.deepEqual(storedData.artists.map((artist) => artist.id).sort(), ["artist-holik", "artist-meladee"]);
@@ -242,12 +240,6 @@ test("starter account loads seed dubs on the Meladee artist and persists crate/d
     });
     assert.equal(crateResponse.status, 201);
     const crate = await crateResponse.json();
-    const dub = community.dubs[0];
-    const savedResponse = await fetch(
-      `${server.baseUrl}/api/crates/${crate.id}/dubs/${dub.id}`,
-      { method: "PUT", headers: { cookie } },
-    );
-    assert.deepEqual((await savedResponse.json()).dubIds, [dub.id]);
 
     const addedFriendResponse = await fetch(`${server.baseUrl}/api/buddies`, {
       method: "POST",
@@ -301,6 +293,11 @@ test("starter account loads seed dubs on the Meladee artist and persists crate/d
     assert.equal(newDub.artwork, "uploaded-artwork");
     assert.match(newDub.artworkUrl, new RegExp(`/api/dubs/${newDub.id}/artwork`));
     assert.ok(Number.isFinite(Date.parse(newDub.uploadedAt)));
+    const savedResponse = await fetch(
+      `${server.baseUrl}/api/crates/${crate.id}/dubs/${newDub.id}`,
+      { method: "PUT", headers: { cookie } },
+    );
+    assert.deepEqual((await savedResponse.json()).dubIds, [newDub.id]);
     const imageResponse = await fetch(`${server.baseUrl}${newDub.artworkUrl}`, {
       headers: { cookie },
     });
@@ -329,7 +326,7 @@ test("starter account loads seed dubs on the Meladee artist and persists crate/d
       {
       method: "POST",
       headers: { cookie, "content-type": "application/json" },
-      body: JSON.stringify({ text: "Persistent message", dubId: dub.id }),
+      body: JSON.stringify({ text: "Persistent message", dubId: newDub.id }),
       },
     );
     assert.equal(messageResponse.status, 201);
@@ -352,7 +349,7 @@ test("starter account loads seed dubs on the Meladee artist and persists crate/d
       headers: { cookie: secondCookie },
     });
     assert.equal(restoredImage.status, 200);
-    assert.ok(restored.crates.some((item) => item.id === crate.id && item.dubIds.includes(dub.id)));
+    assert.ok(restored.crates.some((item) => item.id === crate.id && item.dubIds.includes(newDub.id)));
     assert.ok(restored.conversations[0].messages.some((message) => message.text === "Persistent message"));
   } finally {
     await server.close();
@@ -360,7 +357,7 @@ test("starter account loads seed dubs on the Meladee artist and persists crate/d
   }
 });
 
-test("legacy demo database is reset once to the two requested artists and seeded Meladee tracks", async () => {
+test("legacy demo database is reset once to the two requested artists and no tracks", async () => {
   const directory = mkdtempSync(join(tmpdir(), "cre8-reset-"));
   const dataPath = join(directory, "community.json");
   const mediaDirectory = join(directory, "audio");
@@ -388,8 +385,7 @@ test("legacy demo database is reset once to the two requested artists and seeded
     const cleanData = JSON.parse(readFileSync(dataPath, "utf8"));
     assert.deepEqual(cleanData.users.map((user) => user.username).sort(), ["holik", "meladee"]);
     assert.deepEqual(cleanData.artists.map((artist) => artist.id).sort(), ["artist-holik", "artist-meladee"]);
-    assert.equal(cleanData.dubs.length, 8);
-    assert.ok(cleanData.dubs.every((dub) => dub.uploader === "meladee"));
+    assert.deepEqual(cleanData.dubs, []);
     for (const name of staleMediaNames) assert.equal(existsSync(join(mediaDirectory, name)), false);
 
     for (const [username, password] of [["meladee", "meladee"], ["holik", "holik"]]) {
@@ -413,7 +409,68 @@ test("legacy demo database is reset once to the two requested artists and seeded
     server = await startTestServer(directory);
     const persistedData = JSON.parse(readFileSync(dataPath, "utf8"));
     assert.ok(persistedData.users.some((user) => user.username === "newartist"));
-    assert.equal(persistedData.dubs.length, 8);
+    assert.deepEqual(persistedData.dubs, []);
+  } finally {
+    await server.close();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("schema v2 migration removes only built-in dubs and their activity", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "cre8-v2-migration-"));
+  const dataPath = join(directory, "community.json");
+  const retainedMediaPath = join(directory, "audio", "uploaded.wav");
+  mkdirSync(join(directory, "audio"), { recursive: true });
+  writeFileSync(retainedMediaPath, "user audio");
+  writeFileSync(dataPath, JSON.stringify({
+    schemaVersion: 2,
+    users: [{ id: "user-meladee", username: "meladee" }],
+    artists: [{ id: "artist-meladee", userId: "user-meladee" }],
+    dubs: [
+      ...[
+        "dub-coffeeshop",
+        "dub-miller",
+        "dub-ozone",
+        "dub-phoenix",
+        "dub-wizard",
+        "dub-jungle-tunes",
+        "dub-ketterings-kitchen",
+        "dub-renegade",
+      ].map((id) => ({ id, audioSource: "seed" })),
+      { id: "uploaded-dub", audioSource: "upload", storedAudioName: "uploaded.wav" },
+    ],
+    friendships: [],
+    conversations: [],
+    likes: [
+      { userId: "user-meladee", dubId: "dub-coffeeshop" },
+      { userId: "user-meladee", dubId: "uploaded-dub" },
+    ],
+    downloads: [
+      { userId: "user-meladee", dubId: "dub-coffeeshop" },
+      { userId: "user-meladee", dubId: "dub-renegade" },
+    ],
+    crates: [{
+      id: "crate",
+      dubIds: ["dub-coffeeshop", "dub-renegade", "uploaded-dub"],
+    }],
+    uploads: [],
+  }));
+  let server = await startTestServer(directory);
+
+  try {
+    const migrated = JSON.parse(readFileSync(dataPath, "utf8"));
+    assert.equal(migrated.schemaVersion, 3);
+    assert.deepEqual(migrated.dubs.map((dub) => dub.id), ["uploaded-dub"]);
+    assert.deepEqual(migrated.likes.map((like) => like.dubId), ["uploaded-dub"]);
+    assert.deepEqual(migrated.downloads, []);
+    assert.deepEqual(migrated.crates[0].dubIds, ["uploaded-dub"]);
+    assert.equal(readFileSync(retainedMediaPath, "utf8"), "user audio");
+
+    await server.close();
+    server = await startTestServer(directory);
+    const persisted = JSON.parse(readFileSync(dataPath, "utf8"));
+    assert.equal(persisted.schemaVersion, 3);
+    assert.deepEqual(persisted.dubs.map((dub) => dub.id), ["uploaded-dub"]);
   } finally {
     await server.close();
     rmSync(directory, { recursive: true, force: true });

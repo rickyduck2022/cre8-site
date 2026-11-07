@@ -36,7 +36,6 @@ COPY packages/ui/package.json ./packages/ui/package.json
 RUN pnpm install --prod --frozen-lockfile --filter @craft/api
 
 COPY apps/api/src ./apps/api/src
-COPY apps/api/assets/audio ./apps/api/assets/audio
 COPY --from=build /app/apps/web/dist ./apps/web/dist
 
 EXPOSE 10000
