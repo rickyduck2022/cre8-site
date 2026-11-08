@@ -28,4 +28,5 @@ export * from "./ShareEntry/ShareEntry";
 export * from "./CircleShortcut/CircleShortcut";
 export * from "./ChatComposer/ChatComposer";
 export * from "./DubManagementActions/DubManagementActions";
+export * from "./DubActionsMenu/DubActionsMenu";
 export * from "./TrackFileMetadata/TrackFileMetadata";

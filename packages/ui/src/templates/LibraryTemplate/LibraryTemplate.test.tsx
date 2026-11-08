@@ -40,10 +40,17 @@ describe("LibraryTemplate", () => {
       onEditDub={onEditDub}
       onDeleteDub={onDeleteDub}
     />);
+    expect(screen.queryByRole("button", { name: "Edit Owned track" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Actions for Other track" })).not.toBeInTheDocument();
+    const trigger = screen.getByRole("button", { name: "Actions for Owned track" });
+    expect(trigger).toHaveTextContent("Actions");
+    fireEvent.click(trigger);
     fireEvent.click(screen.getByRole("button", { name: "Edit Owned track" }));
+    expect(trigger).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(trigger);
     fireEvent.click(screen.getByRole("button", { name: "Delete Owned track" }));
     expect(onEditDub).toHaveBeenCalledWith(ownDub);
     expect(onDeleteDub).toHaveBeenCalledWith(ownDub);
-    expect(screen.queryByRole("button", { name: "Edit Other track" })).not.toBeInTheDocument();
+    expect(trigger).toHaveAttribute("aria-expanded", "false");
   });
 });

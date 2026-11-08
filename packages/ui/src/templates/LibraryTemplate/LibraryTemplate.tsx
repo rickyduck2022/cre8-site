@@ -2,7 +2,7 @@ import { Download, Disc3 } from "@craft/icons";
 import { Button } from "../../atoms/Button/Button";
 import { Badge } from "../../atoms/Badge/Badge";
 import { TrackTag } from "../../atoms/TrackTag/TrackTag";
-import { DubManagementActions } from "../../molecules/DubManagementActions/DubManagementActions";
+import { DubActionsMenu } from "../../molecules/DubActionsMenu/DubActionsMenu";
 import { TrackFileMetadata } from "../../molecules/TrackFileMetadata/TrackFileMetadata";
 import type { LibraryDownload } from "../communityTypes";
 import { formatLocalTimestamp } from "../templateFormatters";
@@ -45,7 +45,7 @@ export function LibraryTemplate({ downloads, onDownload, currentUsername, onEdit
               <div className="library-list__actions">
                 <Button leadingIcon={<Download />} onClick={() => onDownload(dub)} size="small" variant="secondary">Download again</Button>
                 {dub.uploader === currentUsername && onEditDub && onDeleteDub && (
-                  <DubManagementActions
+                  <DubActionsMenu
                     onDelete={() => onDeleteDub(dub)}
                     onEdit={() => onEditDub(dub)}
                     title={dub.title}

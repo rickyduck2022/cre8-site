@@ -20,6 +20,8 @@ describe("DubCard actions", () => {
     const trigger = screen.getByRole("button", { name: "Actions for Night Drive" });
 
     expect(trigger.querySelector(".button__icon svg")).toBeInTheDocument();
+    expect(trigger).toHaveClass("dub-actions-menu__trigger--icon-only");
+    expect(trigger).not.toHaveTextContent("Actions");
     expect(trigger).toHaveAttribute("aria-expanded", "false");
     expect(screen.queryByRole("button", { name: "Edit Night Drive" })).not.toBeInTheDocument();
     fireEvent.click(trigger);
