@@ -11,10 +11,13 @@ describe("LibraryTemplate", () => {
       id: "dub-1", title: "Night Drive", artist: "Amber", uploader: "amber",
       uploaderDisplayName: "Amber", uploadedAt: "2026-11-01T12:00:00.000Z", bpm: 174,
       genre: "Jungle", tags: ["Jungle", "Rollers"], duration: "03:30", likes: 1,
-      downloads: 1, artwork: "whitelabel", message: "Fresh dub",
+      downloads: 1, artwork: "whitelabel", message: "Fresh dub", audioFileName: "night-drive.mp3",
+      bitrateKbps: 320,
     };
     render(<LibraryTemplate downloads={[{ dub, downloadedAt: "2026-11-02T12:00:00.000Z" }]} onDownload={onDownload} />);
     expect(screen.getByText("Night Drive")).toBeTruthy();
+    expect(screen.getByText("MP3")).toBeInTheDocument();
+    expect(screen.getByText("320 kbps avg")).toBeInTheDocument();
     expect(screen.getByText(/Downloaded/)).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Download again" }));
     expect(onDownload).toHaveBeenCalledWith(dub);

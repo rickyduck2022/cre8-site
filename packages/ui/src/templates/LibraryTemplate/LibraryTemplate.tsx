@@ -3,6 +3,7 @@ import { Button } from "../../atoms/Button/Button";
 import { Badge } from "../../atoms/Badge/Badge";
 import { TrackTag } from "../../atoms/TrackTag/TrackTag";
 import { DubManagementActions } from "../../molecules/DubManagementActions/DubManagementActions";
+import { TrackFileMetadata } from "../../molecules/TrackFileMetadata/TrackFileMetadata";
 import type { LibraryDownload } from "../communityTypes";
 import { formatLocalTimestamp } from "../templateFormatters";
 import { TrackArtwork } from "../shared/TrackArtwork";
@@ -31,7 +32,14 @@ export function LibraryTemplate({ downloads, onDownload, currentUsername, onEdit
               <TrackArtwork dub={dub} />
               <div className="library-list__details">
                 <strong>{dub.title}</strong><span>{dub.artist}</span>
-                <div>{(dub.tags?.length ? dub.tags : [dub.genre]).map((tag) => <TrackTag key={tag}>{tag}</TrackTag>)}</div>
+                <div>
+                  {(dub.tags?.length ? dub.tags : [dub.genre]).map((tag) => <TrackTag key={tag}>{tag}</TrackTag>)}
+                  <TrackFileMetadata
+                    audioFileName={dub.audioFileName}
+                    bitrateKbps={dub.bitrateKbps}
+                    fileType={dub.audioFormat}
+                  />
+                </div>
               </div>
               <time dateTime={downloadedAt}>Downloaded {formatLocalTimestamp(downloadedAt)}</time>
               <div className="library-list__actions">

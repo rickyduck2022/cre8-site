@@ -13,6 +13,7 @@ import type {
   LibraryDownload,
 } from "@craft/ui";
 import { uploadFile } from "../services/uploadFile";
+import { readAudioDurationSeconds } from "../services/readAudioDuration";
 import { useAudioPlayback } from "./useAudioPlayback";
 import { useChatConnection } from "./useChatConnection";
 import { useNotifications } from "./useNotifications";
@@ -241,6 +242,7 @@ export function useCommunity() {
           message: values.message.trim(),
           uploadId: media.audioUploadId,
           artworkUploadId: media.artworkUploadId,
+          durationSeconds: media.durationSeconds,
         }),
       });
       temporaryUploadIds = [];
@@ -261,6 +263,9 @@ export function useCommunity() {
   }
 
   async function uploadDubMedia(audioFile?: File, artworkFile?: File) {
+    const durationSeconds = audioFile
+      ? await readAudioDurationSeconds(audioFile)
+      : undefined;
     const files = [
       audioFile ? { file: audioFile, type: "audio" as const } : null,
       artworkFile ? { file: artworkFile, type: "artwork" as const } : null,
@@ -290,7 +295,7 @@ export function useCommunity() {
       await cleanupDubUploads(uploadIds);
       throw uploadError;
     }
-    return { audioUploadId, artworkUploadId, uploadIds };
+    return { audioUploadId, artworkUploadId, durationSeconds, uploadIds };
   }
 
   async function cleanupDubUploads(uploadIds: string[]) {
@@ -319,6 +324,7 @@ export function useCommunity() {
           message: values.message.trim(),
           uploadId: media.audioUploadId,
           artworkUploadId: media.artworkUploadId,
+          durationSeconds: media.durationSeconds,
         }),
       });
       temporaryUploadIds = [];

@@ -23,6 +23,21 @@ function normalizeDubTags(tags) {
     ? [...new Set(tags.map((tag) => String(tag).trim()).filter((tag) => dubTags.has(tag)))].slice(0, 12)
     : [];
 }
+function audioFormat(fileName) {
+  return extname(String(fileName ?? "")).slice(1).toLocaleUpperCase() || undefined;
+}
+function audioDurationSeconds(value) {
+  return Number.isFinite(value) && value > 0 && value <= 86400 ? value : undefined;
+}
+function formatAudioDuration(seconds) {
+  if (!seconds) return "00:00";
+  const totalSeconds = Math.floor(seconds);
+  return `${String(Math.floor(totalSeconds / 60)).padStart(2, "0")}:${String(totalSeconds % 60).padStart(2, "0")}`;
+}
+function averageBitrateKbps(bytes, durationSeconds) {
+  if (!bytes || !durationSeconds) return undefined;
+  return Math.round((bytes * 8 / durationSeconds / 1000) * 10) / 10;
+}
 const removedSeedDubIds = new Set([
   "dub-coffeeshop",
   "dub-miller",
@@ -879,6 +894,7 @@ export function createApiServer({
           json(response, 400, { error: "Provide a title, your artist profile, and an uploaded audio file." });
           return;
         }
+        const durationSeconds = audioDurationSeconds(Number(input.durationSeconds));
         const dub = {
           id: randomUUID(),
           title,
@@ -892,7 +908,9 @@ export function createApiServer({
           tags: normalizeDubTags(input.tags),
           genre: normalizeDubTags(input.tags).join(", ").slice(0, 160)
             || String(input.genre ?? "").trim().slice(0, 60) || "Uncategorized",
-          duration: "00:00",
+          duration: formatAudioDuration(durationSeconds),
+          audioFormat: audioFormat(upload.audioFileName),
+          bitrateKbps: averageBitrateKbps(upload.bytes, durationSeconds),
           artwork: artworkUpload ? "uploaded-artwork" : "whitelabel",
           message: String(input.message ?? "").trim().slice(0, 400) || "A new dub from the studio.",
           audioUrl: `/api/dubs/${randomUUID()}/audio`,
@@ -947,6 +965,10 @@ export function createApiServer({
           dub.audioFileName = audioUpload.audioFileName;
           dub.audioSource = "upload";
           dub.audioUrl = `/api/dubs/${dub.id}/audio`;
+          const durationSeconds = audioDurationSeconds(Number(input.durationSeconds));
+          dub.duration = formatAudioDuration(durationSeconds);
+          dub.audioFormat = audioFormat(audioUpload.audioFileName);
+          dub.bitrateKbps = averageBitrateKbps(audioUpload.bytes, durationSeconds);
         }
         if (artworkUpload) {
           if (dub.storedArtworkName) replacedMedia.push(dub.storedArtworkName);

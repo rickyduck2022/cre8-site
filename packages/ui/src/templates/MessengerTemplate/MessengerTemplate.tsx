@@ -12,6 +12,7 @@ import { Badge } from "../../atoms/Badge/Badge";
 import { Button } from "../../atoms/Button/Button";
 import { ChatComposer } from "../../molecules/ChatComposer/ChatComposer";
 import { DubManagementActions } from "../../molecules/DubManagementActions/DubManagementActions";
+import { TrackFileMetadata } from "../../molecules/TrackFileMetadata/TrackFileMetadata";
 import { InfiniteScroll } from "../../molecules/InfiniteScroll/InfiniteScroll";
 import { AudioPlayer } from "../../organisms/AudioPlayer/AudioPlayer";
 import { TrackArtwork } from "../shared/TrackArtwork";
@@ -276,40 +277,48 @@ export function MessengerTemplate({
                     key={chatMessage.id}
                   >
                     {sharedDub ? (
-                      <AudioPlayer
-                        className="shared-dub shared-dub__player"
-                        currentTimeSeconds={nowPlayingId === sharedDub.id ? currentTimeSeconds : 0}
-                        durationSeconds={nowPlayingId === sharedDub.id ? durationSeconds : undefined}
-                        endAction={(
-                          <div className="shared-dub__actions">
-                            <Button
-                              aria-label={`Download ${sharedDub.title}`}
-                              className="app-icon-button shared-dub__download"
-                              leadingIcon={<Download aria-hidden="true" />}
-                              onClick={() => onDownload(sharedDub)}
-                              size="small"
-                              variant="tertiary"
-                            />
-                            {sharedDub.uploader === currentUsername && onEditDub && onDeleteDub && (
-                              <DubManagementActions
-                                onDelete={() => onDeleteDub(sharedDub)}
-                                onEdit={() => onEditDub(sharedDub)}
-                                title={sharedDub.title}
+                      <>
+                        <AudioPlayer
+                          className="shared-dub shared-dub__player"
+                          currentTimeSeconds={nowPlayingId === sharedDub.id ? currentTimeSeconds : 0}
+                          durationSeconds={nowPlayingId === sharedDub.id ? durationSeconds : undefined}
+                          endAction={(
+                            <div className="shared-dub__actions">
+                              <Button
+                                aria-label={`Download ${sharedDub.title}`}
+                                className="app-icon-button shared-dub__download"
+                                leadingIcon={<Download aria-hidden="true" />}
+                                onClick={() => onDownload(sharedDub)}
+                                size="small"
+                                variant="tertiary"
                               />
-                            )}
-                          </div>
-                        )}
-                        onPlayChange={() => onPlay(sharedDub)}
-                        onSeek={nowPlayingId === sharedDub.id ? onSeek : undefined}
-                        playing={nowPlayingId === sharedDub.id && isPlaying}
-                        track={{
-                          artist: sharedDub.artist,
-                          artworkContent: <TrackArtwork dub={sharedDub} />,
-                          duration: sharedDub.duration,
-                          title: sharedDub.title,
-                        }}
-                        variant="inline"
-                      />
+                              {sharedDub.uploader === currentUsername && onEditDub && onDeleteDub && (
+                                <DubManagementActions
+                                  onDelete={() => onDeleteDub(sharedDub)}
+                                  onEdit={() => onEditDub(sharedDub)}
+                                  title={sharedDub.title}
+                                />
+                              )}
+                            </div>
+                          )}
+                          onPlayChange={() => onPlay(sharedDub)}
+                          onSeek={nowPlayingId === sharedDub.id ? onSeek : undefined}
+                          playing={nowPlayingId === sharedDub.id && isPlaying}
+                          track={{
+                            artist: sharedDub.artist,
+                            artworkContent: <TrackArtwork dub={sharedDub} />,
+                            duration: sharedDub.duration,
+                            title: sharedDub.title,
+                          }}
+                          variant="inline"
+                        />
+                        <TrackFileMetadata
+                          audioFileName={sharedDub.audioFileName}
+                          bitrateKbps={sharedDub.bitrateKbps}
+                          className="shared-dub__metadata"
+                          fileType={sharedDub.audioFormat}
+                        />
+                      </>
                     ) : (
                       <p>{chatMessage.text}</p>
                     )}

@@ -3,6 +3,7 @@ import { Avatar } from "../../atoms/Avatar/Avatar";
 import { Button } from "../../atoms/Button/Button";
 import { TrackTag } from "../../atoms/TrackTag/TrackTag";
 import { DubManagementActions } from "../../molecules/DubManagementActions/DubManagementActions";
+import { TrackFileMetadata } from "../../molecules/TrackFileMetadata/TrackFileMetadata";
 import { AudioPlayer } from "../AudioPlayer/AudioPlayer";
 import type { Dub } from "../../templates/communityTypes";
 import { formatLocalTimestamp, formatRelativeTime } from "../../templates/templateFormatters";
@@ -112,6 +113,11 @@ export function DubCard({
               <TrackTag key={tag} variant="audio">{tag}</TrackTag>
             ))}
             {dub.bpm > 0 && <TrackTag>{dub.bpm} BPM</TrackTag>}
+            <TrackFileMetadata
+              audioFileName={dub.audioFileName}
+              bitrateKbps={dub.bitrateKbps}
+              fileType={dub.audioFormat}
+            />
           </div>
           <time className="dub-card__timestamp" dateTime={dub.uploadedAt}>
             Uploaded: {formatLocalTimestamp(dub.uploadedAt)}

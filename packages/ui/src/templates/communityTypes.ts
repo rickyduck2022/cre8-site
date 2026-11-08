@@ -44,6 +44,8 @@ export interface Dub {
   message: string;
   audioUrl?: string;
   audioFileName?: string;
+  audioFormat?: string;
+  bitrateKbps?: number;
   artworkUrl?: string;
   likedByCurrentUser?: boolean;
   downloaders?: Array<{ username: string; displayName: string; downloadedAt: string }>;

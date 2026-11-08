@@ -258,7 +258,8 @@
 
 .navigation__brand .brand__logo {
   max-width: 100%;
-  width: 100%;
+  margin-inline: 0 auto;
+  width: 70%;
 }
 
 .app-header--compact > .brand .brand__logo,

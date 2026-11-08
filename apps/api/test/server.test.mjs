@@ -372,6 +372,7 @@ test("starter account has no seeded tracks and retains uploaded community activi
         artistId: "artist-meladee",
         tags: ["Jungle", "Rollers"],
         genre: "Garage",
+        durationSeconds: 1,
         uploadId,
         artworkUploadId,
       }),
@@ -380,6 +381,9 @@ test("starter account has no seeded tracks and retains uploaded community activi
     const newDub = await dubResponse.json();
     assert.equal(newDub.artistId, "artist-meladee");
     assert.equal(newDub.artwork, "uploaded-artwork");
+    assert.equal(newDub.audioFormat, "WAV");
+    assert.equal(newDub.duration, "00:01");
+    assert.equal(newDub.bitrateKbps, 0.1);
     assert.deepEqual(newDub.tags, ["Jungle", "Rollers"]);
     assert.match(newDub.artworkUrl, new RegExp(`/api/dubs/${newDub.id}/artwork`));
     assert.ok(Number.isFinite(Date.parse(newDub.uploadedAt)));

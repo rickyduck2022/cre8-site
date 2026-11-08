@@ -68,6 +68,7 @@ describe("MessengerTemplate shared dubs", () => {
       uploaderDisplayName: "Amber", uploadedAt: "2026-11-01T12:00:00.000Z", bpm: 174,
       genre: "Jungle", tags: ["Jungle", "Rollers"], duration: "03:30", likes: 1,
       downloads: 1, artwork: "whitelabel", message: "Fresh dub", audioUrl: "/audio.wav",
+      audioFormat: "WAV", bitrateKbps: 320,
     };
     const onPlay = vi.fn();
     const onDownload = vi.fn();
@@ -98,6 +99,8 @@ describe("MessengerTemplate shared dubs", () => {
     expect(screen.getByRole("region", { name: "Audio player: Jungle Drop" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Edit Jungle Drop" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Delete Jungle Drop" })).toBeInTheDocument();
+    expect(screen.getByText("WAV")).toBeInTheDocument();
+    expect(screen.getAllByText("320 kbps avg").length).toBeGreaterThan(0);
     fireEvent.click(screen.getByRole("button", { name: "Pause" }));
     fireEvent.click(screen.getByRole("button", { name: "Download Jungle Drop" }));
     const inlineControls = screen
