@@ -67,10 +67,10 @@ const sectionIcons: Record<CommunitySection, ReactNode> = {
 const sections = Object.keys(sectionLabels) as CommunitySection[];
 const cre8LogoSrc = "/cre8-main-logo.png";
 
-function isFeedDub(dub: Dub, aListFeed: boolean, approved: boolean): boolean {
+function isFeedDub(dub: Dub, aListFeed: boolean, approved: boolean, includePrivate = false): boolean {
   return aListFeed
     ? dub.distribution === "alist" && approved
-    : dub.distribution === "worldwide" || (dub.distribution === "alist" && approved);
+    : dub.distribution === "worldwide" || (dub.distribution === "alist" && approved) || (dub.distribution === "private" && includePrivate);
 }
 
 function getSectionFromHash(hash: string): CommunitySection {
@@ -142,9 +142,12 @@ export function App() {
   const [profileUsername, setProfileUsername] = useState("");
   const [chatBuddyId, setChatBuddyId] = useState("evan");
   const [searchQuery, setSearchQuery] = useState("");
-  const [dubSearchFilters, setDubSearchFilters] = useState<DubSearchFilters>(createEmptyDubSearchFilters);
+  const [feedFilters, setFeedFilters] = useState<DubSearchFilters>(createEmptyDubSearchFilters);
+  const [aListFilters, setAListFilters] = useState<DubSearchFilters>(createEmptyDubSearchFilters);
+  const dubSearchFilters = activeSection === "alist" ? aListFilters : feedFilters;
+  const setDubSearchFilters = activeSection === "alist" ? setAListFilters : setFeedFilters;
   const dubSearch = useDubSearch(searchQuery, dubSearchFilters, activeSection === "dubs" || (activeSection === "alist" && state.member?.aListApproved === true), activeSection === "alist" ? "alist" : "feed");
-  const isDubSearchActive = Boolean(searchQuery.trim() || dubSearchFilters.tags.length || dubSearchFilters.fileType || dubSearchFilters.minBpm || dubSearchFilters.maxBpm || dubSearchFilters.minBitrate || dubSearchFilters.maxBitrate);
+  const isDubSearchActive = Boolean(searchQuery.trim() || dubSearchFilters.distributions.length || dubSearchFilters.tags.length || dubSearchFilters.fileType || dubSearchFilters.minBpm || dubSearchFilters.maxBpm || dubSearchFilters.minBitrate || dubSearchFilters.maxBitrate);
   const [memberSearchQuery, setMemberSearchQuery] = useState("");
   const { members: memberSearchResults, isSearching: isSearchingMembers } = useMemberSearch(memberSearchQuery);
   const [isUploadOpen, setIsUploadOpen] = useState(false);
@@ -467,9 +470,10 @@ export function App() {
         {(activeSection === "dubs" || (activeSection === "alist" && state.member.aListApproved)) && (
           <>
             <LatestDubsTemplate
+              key={activeSection}
               dubs={isDubSearchActive ? (dubSearch.results ?? []).map((dub) => {
                 const current = dubsById.get(dub.id);
-                return current && isFeedDub(current, activeSection === "alist", state.member?.aListApproved === true) ? current : null;
+                return current && isFeedDub(current, activeSection === "alist", state.member?.aListApproved === true, dubSearchFilters.distributions.includes("private")) ? current : null;
               }).filter((dub): dub is Dub => dub !== null) : state.dubs.filter((dub) => isFeedDub(dub, activeSection === "alist", state.member?.aListApproved === true))}
               prioritizeAList={activeSection === "dubs"}
               queryAlreadyFiltered={isDubSearchActive}
@@ -495,6 +499,7 @@ export function App() {
               onDeleteDub={beginDubDelete}
               onShareWithFriend={beginSharingDub}
               showIntro={false}
+              showDistributionFilter={activeSection === "dubs"}
               feedName={activeSection === "alist" ? "A-List" : "Dub Feed"}
               onOpenProfile={openProfile}
               onPlay={togglePlayback}
@@ -502,7 +507,7 @@ export function App() {
               query={searchQuery}
               filters={dubSearchFilters}
               onFiltersChange={setDubSearchFilters}
-              fileTypes={[...new Set(state.dubs.filter((dub) => isFeedDub(dub, activeSection === "alist", state.member?.aListApproved === true)).map((dub) => dub.audioFormat ?? dub.audioFileName?.split(".").pop()?.toUpperCase()).filter((value): value is string => Boolean(value)))].sort()}
+              fileTypes={[...new Set(state.dubs.filter((dub) => isFeedDub(dub, activeSection === "alist", state.member?.aListApproved === true, activeSection === "dubs")).map((dub) => dub.audioFormat ?? dub.audioFileName?.split(".").pop()?.toUpperCase()).filter((value): value is string => Boolean(value)))].sort()}
               isSearching={dubSearch.isSearching}
               searchError={dubSearch.error}
             />

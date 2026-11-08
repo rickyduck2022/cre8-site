@@ -1000,6 +1000,13 @@ test("distribution permissions protect discovery, media, messaging and revocatio
     assert.deepEqual(await feedIds(approved, "&q=Exclusive"), [exclusiveDub.id]);
     assert.deepEqual(await feedIds(owner, "&q=Exclusive"), []);
     assert.deepEqual(await feedIds(approved, "&q=Secret"), []);
+    assert.deepEqual(await feedIds(owner, "&distributionType=private"), [privateDub.id]);
+    assert.deepEqual(new Set(await feedIds(owner, "&distributionType=private&distributionType=worldwide")), new Set([privateDub.id, publicDub.id]));
+    assert.deepEqual(await feedIds(outsider, "&distributionType=private"), []);
+    assert.deepEqual(await feedIds(owner, "&distributionType=alist"), []);
+    assert.deepEqual(await feedIds(approved, "&distributionType=alist"), [exclusiveDub.id]);
+    assert.equal((await request(owner, "/api/dubs/search?distribution=feed&distributionType=invalid")).status, 400);
+    assert.equal((await request(owner, "/api/dubs/search?distributionType=private")).status, 400);
     assert.equal((await snapshot(outsider)).dubs.some((dub) => dub.id === privateDub.id), false);
     assert.equal((await request(outsider, `/api/dubs/${privateDub.id}/audio`)).status, 404);
     assert.equal((await request(outsider, `/api/dubs/${privateDub.id}/artwork`)).status, 404);
@@ -1022,6 +1029,7 @@ test("distribution permissions protect discovery, media, messaging and revocatio
     const grantedEvent = waitForMessage(socket, (event) => event.type === "community.snapshot" && event.snapshot.dubs.some((dub) => dub.id === privateDub.id));
     assert.equal((await request(owner, `/api/conversations/${ownerBuddy.id}/messages`, "POST", { text: "Shared a dub: Secret", dubId: privateDub.id })).status, 201);
     await grantedEvent;
+    assert.deepEqual(await feedIds(outsider, "&distributionType=private&q=Secret"), [privateDub.id]);
     assert.equal((await request(outsider, `/api/dubs/${privateDub.id}/audio`, "GET", undefined, { range: "bytes=0-2" })).status, 206);
     assert.equal((await request(outsider, `/api/dubs/${privateDub.id}/artwork`)).status, 200);
     assert.equal((await (await request(outsider, "/api/dubs/search?q=Secret")).json()).dubs.length, 0);
@@ -1038,6 +1046,7 @@ test("distribution permissions protect discovery, media, messaging and revocatio
     const revokedEvent = waitForMessage(socket, (event) => event.type === "community.snapshot" && !event.snapshot.dubs.some((dub) => dub.id === privateDub.id));
     assert.equal((await request(owner, `/api/dubs/${privateDub.id}/grants/${recipientId}`, "DELETE")).status, 200);
     const revoked = (await revokedEvent).snapshot;
+    assert.deepEqual(await feedIds(outsider, "&distributionType=private"), []);
     assert.equal(revoked.lastPlayback, null);
     assert.equal(revoked.library.some((item) => item.dub.id === privateDub.id), false);
     assert.equal(revoked.crates[0].dubIds.includes(privateDub.id), false);

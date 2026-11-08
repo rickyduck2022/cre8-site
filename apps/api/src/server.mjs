@@ -1107,6 +1107,11 @@ export function createApiServer({
           json(response, 403, { error: "A-List approval is required." });
           return;
         }
+        const distributionTypes = url.searchParams.getAll("distributionType");
+        if (distributionTypes.length && (distribution !== "feed" || distributionTypes.some((type) => !["worldwide", "private", "alist"].includes(type)))) {
+          json(response, 400, { error: "Choose valid distribution types for the feed." });
+          return;
+        }
         const query = String(url.searchParams.get("q") ?? "").trim().slice(0, 120).toLocaleLowerCase();
         const tags = url.searchParams.getAll("tag").map((tag) => tag.trim()).filter((tag) => dubTags.has(tag));
         const fileType = String(url.searchParams.get("fileType") ?? "").trim().toLocaleUpperCase();
@@ -1125,7 +1130,7 @@ export function createApiServer({
           return;
         }
         const filtered = data.dubs.filter((dub) => {
-          if ((distribution === "feed" ? !["worldwide", "alist"].includes(dub.distribution) : dub.distribution !== distribution) || !canAccessDub(data, dub, user)) return false;
+          if ((distribution === "feed" ? !(distributionTypes.length ? distributionTypes : ["worldwide", "alist"]).includes(dub.distribution) : dub.distribution !== distribution) || !canAccessDub(data, dub, user)) return false;
           const dubTags = dub.tags ?? [];
           const format = dub.audioFormat ?? audioFormat(dub.audioFileName);
           const searchable = [dub.title, dub.artist, dub.uploader, dub.uploaderDisplayName, dub.genre, dub.message, format, ...dubTags].filter(Boolean).join(" ").toLocaleLowerCase();

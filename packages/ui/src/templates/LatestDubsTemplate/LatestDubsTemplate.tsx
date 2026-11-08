@@ -50,6 +50,7 @@ export interface LatestDubsTemplateProps {
   showIntro?: boolean;
   prioritizeAList?: boolean;
   queryAlreadyFiltered?: boolean;
+  showDistributionFilter?: boolean;
   currentUsername?: string;
   onEditDub?: (dub: Dub) => void;
   onDeleteDub?: (dub: Dub) => void;
@@ -94,6 +95,7 @@ export function LatestDubsTemplate({
   showIntro = true,
   prioritizeAList = false,
   queryAlreadyFiltered = false,
+  showDistributionFilter = true,
   currentUsername,
   onEditDub,
   onDeleteDub,
@@ -120,7 +122,7 @@ export function LatestDubsTemplate({
           : b.likes - a.likes),
       );
   }, [dubs, order, query, prioritizeAList, queryAlreadyFiltered]);
-  const pagination = usePagination(visibleDubs, `${query}|${order}|${crateId ?? ""}`);
+  const pagination = usePagination(visibleDubs, `${query}|${order}|${crateId ?? ""}|${JSON.stringify(filters)}`);
 
   return (
     <div className="latest-dubs-template">
@@ -176,7 +178,7 @@ export function LatestDubsTemplate({
       {prioritizeAList && dubs.some((dub) => dub.distribution === "alist") && (
         <p className="latest-dubs-template__priority">A-List dubs appear first. Sort order applies within each distribution.</p>
       )}
-      <DubSearch query={query} onQueryChange={(value) => onQueryChange?.(value)} filters={filters} onFiltersChange={(value) => onFiltersChange?.(value)} fileTypes={fileTypes} resultCount={visibleDubs.length} isSearching={isSearching} error={searchError} />
+      <DubSearch query={query} onQueryChange={(value) => onQueryChange?.(value)} filters={filters} onFiltersChange={(value) => onFiltersChange?.(value)} fileTypes={fileTypes} resultCount={visibleDubs.length} isSearching={isSearching} error={searchError} showDistributionFilter={showDistributionFilter} />
 
       <section aria-label="Community uploads" className="feed-list">
         {pagination.items.map((dub) => (

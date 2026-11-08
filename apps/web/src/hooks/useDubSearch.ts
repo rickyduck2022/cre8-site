@@ -29,6 +29,7 @@ export function useDubSearch(
         query: query.trim(),
         ...filters,
         tags: [...filters.tags].sort(),
+        distributions: [...filters.distributions].sort(),
       }),
     [query, filters],
   );
@@ -44,6 +45,7 @@ export function useDubSearch(
     };
     const hasCriteria = Boolean(
       criteria.query ||
+        criteria.distributions.length ||
         criteria.tags.length ||
         criteria.fileType ||
         criteria.minBpm ||
@@ -78,6 +80,7 @@ export function useDubSearch(
     const timer = window.setTimeout(async () => {
       const params = new URLSearchParams();
       params.set("distribution", distribution);
+      if (distribution === "feed") criteria.distributions.forEach((value) => params.append("distributionType", value));
       if (criteria.query) params.set("q", criteria.query);
       criteria.tags.forEach((tag) => params.append("tag", tag));
       if (criteria.fileType) params.set("fileType", criteria.fileType);

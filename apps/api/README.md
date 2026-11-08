@@ -67,8 +67,11 @@ Social profile URLs, events or brands, supporting artists and record labels are
 optional. Supplied social URLs must use HTTP or HTTPS.
 Follower counts are self-reported and unverified; no social API integration
 is used. The Dub Feed shows A-List dubs first for approved members, followed by
-Worldwide dubs; private dubs are excluded. Search follows the same access
-rules, while the API's default Worldwide-only search remains available.
+Worldwide dubs; private dubs are excluded unless explicitly selected in the
+distribution filter, which includes only private dubs the member can access.
+The feed search accepts repeated `distributionType` parameters (`worldwide`,
+`private`, or `alist`) to match any selected type. Without them the feed retains
+its default scope, and the API's default Worldwide-only search remains available.
 The API checks access independently for media, search, snapshots,
 messages, playback, crates, library and admin overview.
 Artist approval indicators reflect the linked account's current A-List status,
