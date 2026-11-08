@@ -7,6 +7,7 @@ export type ChatConnectionStatus =
 
 export interface Buddy {
   id: string;
+  userId?: string;
   username: string;
   displayName: string;
   presence: Presence;
@@ -15,6 +16,14 @@ export interface Buddy {
   bio: string;
   groups: string[];
   unread?: number;
+}
+
+export interface MemberSearchResult {
+  id: string;
+  artistId?: string;
+  username: string;
+  displayName: string;
+  genre: string;
 }
 
 export interface Dub {
@@ -27,6 +36,7 @@ export interface Dub {
   uploadedAt: string;
   bpm: number;
   genre: string;
+  tags?: string[];
   duration: string;
   likes: number;
   downloads: number;
@@ -35,6 +45,12 @@ export interface Dub {
   audioUrl?: string;
   audioFileName?: string;
   artworkUrl?: string;
+  downloaders?: Array<{ username: string; displayName: string; downloadedAt: string }>;
+}
+
+export interface LibraryDownload {
+  downloadedAt: string;
+  dub: Dub;
 }
 
 export interface ArtistOption {
@@ -71,4 +87,7 @@ export interface MemberProfile {
   role: string;
   bio: string;
   groups: string[];
+  avatarUrl?: string;
+  bannerUrl?: string;
+  links?: Array<{ label: string; url: string }>;
 }

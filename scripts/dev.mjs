@@ -5,6 +5,7 @@ import { dirname, resolve } from "node:path";
 const rootDirectory = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const apiDirectory = resolve(rootDirectory, "apps/api");
 const webDirectory = resolve(rootDirectory, "apps/web");
+const adminDirectory = resolve(rootDirectory, "apps/admin");
 
 const services = [
   {
@@ -24,6 +25,18 @@ const services = [
       process.env.WEB_PORT ?? "5173",
     ],
     cwd: webDirectory,
+  },
+  {
+    name: "admin",
+    command: process.execPath,
+    args: [
+      resolve(adminDirectory, "node_modules/vite/bin/vite.js"),
+      "--host",
+      process.env.ADMIN_HOST ?? "0.0.0.0",
+      "--port",
+      process.env.ADMIN_PORT ?? "5174",
+    ],
+    cwd: adminDirectory,
   },
 ];
 

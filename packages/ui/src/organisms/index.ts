@@ -5,6 +5,7 @@ export * from "./CrateManager/CrateManager";
 export * from "./DubPost/DubPost";
 export * from "./Feed/Feed";
 export * from "./FriendDiscovery/FriendDiscovery";
+export * from "./FriendLookup/FriendLookup";
 export * from "./FriendRequests/FriendRequests";
 export * from "./InviteCard/InviteCard";
 export * from "./Navigation/Navigation";

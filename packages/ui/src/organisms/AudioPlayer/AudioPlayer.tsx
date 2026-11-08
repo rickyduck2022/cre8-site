@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Volume2 } from "@craft/icons";
 import type { NowPlayingProps } from "../../molecules/NowPlaying/NowPlaying";
 import { NowPlaying } from "../../molecules/NowPlaying/NowPlaying";
@@ -13,7 +13,8 @@ export interface AudioPlayerTrack extends NowPlayingProps {
 
 export interface AudioPlayerProps {
   track: AudioPlayerTrack;
-  variant?: "full" | "compact" | "mini" | "docked";
+  variant?: "full" | "compact" | "mini" | "docked" | "inline";
+  endAction?: ReactNode;
   playing?: boolean;
   currentTimeSeconds?: number;
   durationSeconds?: number;
@@ -50,6 +51,7 @@ export function AudioPlayer({
   className,
   currentTimeSeconds = 0,
   durationSeconds,
+  endAction,
   onNext,
   onPlayChange,
   onPrevious,
@@ -149,6 +151,9 @@ export function AudioPlayer({
           value={Math.round(volumeLevel * 100)}
         />
       </label>
+      {endAction && (
+        <div className="audio-player__end-action">{endAction}</div>
+      )}
       {playbackError && (
         <span className="audio-player__error" role="status">
           {playbackError}

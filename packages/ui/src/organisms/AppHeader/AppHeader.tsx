@@ -23,10 +23,12 @@ export interface AppHeaderProps {
   onSearchChange?: (query: string) => void;
   searchValue?: string;
   className?: string;
+  logoSrc?: string;
 }
 
 export function AppHeader({
   className,
+  logoSrc,
   onCreate,
   onEditProfile,
   onLogout,
@@ -53,7 +55,7 @@ export function AppHeader({
         .filter(Boolean)
         .join(" ")}
     >
-      <Brand />
+      <Brand logoSrc={logoSrc} />
       <SearchField
         aria-label={searchPlaceholder}
         className="app-header__search"

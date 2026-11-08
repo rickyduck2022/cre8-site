@@ -1,4 +1,5 @@
 import "./foundations/Global.css";
+import "./foundations/Scrollbar.css";
 
 export * from "./atoms/Button";
 export * from "./atoms/Action/Action";

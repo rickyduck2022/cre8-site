@@ -116,7 +116,9 @@ export function DubCard({
             variant="full"
           />
           <div className="dub-card__metadata">
-            <TrackTag variant="audio">{dub.genre}</TrackTag>
+            {(dub.tags?.length ? dub.tags : [dub.genre]).map((tag) => (
+              <TrackTag key={tag} variant="audio">{tag}</TrackTag>
+            ))}
             {dub.bpm > 0 && <TrackTag>{dub.bpm} BPM</TrackTag>}
           </div>
           <time className="dub-card__timestamp" dateTime={dub.uploadedAt}>

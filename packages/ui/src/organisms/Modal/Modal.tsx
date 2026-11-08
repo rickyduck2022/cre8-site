@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, type ReactNode } from "react";
 import { Button } from "../../atoms/Button/Button";
+import { ModalFooterOutlet } from "../../molecules/ModalFooter/ModalFooter";
 import "../Organisms.css";
 
 export interface ModalProps {
@@ -48,7 +49,9 @@ export function Modal({
             Close
           </Button>
         </header>
-        {children}
+        <ModalFooterOutlet>
+          <div className="modal__content">{children}</div>
+        </ModalFooterOutlet>
       </div>
     </dialog>
   );

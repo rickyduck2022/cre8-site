@@ -5,7 +5,8 @@ import { Badge } from "../../atoms/Badge/Badge";
 import { Button } from "../../atoms/Button/Button";
 import { Pagination, usePagination } from "../../molecules/Pagination/Pagination";
 import { SearchField } from "../../molecules/SearchField/SearchField";
-import type { Buddy, Presence } from "../communityTypes";
+import { FriendLookup } from "../../organisms/FriendLookup/FriendLookup";
+import type { Buddy, MemberSearchResult, Presence } from "../communityTypes";
 import { PresenceIndicator } from "../shared/PresenceIndicator";
 import "../CommunityPageTemplates.css";
 import "./BuddyListTemplate.css";
@@ -19,6 +20,11 @@ export interface BuddySuggestion {
 export interface BuddyListTemplateProps {
   buddies: Buddy[];
   suggestedMembers?: BuddySuggestion[];
+  memberSearchResults?: MemberSearchResult[];
+  isSearchingMembers?: boolean;
+  memberSearchQuery?: string;
+  onMemberSearchQueryChange?: (query: string) => void;
+  onAddMatchedMember?: (member: MemberSearchResult) => void;
   query?: string;
   onQueryChange?: (query: string) => void;
   onAddFriend: (buddy: Buddy) => void;
@@ -30,6 +36,11 @@ export interface BuddyListTemplateProps {
 export function BuddyListTemplate({
   buddies,
   suggestedMembers = [],
+  memberSearchResults = [],
+  isSearchingMembers = false,
+  memberSearchQuery = "",
+  onMemberSearchQueryChange,
+  onAddMatchedMember,
   query = "",
   onQueryChange,
   onAddFriend,
@@ -79,12 +90,20 @@ export function BuddyListTemplate({
         </div>
         <Button
           leadingIcon={<UserPlus />}
-          onClick={() => onQueryChange?.("")}
+          onClick={() => document.getElementById("artist-lookup")?.focus()}
           size="small"
         >
           Find friends
         </Button>
       </section>
+
+      <FriendLookup
+        isSearching={isSearchingMembers}
+        onAdd={(member) => onAddMatchedMember?.(member)}
+        onQueryChange={onMemberSearchQueryChange ?? (() => undefined)}
+        query={memberSearchQuery}
+        results={memberSearchResults}
+      />
 
       <div className="buddy-stats">
         <PresenceFilter

@@ -1,0 +1,22 @@
+.modal__footer-content {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.625rem;
+  justify-content: flex-end;
+  min-width: 0;
+}
+
+.modal__footer-content > :first-child:not(:last-child) {
+  margin-right: auto;
+}
+
+@media (max-width: 520px) {
+  .modal__footer-content {
+    align-items: stretch;
+  }
+
+  .modal__footer-content > .button {
+    flex: 1 1 auto;
+  }
+}

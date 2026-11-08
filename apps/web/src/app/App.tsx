@@ -2,9 +2,8 @@ import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "re
 import {
   Friends,
   FriendsFeed,
-  Folder,
+  Download,
   MessageCircle,
-  Plus,
   Users,
 } from "@craft/icons";
 import {
@@ -13,11 +12,11 @@ import {
   ArtistRegistrationForm,
   BuddyListTemplate,
   Button,
-  CrateManager,
   DashboardTemplate,
   DubUploadForm,
   EditProfileForm,
   LatestDubsTemplate,
+  LibraryTemplate,
   MessengerTemplate,
   Modal,
   Navigation,
@@ -29,6 +28,7 @@ import {
 } from "@craft/ui";
 import { DemoModeNotice } from "../components/DemoModeNotice";
 import { useCommunity } from "../hooks/useCommunity";
+import { useMemberSearch } from "../hooks/useMemberSearch";
 import type { CommunitySection } from "../types/community";
 import "./App.css";
 
@@ -37,6 +37,7 @@ const sectionLabels: Record<CommunitySection, string> = {
   buddies: "Friend List",
   messenger: "Messenger",
   profile: "My Profile",
+  library: "My Library",
 };
 
 const sectionIcons: Record<CommunitySection, ReactNode> = {
@@ -44,24 +45,18 @@ const sectionIcons: Record<CommunitySection, ReactNode> = {
   buddies: <Friends />,
   messenger: <MessageCircle />,
   profile: <Users />,
+  library: <Download />,
 };
 
 const sections = Object.keys(sectionLabels) as CommunitySection[];
+const cre8LogoSrc = "/cre8-messenger-logo.png";
 
 function getSectionFromHash(hash: string): CommunitySection {
   const section = hash.replace(/^#/, "") as CommunitySection;
   return sections.includes(section) ? section : "dubs";
 }
 
-function getCrateIdFromHash(hash: string) {
-  return hash.startsWith("#crate/") ? decodeURIComponent(hash.slice(7)) : null;
-}
-
-function createNavigationSections(
-  unreadCount: number,
-  crates: Array<{ id: string; name: string }>,
-  onManageCrates: () => void,
-): NavigationSection[] {
+function createNavigationSections(unreadCount: number): NavigationSection[] {
   return [
     {
       label: "Your space",
@@ -74,20 +69,6 @@ function createNavigationSections(
             ? String(unreadCount)
             : undefined,
       })),
-    },
-    {
-      label: "Your crates",
-      items: crates.map((crate) => ({
-        label: crate.name,
-        icon: <Folder />,
-        href: `#crate/${encodeURIComponent(crate.id)}`,
-      })),
-      footer: (
-        <button onClick={onManageCrates} type="button">
-          <Plus aria-hidden="true" />
-          Manage crates
-        </button>
-      ),
     },
   ];
 }
@@ -124,27 +105,20 @@ export function App() {
     markConversationRead,
     loadOlderMessages,
     sendMessage,
-    createCrate,
-    renameCrate,
-    deleteCrate,
-    updateCrateDub,
     updateProfile,
     unreadCount,
   } = useCommunity();
   const [activeSection, setActiveSection] = useState<CommunitySection>(() =>
     getSectionFromHash(window.location.hash),
   );
-  const [activeCrateId, setActiveCrateId] = useState(() =>
-    getCrateIdFromHash(window.location.hash),
-  );
   const [profileUsername, setProfileUsername] = useState("");
   const [chatBuddyId, setChatBuddyId] = useState("evan");
   const [searchQuery, setSearchQuery] = useState("");
+  const [memberSearchQuery, setMemberSearchQuery] = useState("");
+  const { members: memberSearchResults, isSearching: isSearchingMembers } = useMemberSearch(memberSearchQuery);
   const [isUploadOpen, setIsUploadOpen] = useState(false);
-  const [isCrateManagerOpen, setIsCrateManagerOpen] = useState(false);
   const [isProfileEditOpen, setIsProfileEditOpen] = useState(false);
   const [isStartConversationOpen, setIsStartConversationOpen] = useState(false);
-  const [pendingCrateDubId, setPendingCrateDubId] = useState<string | null>(null);
   const [loginUsername, setLoginUsername] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [loginError, setLoginError] = useState("");
@@ -153,12 +127,8 @@ export function App() {
   const [registrationPending, setRegistrationPending] = useState(false);
 
   const navigationSections = useMemo(
-    () => createNavigationSections(
-      unreadCount,
-      state.crates,
-      openCrateManager,
-    ),
-    [unreadCount, state.crates],
+    () => createNavigationSections(unreadCount),
+    [unreadCount],
   );
   const nowPlaying = state.dubs.find((dub) => dub.id === state.nowPlayingId) ?? null;
   const previewTrack = nowPlaying ?? state.dubs[0];
@@ -170,17 +140,9 @@ export function App() {
   const isOwnProfile = profile?.username === state.member?.username;
   const profileUploads = state.dubs.filter((dub) => dub.uploader === profile?.username);
   const profileBuddy = state.buddies.find((buddy) => buddy.username === profile?.username);
-  const selectedCrate = state.crates.find((crate) => crate.id === activeCrateId);
-  const pendingCrateDub = state.dubs.find((dub) => dub.id === pendingCrateDubId) ?? null;
-  const visibleDubs = selectedCrate
-    ? state.dubs.filter((dub) => selectedCrate.dubIds.includes(dub.id))
-    : state.dubs;
-
   useEffect(() => {
     function syncSectionWithHash() {
-      const crateId = getCrateIdFromHash(window.location.hash);
-      setActiveCrateId(crateId);
-      setActiveSection(crateId ? "dubs" : getSectionFromHash(window.location.hash));
+      setActiveSection(getSectionFromHash(window.location.hash));
     }
 
     window.addEventListener("hashchange", syncSectionWithHash);
@@ -192,7 +154,6 @@ export function App() {
   }, []);
 
   function navigateTo(section: CommunitySection) {
-    setActiveCrateId(null);
     setActiveSection(section);
     const nextHash = `#${section}`;
     if (window.location.hash !== nextHash) window.history.pushState(null, "", nextHash);
@@ -221,41 +182,6 @@ export function App() {
     navigateTo("messenger");
   }
 
-  function openCrate(crateId: string) {
-    setActiveCrateId(crateId);
-    setActiveSection("dubs");
-    closeCrateManager();
-    const nextHash = `#crate/${encodeURIComponent(crateId)}`;
-    if (window.location.hash !== nextHash) window.history.pushState(null, "", nextHash);
-  }
-
-  function openCrateManager() {
-    setPendingCrateDubId(null);
-    setIsCrateManagerOpen(true);
-  }
-
-  function openCrateManagerForDub(dubId: string) {
-    setPendingCrateDubId(dubId);
-    setIsCrateManagerOpen(true);
-  }
-
-  function closeCrateManager() {
-    setIsCrateManagerOpen(false);
-    setPendingCrateDubId(null);
-  }
-
-  async function handleDeleteCrate(crateId: string) {
-    const succeeded = await deleteCrate(crateId);
-    if (succeeded && activeCrateId === crateId) navigateTo("dubs");
-    return succeeded;
-  }
-
-  async function handleAddPendingDubToCrate(crateId: string, dubId: string) {
-    const succeeded = await updateCrateDub(crateId, dubId, true);
-    if (succeeded) closeCrateManager();
-    return succeeded;
-  }
-
   async function handleShareDub(values: Parameters<typeof addDub>[0]) {
     const succeeded = await addDub(values);
     if (succeeded) {
@@ -279,12 +205,7 @@ export function App() {
     }
   }
 
-  async function handleRegister(values: {
-    username: string;
-    displayName: string;
-    genre: string;
-    password: string;
-  }) {
+  async function handleRegister(values: Parameters<typeof registerArtist>[0]) {
     setRegistrationError("");
     setRegistrationPending(true);
     try {
@@ -308,6 +229,7 @@ export function App() {
     return (
       <main className="app-login">
         <section className="app-login__card">
+          <img className="app-login__logo" src={cre8LogoSrc} alt="Cre8 Messenger · Wear Cre8 DnB" />
           <span className="eyebrow">{isRegistering ? "JOIN THE COMMUNITY" : "WELCOME BACK"}</span>
           <h1>{isRegistering ? "Create your artist account" : "Sign in to cre8"}</h1>
           <p>
@@ -380,6 +302,7 @@ export function App() {
       header={
         <AppHeader
           className="app-topbar"
+          logoSrc={cre8LogoSrc}
           onCreate={() => setIsUploadOpen(true)}
           onEditProfile={() => setIsProfileEditOpen(true)}
           onLogout={() => {
@@ -407,9 +330,10 @@ export function App() {
       }
       navigation={
         <Navigation
-          activeItem={selectedCrate?.name ?? sectionLabels[activeSection]}
+          activeItem={sectionLabels[activeSection]}
           className="app-sidebar"
           hideOnMobile
+          logoSrc={cre8LogoSrc}
           sections={navigationSections}
           userDetail={state.member.role}
           userName={state.member.displayName}
@@ -453,8 +377,7 @@ export function App() {
         {activeSection === "dubs" && (
           <>
             <LatestDubsTemplate
-              dubs={visibleDubs}
-              crateName={selectedCrate?.name}
+              dubs={state.dubs}
               likedDubIds={state.likedDubIds}
               nowPlayingId={state.nowPlayingId}
               isPlaying={state.isPlaying}
@@ -473,9 +396,6 @@ export function App() {
               onPlay={togglePlayback}
               onQueryChange={setSearchQuery}
               query={searchQuery}
-              onAddToCrate={openCrateManagerForDub}
-              crateId={selectedCrate?.id}
-              onRemoveFromCrate={(crateId, dubId) => void updateCrateDub(crateId, dubId, false)}
             />
           </>
         )}
@@ -484,12 +404,20 @@ export function App() {
             buddies={state.buddies}
             suggestedMembers={state.suggestedMembers}
             onAddFriend={(buddy) => void addBuddy(buddy.username)}
+            memberSearchQuery={memberSearchQuery}
+            memberSearchResults={memberSearchResults}
+            isSearchingMembers={isSearchingMembers}
+            onMemberSearchQueryChange={setMemberSearchQuery}
+            onAddMatchedMember={(member) => void addBuddy(member.username)}
             onOpenChat={openChat}
             onQueryChange={setSearchQuery}
             onRemoveFriend={(buddyId) => void removeBuddy(buddyId)}
             onSelectProfile={openProfile}
             query={searchQuery}
           />
+        )}
+        {activeSection === "library" && (
+          <LibraryTemplate downloads={state.library} onDownload={downloadDub} />
         )}
         {activeSection === "messenger" && (
           <MessengerTemplate
@@ -498,8 +426,14 @@ export function App() {
             dubs={state.dubs}
             initialBuddyId={chatBuddyId}
             chatConnectionStatus={chatConnectionStatus}
+            nowPlayingId={state.nowPlayingId}
+            isPlaying={state.isPlaying}
+            currentTimeSeconds={state.currentTime}
+            durationSeconds={state.duration}
+            onSeek={seekPlayback}
             onOpenProfile={openProfile}
             onPlay={togglePlayback}
+            onDownload={downloadDub}
             onStartConversation={() => setIsStartConversationOpen(true)}
             onSelectConversation={markConversationRead}
             onLoadOlderMessages={loadOlderMessages}
@@ -522,8 +456,8 @@ export function App() {
       <nav className="mobile-tabs" aria-label="Main sections">
         {sections.map((section) => (
           <button
-            aria-current={activeSection === section && !selectedCrate ? "page" : undefined}
-            className={activeSection === section && !selectedCrate ? "is-active" : ""}
+            aria-current={activeSection === section ? "page" : undefined}
+            className={activeSection === section ? "is-active" : ""}
             key={section}
             onClick={() => navigateTo(section)}
             type="button"
@@ -562,30 +496,13 @@ export function App() {
           <EditProfileForm
             onCancel={() => setIsProfileEditOpen(false)}
             onSubmit={(values) => {
-              void updateProfile(values);
-              setIsProfileEditOpen(false);
+              void updateProfile(values).then((saved) => {
+                if (saved) setIsProfileEditOpen(false);
+              });
             }}
             profile={state.member}
           />
         )}
-      </Modal>
-      <Modal
-        className="crate-management-modal"
-        isOpen={isCrateManagerOpen}
-        onClose={closeCrateManager}
-        title={pendingCrateDub ? `Add ${pendingCrateDub.title} to a crate` : "Manage crates"}
-      >
-        <CrateManager
-          crates={state.crates}
-          dubs={state.dubs}
-          pendingDub={pendingCrateDub}
-          onCreateCrate={createCrate}
-          onRenameCrate={renameCrate}
-          onDeleteCrate={handleDeleteCrate}
-          onSetDubInCrate={updateCrateDub}
-          onAddPendingDub={handleAddPendingDubToCrate}
-          onOpenCrate={openCrate}
-        />
       </Modal>
       <Modal
         isOpen={isStartConversationOpen}

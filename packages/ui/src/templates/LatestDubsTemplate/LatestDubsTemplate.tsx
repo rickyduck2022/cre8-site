@@ -93,7 +93,7 @@ export function LatestDubsTemplate({
           <p>
             {crateName
               ? "Dubs saved in this crate."
-              : "Unreleased sounds. Trusted friends. Your next set starts here."}
+              : "Discover the freshest dubs from artists across the Drum & Bass and Jungle scene."}
           </p>
         </div>
         <Badge dot variant="audio">

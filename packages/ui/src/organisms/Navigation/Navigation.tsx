@@ -25,12 +25,14 @@ export interface NavigationProps {
   variant?: "sidebar" | "horizontal" | "icons";
   hideOnMobile?: boolean;
   className?: string;
+  logoSrc?: string;
 }
 
 export function Navigation({
   activeItem,
   className,
   sections,
+  logoSrc,
   userDetail = "Member",
   userName,
   variant = "sidebar",
@@ -50,7 +52,7 @@ export function Navigation({
         .join(" ")}
     >
       <div className="navigation__brand">
-        <Brand />
+        <Brand logoSrc={logoSrc} />
       </div>
       <div className="navigation__sections">
         {sections.map((section, sectionIndex) => (

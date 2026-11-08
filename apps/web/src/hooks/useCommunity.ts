@@ -2,19 +2,20 @@ import { useEffect, useRef, useState } from "react";
 import type {
   ArtistOption,
   Buddy,
-  ChatConnectionStatus,
   ChatMessage,
   ChatMessagePage,
   Conversation,
   Dub,
   DubUploadFormValues,
   MemberProfile,
-  NotificationMessage,
-  NotificationType,
   UploadProgressState,
   ArtistRegistrationValues,
+  LibraryDownload,
 } from "@craft/ui";
 import { uploadFile } from "../services/uploadFile";
+import { useAudioPlayback } from "./useAudioPlayback";
+import { useChatConnection } from "./useChatConnection";
+import { useNotifications } from "./useNotifications";
 
 export interface Crate {
   id: string;
@@ -31,6 +32,7 @@ interface CommunitySnapshot {
   likedDubIds: string[];
   suggestedMembers: Array<{ username: string; displayName: string; genre: string }>;
   crates: Crate[];
+  library: LibraryDownload[];
 }
 
 interface CommunityState {
@@ -42,14 +44,7 @@ interface CommunityState {
   likedDubIds: Set<string>;
   suggestedMembers: CommunitySnapshot["suggestedMembers"];
   crates: Crate[];
-  nowPlayingId: string | null;
-  isPlaying: boolean;
-  currentTime: number;
-  duration: number;
-  volume: number;
-  shuffle: boolean;
-  repeat: boolean;
-  playbackError: string | null;
+  library: LibraryDownload[];
 }
 
 interface ApiError {
@@ -65,14 +60,7 @@ const initialState: CommunityState = {
   likedDubIds: new Set(),
   suggestedMembers: [],
   crates: [],
-  nowPlayingId: null,
-  isPlaying: false,
-  currentTime: 0,
-  duration: 0,
-  volume: 0.7,
-  shuffle: false,
-  repeat: false,
-  playbackError: null,
+  library: [],
 };
 
 async function requestApi<T>(
@@ -108,62 +96,13 @@ function mergeMessages(...groups: ChatMessage[][]) {
 export function useCommunity() {
   const [state, setState] = useState(initialState);
   const [loading, setLoading] = useState(true);
-  const [notifications, setNotifications] = useState<NotificationMessage[]>([]);
-  const [activeNotificationIds, setActiveNotificationIds] = useState<string[]>([]);
   const [uploadProgress, setUploadProgress] = useState<UploadProgressState | null>(null);
   const [uploadError, setUploadError] = useState("");
   const [error, setError] = useState("");
-  const [chatConnectionStatus, setChatConnectionStatus] =
-    useState<ChatConnectionStatus>("disconnected");
-  const notificationTimers = useRef(new Map<string, number>());
   const seenMessageIds = useRef(new Set<string>());
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-
-  function notify(
-    message: string,
-    type: NotificationType = "success",
-    conversationId?: string,
-  ) {
-    const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-    setNotifications((current) => [
-      {
-        id,
-        message,
-        type,
-        createdAt: new Date().toISOString(),
-        read: false,
-        conversationId,
-      },
-      ...current,
-    ].slice(0, 20));
-    setActiveNotificationIds((current) => [id, ...current].slice(0, 3));
-    const timeout = window.setTimeout(() => {
-      setActiveNotificationIds((current) => current.filter((item) => item !== id));
-      notificationTimers.current.delete(id);
-    }, type === "error" ? 7000 : 4500);
-    notificationTimers.current.set(id, timeout);
-  }
-
-  function dismissNotification(id: string) {
-    const timeout = notificationTimers.current.get(id);
-    if (timeout !== undefined) window.clearTimeout(timeout);
-    notificationTimers.current.delete(id);
-    setNotifications((current) => current.filter((item) => item.id !== id));
-    setActiveNotificationIds((current) => current.filter((item) => item !== id));
-  }
-
-  function clearNotifications() {
-    for (const timeout of notificationTimers.current.values()) {
-      window.clearTimeout(timeout);
-    }
-    notificationTimers.current.clear();
-    setNotifications([]);
-    setActiveNotificationIds([]);
-  }
-
-  function markNotificationsRead() {
-    setNotifications((current) => current.map((item) => ({ ...item, read: true })));
-  }
+  const notificationState = useNotifications();
+  const { notify } = notificationState;
+  const playback = useAudioPlayback(state.dubs, notify);
 
   function applySnapshot(
     snapshot: CommunitySnapshot,
@@ -201,6 +140,7 @@ export function useCommunity() {
       likedDubIds: new Set(snapshot.likedDubIds),
       suggestedMembers: snapshot.suggestedMembers,
       crates: snapshot.crates,
+      library: snapshot.library ?? [],
     }));
     for (const incoming of newMessages) {
       const buddyName = snapshot.buddies.find(
@@ -219,31 +159,15 @@ export function useCommunity() {
     return snapshot;
   }
 
-  useEffect(() => {
-    const audio = new Audio();
-    audio.preload = "metadata";
-    audioRef.current = audio;
-    const updatePosition = () =>
-      setState((current) => ({
-        ...current,
-        currentTime: audio.currentTime || 0,
-        duration: Number.isFinite(audio.duration) ? audio.duration : 0,
-      }));
-    const updatePlaying = () =>
-      setState((current) => ({ ...current, isPlaying: !audio.paused }));
-    const reportPlaybackError = () =>
-      setState((current) => ({
-        ...current,
-        playbackError: "This audio file could not be loaded.",
-        isPlaying: false,
-      }));
+  const chatConnectionStatus = useChatConnection(
+    state.member?.id,
+    refreshCommunity,
+    applySnapshot,
+    (connectionError) => setError(connectionError.message),
+    () => { playback.reset(); setState(initialState); },
+  );
 
-    audio.addEventListener("timeupdate", updatePosition);
-    audio.addEventListener("loadedmetadata", updatePosition);
-    audio.addEventListener("play", updatePlaying);
-    audio.addEventListener("pause", updatePlaying);
-    audio.addEventListener("ended", updatePlaying);
-    audio.addEventListener("error", reportPlaybackError);
+  useEffect(() => {
     void refreshCommunity()
       .catch((loadError: unknown) => {
         if (loadError instanceof Error && !loadError.message.includes("Sign in")) {
@@ -252,92 +176,7 @@ export function useCommunity() {
       })
       .finally(() => setLoading(false));
 
-    return () => {
-      audio.removeEventListener("timeupdate", updatePosition);
-      audio.removeEventListener("loadedmetadata", updatePosition);
-      audio.removeEventListener("play", updatePlaying);
-      audio.removeEventListener("pause", updatePlaying);
-      audio.removeEventListener("ended", updatePlaying);
-      audio.removeEventListener("error", reportPlaybackError);
-      audio.pause();
-      audio.removeAttribute("src");
-      audioRef.current = null;
-      for (const timeout of notificationTimers.current.values()) {
-        window.clearTimeout(timeout);
-      }
-      notificationTimers.current.clear();
-    };
   }, []);
-
-  useEffect(() => {
-    const audio = audioRef.current;
-    if (!audio) return;
-    audio.volume = state.volume;
-    audio.loop = state.repeat;
-  }, [state.repeat, state.volume]);
-
-  useEffect(() => {
-    if (!state.member) {
-      setChatConnectionStatus("disconnected");
-      return;
-    }
-
-    let active = true;
-    let retryTimer: number | undefined;
-    let retryAttempt = 0;
-    let socket: WebSocket | undefined;
-    const connect = () => {
-      if (!active) return;
-      setChatConnectionStatus(retryAttempt === 0 ? "connecting" : "reconnecting");
-      const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-      socket = new WebSocket(`${protocol}//${window.location.host}/api/chat`);
-      socket.onopen = () => {
-        retryAttempt = 0;
-        setChatConnectionStatus("connected");
-        void requestApi<CommunitySnapshot>("/api/community")
-          .then((snapshot) => applySnapshot(snapshot, true))
-          .catch((connectionError: unknown) => {
-            if (active && connectionError instanceof Error && !connectionError.message.includes("Sign in")) {
-              setError(connectionError.message);
-            }
-          });
-      };
-      socket.onmessage = (event: MessageEvent<string>) => {
-        let payload: { type?: string; snapshot?: CommunitySnapshot };
-        try {
-          payload = JSON.parse(event.data) as typeof payload;
-        } catch {
-          socket?.close(1002, "Invalid chat event");
-          return;
-        }
-        if (payload.type === "community.snapshot" && payload.snapshot) {
-          applySnapshot(payload.snapshot, true);
-        }
-      };
-      socket.onerror = () => {
-        setChatConnectionStatus("reconnecting");
-      };
-      socket.onclose = (event: CloseEvent) => {
-        if (!active) return;
-        if (event.reason === "Signed out" || event.code === 1008) {
-          setState(initialState);
-          setChatConnectionStatus("disconnected");
-          return;
-        }
-        setChatConnectionStatus("reconnecting");
-        retryAttempt += 1;
-        const delay = Math.min(1000 * 2 ** (retryAttempt - 1), 15000);
-        retryTimer = window.setTimeout(connect, delay);
-      };
-    };
-
-    connect();
-    return () => {
-      active = false;
-      if (retryTimer !== undefined) window.clearTimeout(retryTimer);
-      socket?.close(1000, "Session ended");
-    };
-  }, [state.member?.id]);
 
   async function login(username: string, password: string) {
     setError("");
@@ -356,9 +195,9 @@ export function useCommunity() {
 
   async function logout() {
     await requestApi("/api/logout", { method: "POST" });
-    audioRef.current?.pause();
+    playback.reset();
     seenMessageIds.current.clear();
-    clearNotifications();
+    notificationState.clearNotifications();
     setState(initialState);
   }
 
@@ -379,77 +218,6 @@ export function useCommunity() {
     } catch (requestError) {
       notify(requestError instanceof Error ? requestError.message : "The download failed.", "error");
     }
-  }
-
-  function togglePlayback(dub: Dub) {
-    const audio = audioRef.current;
-    if (!audio) {
-      notify("Audio playback is not ready yet. Please try again.", "error");
-      return;
-    }
-    if (!dub.audioUrl) {
-      const message = `The audio file for ${dub.title} is unavailable.`;
-      setState((current) => ({ ...current, playbackError: message }));
-      notify(message, "error");
-      return;
-    }
-    const isCurrentTrack = audio.dataset.dubId === dub.id;
-    if (isCurrentTrack && !audio.paused) {
-      audio.pause();
-      return;
-    }
-    if (!isCurrentTrack) {
-      audio.pause();
-      audio.dataset.dubId = dub.id;
-      audio.src = dub.audioUrl;
-      audio.currentTime = 0;
-      setState((current) => ({
-        ...current,
-        nowPlayingId: dub.id,
-        isPlaying: false,
-        currentTime: 0,
-        duration: 0,
-        playbackError: null,
-      }));
-    }
-    void audio.play().catch(() => {
-      const message = `Unable to play ${dub.title}. Check that the audio file is available.`;
-      setState((current) => ({ ...current, playbackError: message, isPlaying: false }));
-      notify(message, "error");
-    });
-  }
-
-  function seekPlayback(timeSeconds: number) {
-    const audio = audioRef.current;
-    if (!audio || !Number.isFinite(audio.duration)) return;
-    audio.currentTime = Math.max(0, Math.min(timeSeconds, audio.duration));
-  }
-
-  function setVolume(volume: number) {
-    setState((current) => ({ ...current, volume: Math.max(0, Math.min(1, volume)) }));
-  }
-
-  function setShuffle(shuffle: boolean) {
-    setState((current) => ({ ...current, shuffle }));
-  }
-
-  function setRepeat(repeat: boolean) {
-    setState((current) => ({ ...current, repeat }));
-  }
-
-  function playAdjacentDub(direction: -1 | 1) {
-    if (state.dubs.length === 0) return;
-    const currentIndex = state.dubs.findIndex((dub) => dub.id === state.nowPlayingId);
-    let nextIndex: number;
-    if (state.shuffle && direction === 1 && state.dubs.length > 1) {
-      const candidates = state.dubs.map((_, index) => index).filter((index) => index !== currentIndex);
-      nextIndex = candidates[Math.floor(Math.random() * candidates.length)];
-    } else {
-      nextIndex = currentIndex === -1
-        ? direction === 1 ? 0 : state.dubs.length - 1
-        : (currentIndex + direction + state.dubs.length) % state.dubs.length;
-    }
-    togglePlayback(state.dubs[nextIndex]);
   }
 
   async function addDub(values: DubUploadFormValues): Promise<boolean> {
@@ -495,7 +263,7 @@ export function useCommunity() {
         body: jsonBody({
           title: values.title.trim(),
           artistId: values.artistId,
-          genre: values.genre.trim(),
+          tags: values.tags,
           bpm: values.bpm,
           message: values.message.trim(),
           uploadId,
@@ -672,46 +440,54 @@ export function useCommunity() {
     }
   }
 
-  async function updateProfile(profile: Partial<Pick<MemberProfile, "displayName" | "bio" | "genre" | "role">>) {
+  async function updateProfile(profile: Partial<Pick<MemberProfile, "displayName" | "bio" | "genre" | "role" | "links">> & { avatarFile?: File; bannerFile?: File }): Promise<boolean> {
+    const uploadIds: string[] = [];
     try {
+      const { avatarFile, bannerFile, ...profileFields } = profile;
+      const uploadReferences: { avatarUploadId?: string; bannerUploadId?: string } = {};
+      for (const [file, type, field] of [
+        [avatarFile, "avatar", "avatarUploadId"],
+        [bannerFile, "banner", "bannerUploadId"],
+      ] as const) {
+        if (!file) continue;
+        const upload = await uploadFile(file, type, () => undefined);
+        uploadReferences[field] = upload.uploadId;
+        uploadIds.push(upload.uploadId);
+      }
       applySnapshot(await requestApi<CommunitySnapshot>("/api/profile", {
         method: "PATCH",
-        body: jsonBody(profile),
+        body: jsonBody({ ...profileFields, ...uploadReferences }),
       }));
       notify("Profile updated.");
+      return true;
     } catch (requestError) {
+      await Promise.all(uploadIds.map((uploadId) => requestApi(`/api/uploads/${encodeURIComponent(uploadId)}`, { method: "DELETE" }).catch(() => undefined)));
       notify(requestError instanceof Error ? requestError.message : "Profile could not be updated.", "error");
+      return false;
     }
   }
 
   const unreadCount = state.buddies.reduce((total, buddy) => total + (buddy.unread ?? 0), 0);
-  const unreadNotificationCount = notifications.filter((item) => !item.read).length;
-
   return {
-    state,
+    state: { ...state, ...playback.state },
     loading,
     error,
-    notifications,
-    activeNotifications: notifications.filter((item) => activeNotificationIds.includes(item.id)),
-    unreadNotificationCount,
+    ...notificationState,
     uploadProgress,
     uploadError,
     notify,
-    dismissNotification,
-    clearNotifications,
-    markNotificationsRead,
     login,
     registerArtist,
     logout,
     refreshCommunity,
     downloadDub,
-    togglePlayback,
-    seekPlayback,
-    setVolume,
-    setShuffle,
-    setRepeat,
-    playNextDub: () => playAdjacentDub(1),
-    playPreviousDub: () => playAdjacentDub(-1),
+    togglePlayback: playback.togglePlayback,
+    seekPlayback: playback.seekPlayback,
+    setVolume: playback.setVolume,
+    setShuffle: playback.setShuffle,
+    setRepeat: playback.setRepeat,
+    playNextDub: playback.playNextDub,
+    playPreviousDub: playback.playPreviousDub,
     addDub,
     addBuddy,
     removeBuddy,

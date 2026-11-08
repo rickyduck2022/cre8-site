@@ -3,8 +3,10 @@ export type {
   ChatMessage,
   Conversation,
   Dub,
+  LibraryDownload,
+  MemberSearchResult,
   MemberProfile,
   Presence,
 } from "@craft/ui";
 
-export type CommunitySection = "dubs" | "buddies" | "messenger" | "profile";
+export type CommunitySection = "dubs" | "buddies" | "messenger" | "profile" | "library";

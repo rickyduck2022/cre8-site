@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import {
   Disc3,
+  Download,
   Link,
   MessageCircle,
   MoreActions,
@@ -11,6 +12,7 @@ import { Badge } from "../../atoms/Badge/Badge";
 import { Button } from "../../atoms/Button/Button";
 import { ChatComposer } from "../../molecules/ChatComposer/ChatComposer";
 import { InfiniteScroll } from "../../molecules/InfiniteScroll/InfiniteScroll";
+import { AudioPlayer } from "../../organisms/AudioPlayer/AudioPlayer";
 import { TrackArtwork } from "../shared/TrackArtwork";
 import { PresenceIndicator } from "../shared/PresenceIndicator";
 import { formatTime } from "../templateFormatters";
@@ -24,8 +26,14 @@ export interface MessengerTemplateProps {
   dubs: Dub[];
   initialBuddyId: string;
   chatConnectionStatus: ChatConnectionStatus;
+  nowPlayingId: string | null;
+  isPlaying: boolean;
+  currentTimeSeconds?: number;
+  durationSeconds?: number;
+  onSeek?: (timeSeconds: number) => void;
   onOpenProfile: (username: string) => void;
   onPlay: (dub: Dub) => void;
+  onDownload?: (dub: Dub) => void;
   onStartConversation: () => void;
   onSelectConversation: (buddyId: string) => void;
   onLoadOlderMessages: (buddyId: string, beforeId: string) => Promise<unknown>;
@@ -42,8 +50,14 @@ export function MessengerTemplate({
   chatConnectionStatus,
   dubs,
   initialBuddyId,
+  nowPlayingId,
+  isPlaying,
+  currentTimeSeconds = 0,
+  durationSeconds,
+  onSeek,
   onOpenProfile,
   onPlay,
+  onDownload = () => undefined,
   onStartConversation,
   onSelectConversation,
   onLoadOlderMessages,
@@ -225,19 +239,31 @@ export function MessengerTemplate({
                     key={chatMessage.id}
                   >
                     {sharedDub ? (
-                      <button
-                        aria-label={`Play ${sharedDub.title}`}
-                        className="shared-dub"
-                        onClick={() => onPlay(sharedDub)}
-                        type="button"
-                      >
-                        <TrackArtwork dub={sharedDub} />
-                        <div>
-                          <strong>{sharedDub.title}</strong>
-                          <span>{sharedDub.artist} · {sharedDub.genre}</span>
-                          <small>{chatMessage.text}</small>
-                        </div>
-                      </button>
+                      <AudioPlayer
+                        className="shared-dub shared-dub__player"
+                        currentTimeSeconds={nowPlayingId === sharedDub.id ? currentTimeSeconds : 0}
+                        durationSeconds={nowPlayingId === sharedDub.id ? durationSeconds : undefined}
+                        endAction={
+                          <Button
+                            aria-label={`Download ${sharedDub.title}`}
+                            className="app-icon-button shared-dub__download"
+                            leadingIcon={<Download aria-hidden="true" />}
+                            onClick={() => onDownload(sharedDub)}
+                            size="small"
+                            variant="tertiary"
+                          />
+                        }
+                        onPlayChange={() => onPlay(sharedDub)}
+                        onSeek={nowPlayingId === sharedDub.id ? onSeek : undefined}
+                        playing={nowPlayingId === sharedDub.id && isPlaying}
+                        track={{
+                          artist: sharedDub.artist,
+                          artworkContent: <TrackArtwork dub={sharedDub} />,
+                          duration: sharedDub.duration,
+                          title: sharedDub.title,
+                        }}
+                        variant="inline"
+                      />
                     ) : (
                       <p>{chatMessage.text}</p>
                     )}

@@ -1,14 +1,16 @@
 import type { FormEvent } from "react";
-import { useState } from "react";
+import { useId, useState } from "react";
 import { Button } from "../../atoms/Button/Button";
+import { ModalFooter } from "../ModalFooter/ModalFooter";
 import { UploadProgress } from "../UploadProgress/UploadProgress";
+import { TagSelector } from "../TagSelector/TagSelector";
 import type { UploadProgressState } from "../notificationTypes";
 import "../Molecules.css";
 
 export interface DubUploadFormValues {
   title: string;
   artistId: string;
-  genre: string;
+  tags: string[];
   bpm?: number;
   message: string;
   audioFile: File;
@@ -30,6 +32,8 @@ export function DubUploadForm({
   uploadProgress = null,
   submissionError = "",
 }: DubUploadFormProps) {
+  const formId = `dub-upload-form-${useId()}`;
+  const [tags, setTags] = useState<string[]>([]);
   const [fileError, setFileError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -51,7 +55,7 @@ export function DubUploadForm({
       const succeeded = await onSubmit({
         title: String(formData.get("title") ?? ""),
         artistId: String(formData.get("artistId") ?? ""),
-        genre: String(formData.get("genre") ?? ""),
+        tags,
         bpm: bpmValue ? Number(bpmValue) : undefined,
         message: String(formData.get("message") ?? ""),
         audioFile,
@@ -62,6 +66,7 @@ export function DubUploadForm({
       });
       if (succeeded !== false) {
         form.reset();
+        setTags([]);
         setFileError("");
       }
     } finally {
@@ -70,7 +75,8 @@ export function DubUploadForm({
   }
 
   return (
-    <form className="dub-upload-form" onSubmit={submit}>
+    <>
+    <form className="dub-upload-form" id={formId} onSubmit={submit}>
       <fieldset className="dub-upload-form__fields" disabled={isSubmitting}>
         <label className="dub-upload-form__field">
           <span>Track title</span>
@@ -87,13 +93,21 @@ export function DubUploadForm({
           </select>
         </label>
         <div className="dub-upload-form__row">
-          <label className="dub-upload-form__field">
-            <span>Genre</span>
-            <input maxLength={60} name="genre" placeholder="Optional" />
-          </label>
-          <label className="dub-upload-form__field">
+          <TagSelector
+            label="Tags"
+            options={["Jump Up", "Rollers", "Dancefloor", "Jungle", "Liquid", "Neurofunk", "Vocal", "Deep", "Minimal", "Techstep", "Atmospheric", "Old School"]}
+            onChange={setTags}
+            value={tags}
+          />
+          <label className="dub-upload-form__field dub-upload-form__field--bpm">
             <span>BPM</span>
-            <input max="300" min="1" name="bpm" placeholder="Optional" type="number" />
+            <input
+              max="300"
+              min="1"
+              name="bpm"
+              placeholder="Optional"
+              type="number"
+            />
           </label>
         </div>
         <label className="dub-upload-form__field">
@@ -124,20 +138,21 @@ export function DubUploadForm({
           <textarea maxLength={400} name="message" rows={3} />
         </label>
       </fieldset>
-      {uploadProgress && <UploadProgress progress={uploadProgress} />}
       {submissionError && (
         <p className="dub-upload-form__error" role="alert">
           {submissionError}
         </p>
       )}
-      <div className="dub-upload-form__actions">
-        <Button disabled={isSubmitting} onClick={onCancel} type="button" variant="secondary">
-          Cancel
-        </Button>
-        <Button disabled={isSubmitting} loading={isSubmitting} type="submit">
-          {isSubmitting ? "Sharing dub" : "Share dub"}
-        </Button>
-      </div>
     </form>
+    <ModalFooter>
+      {uploadProgress && <UploadProgress progress={uploadProgress} />}
+      <Button disabled={isSubmitting} form={formId} onClick={onCancel} type="button" variant="secondary">
+        Cancel
+      </Button>
+      <Button disabled={isSubmitting} form={formId} loading={isSubmitting} type="submit">
+        {isSubmitting ? "Sharing dub" : "Share dub"}
+      </Button>
+    </ModalFooter>
+    </>
   );
 }

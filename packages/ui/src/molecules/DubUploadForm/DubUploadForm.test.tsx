@@ -16,7 +16,6 @@ describe("DubUploadForm", () => {
         const values: Record<string, FormDataEntryValue | null> = {
           title: "New track",
           artistId: "artist-1",
-          genre: "",
           bpm: "",
           message: "",
           audioFile: file,
@@ -47,6 +46,19 @@ describe("DubUploadForm", () => {
     expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({
       title: "New track",
       audioFile: file,
+      tags: [],
     }));
+  });
+
+  it("supports selecting multiple predefined track tags", () => {
+    const { container } = render(
+      <DubUploadForm artists={[{ id: "artist-1", name: "Artist" }]} onCancel={vi.fn()} onSubmit={vi.fn()} />,
+    );
+    expect(container.querySelector(".dub-upload-form__field--bpm input")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Jump Up" }));
+    fireEvent.click(screen.getByRole("button", { name: "Jungle" }));
+    expect(screen.getByRole("button", { name: "Jump Up" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "Jungle" })).toHaveAttribute("aria-pressed", "true");
+    expect(container.querySelectorAll(".tag-selector__options button[aria-pressed='true']")).toHaveLength(2);
   });
 });

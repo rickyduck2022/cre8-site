@@ -43,7 +43,7 @@ export function ProfileTemplate({
   return (
     <div className="profile-template">
       <section className="profile-hero">
-        <div className="profile-hero__art" aria-hidden="true">
+        <div className="profile-hero__art" aria-hidden="true" style={profile.bannerUrl ? { backgroundImage: `linear-gradient(90deg, rgba(10,12,18,.55), rgba(10,12,18,.05)), url("${profile.bannerUrl}")` } : undefined}>
           <span className="profile-hero__orb profile-hero__orb--one" />
           <span className="profile-hero__orb profile-hero__orb--two" />
         </div>
@@ -51,6 +51,7 @@ export function ProfileTemplate({
           <Avatar
             className="profile-hero__avatar"
             name={profile.displayName}
+            src={profile.avatarUrl}
             size="large"
           />
           <div className="profile-hero__identity">
@@ -99,6 +100,14 @@ export function ProfileTemplate({
               <strong>{profile.genre}</strong>
             </div>
           </div>
+          {profile.links && profile.links.length > 0 && (
+            <div className="profile-links" aria-label="Artist links">
+              <h3>Links</h3>
+              {profile.links.map((link) => (
+                <a href={link.url} key={`${link.label}-${link.url}`} rel="noreferrer" target="_blank">{link.label}</a>
+              ))}
+            </div>
+          )}
         </section>
 
         <section className="profile-uploads">
@@ -123,7 +132,7 @@ export function ProfileTemplate({
                   <span className="profile-upload__copy">
                     <strong>{dub.title}</strong>
                     <span>
-                      {dub.genre}
+                      {(dub.tags?.length ? dub.tags : [dub.genre]).join(" · ")}
                       {dub.bpm > 0 ? ` · ${dub.bpm} BPM` : ""} · {dub.duration}
                     </span>
                     <time dateTime={dub.uploadedAt}>
@@ -133,6 +142,13 @@ export function ProfileTemplate({
                   <span className="profile-upload__likes">
                     <Heart aria-hidden="true" /> {dub.likes}
                   </span>
+                  {isOwnProfile && dub.downloaders && (
+                    <span className="profile-upload__supporters" title={dub.downloaders.map((downloader) => `${downloader.displayName} (@${downloader.username})`).join(", ")}>
+                      {dub.downloads} downloads · {dub.downloaders.length
+                        ? dub.downloaders.map((downloader) => `${downloader.displayName} (@${downloader.username})`).join(", ")
+                        : "No downloads yet"}
+                    </span>
+                  )}
                   <span className="profile-upload__play" aria-hidden="true">
                     {isPlaying && playingDubId === dub.id ? <Pause /> : <Play />}
                   </span>

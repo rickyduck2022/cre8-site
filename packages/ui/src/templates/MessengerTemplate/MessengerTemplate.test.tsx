@@ -1,0 +1,51 @@
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { MessengerTemplate } from "./MessengerTemplate";
+import type { Dub } from "../communityTypes";
+
+afterEach(cleanup);
+
+describe("MessengerTemplate shared dubs", () => {
+  it("plays and downloads a shared dub inside its conversation", () => {
+    const dub: Dub = {
+      id: "dub-1", title: "Jungle Drop", artist: "Amber", uploader: "amber",
+      uploaderDisplayName: "Amber", uploadedAt: "2026-11-01T12:00:00.000Z", bpm: 174,
+      genre: "Jungle", tags: ["Jungle", "Rollers"], duration: "03:30", likes: 1,
+      downloads: 1, artwork: "whitelabel", message: "Fresh dub", audioUrl: "/audio.wav",
+    };
+    const onPlay = vi.fn();
+    const onDownload = vi.fn();
+    render(<MessengerTemplate
+      buddies={[{ id: "friend-1", username: "amber", displayName: "Amber", presence: "online", genre: "Jungle", role: "DJ", bio: "", groups: [] }]}
+      conversations={[{ buddyId: "friend-1", messages: [{ id: "message-1", sender: "them", text: "Shared a dub: Jungle Drop", sentAt: "2026-11-01T12:00:00.000Z", dubId: dub.id }] }]}
+      dubs={[dub]}
+      initialBuddyId="friend-1"
+      chatConnectionStatus="connected"
+      nowPlayingId={dub.id}
+      isPlaying
+      currentTimeSeconds={35}
+      durationSeconds={210}
+      onSeek={vi.fn()}
+      onOpenProfile={vi.fn()}
+      onPlay={onPlay}
+      onDownload={onDownload}
+      onStartConversation={vi.fn()}
+      onSelectConversation={vi.fn()}
+      onLoadOlderMessages={vi.fn(async () => null)}
+      onSendMessage={vi.fn(async () => true)}
+    />);
+    expect(screen.getByRole("region", { name: "Audio player: Jungle Drop" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Pause" }));
+    fireEvent.click(screen.getByRole("button", { name: "Download Jungle Drop" }));
+    const inlineControls = screen
+      .getByRole("region", { name: "Audio player: Jungle Drop" })
+      .querySelectorAll(".transport-controls__play, .audio-player__timeline, .shared-dub__download");
+    expect(Array.from(inlineControls, (element) => element.className)).toEqual([
+      "button button--secondary button--small transport-controls__play",
+      "audio-player__timeline",
+      "button button--tertiary button--small app-icon-button shared-dub__download",
+    ]);
+    expect(onPlay).toHaveBeenCalledWith(dub);
+    expect(onDownload).toHaveBeenCalledWith(dub);
+  });
+});

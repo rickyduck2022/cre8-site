@@ -159,6 +159,18 @@ test("artists can register, sign in immediately, and retain their linked profile
     assert.equal(community.artists[0].userId, createdUser.user.id);
     assert.equal(community.artists[0].name, "New Artist");
     assert.deepEqual(community.artists[0].genres, ["UK Garage", "Bassline"]);
+    const memberSearch = await fetch(`${server.baseUrl}/api/members?q=holik`, { headers: { cookie } });
+    assert.equal(memberSearch.status, 200);
+    const matchedMember = (await memberSearch.json()).members[0];
+    assert.equal(matchedMember.username, "holik");
+    const artistIdSearch = await fetch(`${server.baseUrl}/api/members?q=artist-holik`, { headers: { cookie } });
+    assert.equal((await artistIdSearch.json()).members[0].artistId, "artist-holik");
+    const addById = await fetch(`${server.baseUrl}/api/buddies`, {
+      method: "POST",
+      headers: { cookie, "content-type": "application/json" },
+      body: JSON.stringify({ id: matchedMember.artistId }),
+    });
+    assert.ok((await addById.json()).buddies.some((buddy) => buddy.username === "holik"));
     assert.ok(community.dubs.every((dub) => dub.artistId !== community.artists[0].id));
 
     const duplicateRegistration = await fetch(`${server.baseUrl}/api/register`, {
@@ -171,6 +183,15 @@ test("artists can register, sign in immediately, and retain their linked profile
       }),
     });
     assert.equal(duplicateRegistration.status, 409);
+
+    const simpleRegistration = await fetch(`${server.baseUrl}/api/register`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ displayName: "Fresh DJ", password: "long-enough-password" }),
+    });
+    assert.equal(simpleRegistration.status, 201);
+    const simpleAccount = await simpleRegistration.json();
+    assert.equal(simpleAccount.user.username, "fresh.dj");
 
     await server.close();
     server = await startTestServer(server.directory);
@@ -316,12 +337,40 @@ test("starter account has no seeded tracks and retains uploaded community activi
     });
     assert.equal(artworkUploadResponse.status, 201);
     const { uploadId: artworkUploadId } = await artworkUploadResponse.json();
+    const avatarUploadResponse = await fetch(`${server.baseUrl}/api/uploads?type=avatar`, {
+      method: "POST",
+      headers: { cookie, "content-type": "image/png", "x-file-name": "profile.png" },
+      body: Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
+    });
+    assert.equal(avatarUploadResponse.status, 201);
+    const { uploadId: avatarUploadId } = await avatarUploadResponse.json();
+    const bannerUploadResponse = await fetch(`${server.baseUrl}/api/uploads?type=banner`, {
+      method: "POST",
+      headers: { cookie, "content-type": "image/png", "x-file-name": "banner.png" },
+      body: Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
+    });
+    const { uploadId: bannerUploadId } = await bannerUploadResponse.json();
+    const profileResponse = await fetch(`${server.baseUrl}/api/profile`, {
+      method: "PATCH",
+      headers: { cookie, "content-type": "application/json" },
+      body: JSON.stringify({
+        displayName: "Meladee", role: "DJ / Producer", genre: "Drum & Bass, Jungle",
+        bio: "In the studio", links: [{ label: "SoundCloud", url: "https://soundcloud.com/meladee" }],
+        avatarUploadId, bannerUploadId,
+      }),
+    });
+    assert.equal(profileResponse.status, 200);
+    const updatedProfile = await profileResponse.json();
+    assert.equal(updatedProfile.member.links[0].label, "SoundCloud");
+    assert.equal((await fetch(`${server.baseUrl}${updatedProfile.member.avatarUrl}`, { headers: { cookie } })).status, 200);
+    assert.equal((await fetch(`${server.baseUrl}${updatedProfile.member.bannerUrl}`, { headers: { cookie } })).status, 200);
     const dubResponse = await fetch(`${server.baseUrl}/api/dubs`, {
       method: "POST",
       headers: { cookie, "content-type": "application/json" },
       body: JSON.stringify({
         title: "New Dub",
         artistId: "artist-meladee",
+        tags: ["Jungle", "Rollers"],
         genre: "Garage",
         uploadId,
         artworkUploadId,
@@ -331,6 +380,7 @@ test("starter account has no seeded tracks and retains uploaded community activi
     const newDub = await dubResponse.json();
     assert.equal(newDub.artistId, "artist-meladee");
     assert.equal(newDub.artwork, "uploaded-artwork");
+    assert.deepEqual(newDub.tags, ["Jungle", "Rollers"]);
     assert.match(newDub.artworkUrl, new RegExp(`/api/dubs/${newDub.id}/artwork`));
     assert.ok(Number.isFinite(Date.parse(newDub.uploadedAt)));
     const savedResponse = await fetch(
@@ -361,6 +411,22 @@ test("starter account has no seeded tracks and retains uploaded community activi
     assert.equal(repeated.likes, 1);
     assert.equal(repeated.downloads, 2);
 
+    const fanCookie = await registerAccount(server.baseUrl, "downloadfan");
+    const fanDownload = await fetch(`${server.baseUrl}/api/dubs/${newDub.id}/download`, {
+      method: "POST",
+      headers: { cookie: fanCookie },
+    });
+    assert.equal(fanDownload.status, 200);
+    const uploaderSnapshot = await fetch(`${server.baseUrl}/api/community`, { headers: { cookie } }).then((response) => response.json());
+    const uploaderDub = uploaderSnapshot.dubs.find((item) => item.id === newDub.id);
+    assert.equal(uploaderDub.downloads, 3);
+    assert.ok(uploaderDub.downloaders.some((downloader) => downloader.username === "downloadfan"));
+    assert.equal(uploaderSnapshot.library.length, 2);
+    const fanSnapshot = await fetch(`${server.baseUrl}/api/community`, { headers: { cookie: fanCookie } }).then((response) => response.json());
+    const fanDub = fanSnapshot.dubs.find((item) => item.id === newDub.id);
+    assert.equal(Object.hasOwn(fanDub, "downloaders"), false);
+    assert.equal(fanSnapshot.library[0].dub.id, newDub.id);
+
     const messageResponse = await fetch(
       `${server.baseUrl}/api/conversations/${holikFriendship.id}/messages`,
       {
@@ -384,7 +450,7 @@ test("starter account has no seeded tracks and retains uploaded community activi
     const restored = await fetch(`${server.baseUrl}/api/community`, {
       headers: { cookie: secondCookie },
     }).then((response) => response.json());
-    assert.ok(restored.dubs.some((item) => item.id === newDub.id && item.likes === 1 && item.downloads === 2));
+    assert.ok(restored.dubs.some((item) => item.id === newDub.id && item.likes === 2 && item.downloads === 3));
     const restoredImage = await fetch(`${server.baseUrl}${newDub.artworkUrl}`, {
       headers: { cookie: secondCookie },
     });

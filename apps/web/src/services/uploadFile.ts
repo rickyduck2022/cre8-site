@@ -4,12 +4,12 @@ export interface UploadResponse {
 
 export function uploadFile(
   file: File,
-  type: "audio" | "artwork",
+  type: "audio" | "artwork" | "avatar" | "banner",
   onProgress: (loaded: number, total: number) => void,
 ): Promise<UploadResponse> {
   return new Promise((resolve, reject) => {
     const request = new XMLHttpRequest();
-    const path = `/api/uploads${type === "artwork" ? "?type=artwork" : ""}`;
+    const path = type === "audio" ? "/api/uploads" : `/api/uploads?type=${type}`;
     request.open("POST", path);
     request.withCredentials = true;
     request.setRequestHeader("content-type", file.type || "application/octet-stream");
