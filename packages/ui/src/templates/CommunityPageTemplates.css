@@ -743,10 +743,6 @@ button {
   box-shadow: none;
 }
 
-.shared-dub__metadata {
-  margin: 0.35rem 0.5rem 0;
-}
-
 .shared-dub__player .now-playing__title,
 .shared-dub__player .now-playing__artist {
   overflow: hidden;
@@ -875,11 +871,6 @@ button {
   flex: none;
   height: 1rem;
   width: 1rem;
-}
-
-.shared-dub__actions .dub-management-actions > .button {
-  font-size: var(--font-size-9);
-  padding: 0.2rem 0.35rem;
 }
 
 .share-a-dub__empty {

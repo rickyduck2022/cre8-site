@@ -508,6 +508,22 @@
   gap: 0.375rem;
 }
 
+.track-metadata--inline {
+  flex-wrap: nowrap;
+  min-width: 0;
+  overflow-x: auto;
+}
+
+.track-metadata--inline > * {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.track-metadata--inline:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
 .waveform {
   display: block;
   height: 2rem;

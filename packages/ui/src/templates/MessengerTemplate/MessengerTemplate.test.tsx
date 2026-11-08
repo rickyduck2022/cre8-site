@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { MessengerTemplate } from "./MessengerTemplate";
 import type { Dub } from "../communityTypes";
@@ -16,14 +16,11 @@ describe("MessengerTemplate shared dubs", () => {
     const foreignDub: Dub = { ...ownDub, id: "foreign", title: "Someone Else's", uploader: "other" };
     const onCreateAndShareDub = vi.fn();
     const onSendMessage = vi.fn(async () => true);
-    const onEditDub = vi.fn();
-    const onDeleteDub = vi.fn();
     render(<MessengerTemplate
       buddies={[{ id: "friend-1", username: "amber", displayName: "Amber", presence: "online", genre: "Jungle", role: "DJ", bio: "", groups: [] }]}
       conversations={[]}
       dubs={[ownDub, foreignDub]}
       shareableDubs={[ownDub]}
-      currentUsername="you"
       initialBuddyId="friend-1"
       chatConnectionStatus="connected"
       nowPlayingId={null}
@@ -32,8 +29,6 @@ describe("MessengerTemplate shared dubs", () => {
       onPlay={vi.fn()}
       onStartConversation={vi.fn()}
       onCreateAndShareDub={onCreateAndShareDub}
-      onEditDub={onEditDub}
-      onDeleteDub={onDeleteDub}
       onSelectConversation={vi.fn()}
       onLoadOlderMessages={vi.fn(async () => null)}
       onSendMessage={onSendMessage}
@@ -73,13 +68,10 @@ describe("MessengerTemplate shared dubs", () => {
     };
     const onPlay = vi.fn();
     const onDownload = vi.fn();
-    const onEditDub = vi.fn();
-    const onDeleteDub = vi.fn();
     render(<MessengerTemplate
       buddies={[{ id: "friend-1", username: "amber", displayName: "Amber", presence: "online", genre: "Jungle", role: "DJ", bio: "", groups: [] }]}
       conversations={[{ buddyId: "friend-1", messages: [{ id: "message-1", sender: "them", text: "Shared a dub: Jungle Drop", sentAt: "2026-11-01T12:00:00.000Z", dubId: dub.id }] }]}
       dubs={[dub]}
-      currentUsername="amber"
       initialBuddyId="friend-1"
       chatConnectionStatus="connected"
       nowPlayingId={dub.id}
@@ -90,18 +82,24 @@ describe("MessengerTemplate shared dubs", () => {
       onOpenProfile={vi.fn()}
       onPlay={onPlay}
       onDownload={onDownload}
-      onEditDub={onEditDub}
-      onDeleteDub={onDeleteDub}
       onStartConversation={vi.fn()}
       onSelectConversation={vi.fn()}
       onLoadOlderMessages={vi.fn(async () => null)}
       onSendMessage={vi.fn(async () => true)}
     />);
     expect(screen.getByRole("region", { name: "Audio player: Jungle Drop" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Edit Jungle Drop" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Delete Jungle Drop" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Edit Jungle Drop" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Delete Jungle Drop" })).not.toBeInTheDocument();
     expect(screen.getByText("WAV")).toBeInTheDocument();
     expect(screen.getAllByText("320 kbps avg").length).toBeGreaterThan(0);
+    const player = screen.getByRole("region", { name: "Audio player: Jungle Drop" });
+    const details = within(player).getByRole("region", { name: "Track details" });
+    expect(details).toHaveClass("track-metadata--inline");
+    expect(details).toHaveAttribute("tabindex", "0");
+    for (const tag of ["Jungle", "Rollers", "174 BPM", "WAV", "320 kbps avg"]) {
+      expect(within(details).getByText(tag)).toHaveClass("track-tag--dark");
+    }
+    expect(within(details).getByLabelText("Audio file details")).toHaveClass("track-file-metadata--inline");
     fireEvent.click(screen.getByRole("button", { name: "Pause" }));
     fireEvent.click(screen.getByRole("button", { name: "Download Jungle Drop" }));
     const inlineControls = screen

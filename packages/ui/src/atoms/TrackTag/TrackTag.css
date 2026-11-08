@@ -4,6 +4,7 @@
   border: 1px solid transparent;
   border-radius: 0.25rem;
   color: var(--text-secondary);
+  cursor: pointer;
   display: inline-flex;
   font-family: var(--font-interface);
   font-size: var(--font-size-9);
@@ -23,6 +24,28 @@
 .track-tag--audio {
   background: color-mix(in srgb, var(--audio-active) 12%, transparent);
   color: var(--audio-active);
+}
+
+.track-tag--dark {
+  background: var(--surface-canvas);
+}
+
+.track-tag--neutral:hover {
+  background: var(--border-default);
+  color: var(--text-primary);
+}
+
+.track-tag--accent:hover {
+  background: color-mix(in srgb, var(--action-primary) 24%, transparent);
+}
+
+.track-tag--audio:hover {
+  background: color-mix(in srgb, var(--audio-active) 24%, transparent);
+}
+
+.track-tag--dark:hover {
+  background: var(--surface-raised);
+  color: var(--text-primary);
 }
 
 .track-tag__icon {

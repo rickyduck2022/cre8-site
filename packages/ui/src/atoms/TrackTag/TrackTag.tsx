@@ -1,7 +1,7 @@
 import type { HTMLAttributes, ReactNode } from "react";
 import "./TrackTag.css";
 
-export type TrackTagVariant = "neutral" | "accent" | "audio";
+export type TrackTagVariant = "neutral" | "accent" | "audio" | "dark";
 
 export interface TrackTagProps extends HTMLAttributes<HTMLSpanElement> {
   children: ReactNode;

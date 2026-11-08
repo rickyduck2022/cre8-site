@@ -515,9 +515,6 @@ export function App() {
               setShareDubTargetId(buddyId);
               setIsUploadOpen(true);
             }}
-            currentUsername={state.member.username}
-            onEditDub={beginDubEdit}
-            onDeleteDub={beginDubDelete}
             onSelectConversation={markConversationRead}
             onLoadOlderMessages={loadOlderMessages}
             onSendMessage={sendMessage}

@@ -15,9 +15,3 @@
   gap: 0.5rem;
   justify-content: flex-end;
 }
-
-.shared-dub__actions {
-  align-items: center;
-  display: flex;
-  gap: 0.25rem;
-}

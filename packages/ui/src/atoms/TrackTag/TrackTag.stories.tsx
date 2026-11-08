@@ -12,7 +12,7 @@ const meta = {
   argTypes: {
     variant: {
       control: "select",
-      options: ["neutral", "accent", "audio"],
+      options: ["neutral", "accent", "audio", "dark"],
     },
   },
 } satisfies Meta<typeof TrackTag>;
@@ -28,6 +28,7 @@ export const Variants: Story = {
       <TrackTag>Explicit</TrackTag>
       <TrackTag variant="accent">New</TrackTag>
       <TrackTag icon={<AudioLines />} variant="audio">Live</TrackTag>
+      <TrackTag variant="dark">Jungle</TrackTag>
     </div>
   ),
 };
