@@ -14,9 +14,10 @@ export interface FriendPickerProps {
   disabledIds?: string[];
   sharedIds?: string[];
   allowSharedIds?: string[];
+  label?: string;
 }
 
-export function FriendPicker({ buddies, selectedIds, onChange, disabled = false, disabledIds = [], sharedIds = [], allowSharedIds = [] }: FriendPickerProps) {
+export function FriendPicker({ buddies, selectedIds, onChange, disabled = false, disabledIds = [], sharedIds = [], allowSharedIds = [], label = "friends" }: FriendPickerProps) {
   const [query, setQuery] = useState("");
   const [reshareIds, setReshareIds] = useState<string[]>([]);
   const needle = query.trim().toLocaleLowerCase();
@@ -27,9 +28,9 @@ export function FriendPicker({ buddies, selectedIds, onChange, disabled = false,
     <div className="friend-picker">
       {buddies.length ? (
         <>
-          <SearchField aria-label="Search friends" disabled={disabled} onChange={(event) => setQuery(event.currentTarget.value)} placeholder="Search friends" value={query} />
+          <SearchField aria-label={`Search ${label}`} disabled={disabled} onChange={(event) => setQuery(event.currentTarget.value)} placeholder={`Search ${label}`} value={query} />
           <fieldset className="friend-picker__list" disabled={disabled}>
-            <legend>Choose friends</legend>
+            <legend>Choose {label}</legend>
             {filtered.map((buddy) => {
               const alreadyShared = sharedIds.includes(buddy.id) && !reshareIds.includes(buddy.id) && !allowSharedIds.includes(buddy.id);
               const sent = disabledIds.includes(buddy.id);
@@ -64,11 +65,11 @@ export function FriendPicker({ buddies, selectedIds, onChange, disabled = false,
                 </div>
               );
             })}
-            {!filtered.length && <p className="friend-picker__hint">No friends match your search.</p>}
+            {!filtered.length && <p className="friend-picker__hint">No {label} match your search.</p>}
           </fieldset>
-          <p className="friend-picker__hint">{selectedIds.length} {selectedIds.length === 1 ? "friend" : "friends"} selected</p>
+          <p className="friend-picker__hint">{selectedIds.length} {label === "friends" ? (selectedIds.length === 1 ? "friend" : "friends") : label} selected</p>
         </>
-      ) : <p className="friend-picker__hint">No friends yet. Add friends to share dubs in Messenger.</p>}
+      ) : <p className="friend-picker__hint">{label === "friends" ? "No friends yet. Add friends to share dubs in Messenger." : `No ${label} available.`}</p>}
     </div>
   );
 }

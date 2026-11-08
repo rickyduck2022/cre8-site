@@ -18,6 +18,7 @@ export interface DubUploadFormValues {
   audioFile?: File;
   artworkFile?: File;
   distribution?: "worldwide" | "private" | "alist";
+  aListPublic?: boolean;
   buddyIds?: string[];
 }
 
@@ -30,6 +31,7 @@ export interface DubUploadFormProps {
   initialDub?: Dub;
   aListApproved?: boolean;
   buddies?: Buddy[];
+  aListMembers?: Buddy[];
   initialBuddyIds?: string[];
 }
 
@@ -42,6 +44,7 @@ export function DubUploadForm({
   initialDub,
   aListApproved = false,
   buddies = [],
+  aListMembers = [],
   initialBuddyIds = [],
 }: DubUploadFormProps) {
   const isEditing = Boolean(initialDub);
@@ -50,7 +53,11 @@ export function DubUploadForm({
   const [fileError, setFileError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [distribution, setDistribution] = useState<"worldwide" | "private" | "alist">("worldwide");
+  const [aListPublic, setAListPublic] = useState(initialDub?.aListPublic === true);
   const [buddyIds, setBuddyIds] = useState<string[]>(initialBuddyIds);
+  const effectiveDistribution = isEditing ? initialDub?.distribution : distribution;
+  const restrictedAList = effectiveDistribution === "alist" && !aListPublic;
+  const eligibleRecipients = restrictedAList ? aListMembers : buddies;
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -77,7 +84,8 @@ export function DubUploadForm({
         bpm: bpmValue ? Number(bpmValue) : undefined,
         message: String(formData.get("message") ?? ""),
         distribution: isEditing ? initialDub?.distribution : distribution,
-        buddyIds: isEditing || distribution === "private" ? buddyIds.filter((id) => buddies.some((buddy) => buddy.id === id)) : undefined,
+        aListPublic: effectiveDistribution === "alist" ? aListPublic : undefined,
+        buddyIds: isEditing || distribution === "private" ? buddyIds.filter((id) => eligibleRecipients.some((buddy) => buddy.id === id)) : undefined,
         audioFile: selectedAudioFile,
         artworkFile:
           artworkFile instanceof File && artworkFile.size > 0
@@ -88,6 +96,7 @@ export function DubUploadForm({
         form.reset();
         setTags([]);
         setDistribution("worldwide");
+        setAListPublic(false);
         setBuddyIds([]);
         setFileError("");
       }
@@ -123,7 +132,7 @@ export function DubUploadForm({
             }} name="distribution">
               <option value="worldwide">Worldwide - visible to all members</option>
               <option value="private">Private - share with selected friends</option>
-              <option value="alist" disabled={!aListApproved}>A-List - approved members only</option>
+              <option value="alist" disabled={!aListApproved}>A-List</option>
             </select>
             {!aListApproved && <small id={`${formId}-alist-help`}>A-List approval is required for exclusive uploads.</small>}
           </label>
@@ -135,12 +144,18 @@ export function DubUploadForm({
           </div>
         )}
         {isEditing && <p>Distribution: {initialDub?.distribution === "alist" ? "A-List" : initialDub?.distribution === "private" ? "Private" : "Worldwide"} (cannot be changed after upload)</p>}
+        {effectiveDistribution === "alist" && (
+          <label className="dub-upload-form__public">
+            <input checked={aListPublic} onChange={(event) => { setAListPublic(event.currentTarget.checked); setBuddyIds([]); }} type="checkbox" />
+            <span><strong>Public</strong><small>Allow everyone to discover and play this A-List dub. Turn off to restrict access to approved A-List members; previously downloaded files cannot be recalled.</small></span>
+          </label>
+        )}
         {isEditing && (
           <div className="dub-upload-form__private-friends">
             <p>Optional: send the saved track to friends in Messenger. Changes create a new version; friends marked Shared received the current version.</p>
             {initialDub?.distribution === "private" && <p>Sending grants private access. Unsend does not revoke access or recall downloaded files.</p>}
-            {initialDub?.distribution === "alist" && <p>Only approved A-List members can receive this dub.</p>}
-            <FriendPicker buddies={buddies} sharedIds={initialDub?.sharedBuddyIds} selectedIds={buddyIds} onChange={setBuddyIds} />
+            {restrictedAList && <p>Only approved A-List members can receive this dub. Sending to a non-friend adds them to your Friend List.</p>}
+            <FriendPicker buddies={eligibleRecipients} label={restrictedAList ? "A-List members" : "friends"} sharedIds={restrictedAList ? buddies.filter((buddy) => buddy.userId && initialDub?.sharedBuddyIds?.includes(buddy.id)).map((buddy) => `member:${buddy.userId}`) : initialDub?.sharedBuddyIds} selectedIds={buddyIds} onChange={setBuddyIds} />
           </div>
         )}
         <div className="dub-upload-form__row">

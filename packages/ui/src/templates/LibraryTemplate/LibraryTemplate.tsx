@@ -1,27 +1,16 @@
-import { Download, Disc3, MessageCircle } from "@craft/icons";
-import { Button } from "../../atoms/Button/Button";
-import { AListBadge } from "../../atoms/AListBadge/AListBadge";
+import { Disc3 } from "@craft/icons";
 import { Badge } from "../../atoms/Badge/Badge";
-import { TrackTag } from "../../atoms/TrackTag/TrackTag";
-import { DubActionsMenu } from "../../molecules/DubActionsMenu/DubActionsMenu";
-import { TrackFileMetadata } from "../../molecules/TrackFileMetadata/TrackFileMetadata";
-import { canShareDub } from "../../organisms/ShareDubDialog/ShareDubDialog";
+import { DubCardList, type DubCardListProps } from "../shared/DubCardList";
 import type { LibraryDownload } from "../communityTypes";
-import { formatLocalTimestamp } from "../templateFormatters";
-import { TrackArtwork } from "../shared/TrackArtwork";
 import "../CommunityPageTemplates.css";
 
-export interface LibraryTemplateProps {
+export interface LibraryTemplateProps extends Omit<DubCardListProps, "entries" | "label" | "onEdit" | "onDelete"> {
   downloads: LibraryDownload[];
-  onDownload: (dub: LibraryDownload["dub"]) => void;
-  currentUsername?: string;
-  onEditDub?: (dub: LibraryDownload["dub"]) => void;
-  onDeleteDub?: (dub: LibraryDownload["dub"]) => void;
-  onShareWithFriend?: (dub: LibraryDownload["dub"]) => void;
-  onOpenProfile?: (username: string) => void;
+  onEditDub?: DubCardListProps["onEdit"];
+  onDeleteDub?: DubCardListProps["onDelete"];
 }
 
-export function LibraryTemplate({ downloads, onDownload, currentUsername, onEditDub, onDeleteDub, onShareWithFriend, onOpenProfile }: LibraryTemplateProps) {
+export function LibraryTemplate({ downloads, onEditDub, onDeleteDub, ...cardProps }: LibraryTemplateProps) {
   return (
     <div className="library-template">
       <section className="page-intro">
@@ -30,38 +19,7 @@ export function LibraryTemplate({ downloads, onDownload, currentUsername, onEdit
         <Badge>{downloads.length} downloads</Badge>
       </section>
       {downloads.length ? (
-        <ul className="library-list" aria-label="Downloaded dubs">
-          {downloads.map(({ downloadedAt, dub }, index) => (
-            <li key={`${dub.id}-${downloadedAt}-${index}`}>
-              <TrackArtwork dub={dub} />
-              <div className="library-list__details">
-                <strong>{dub.title}</strong>{onOpenProfile ? <button className="now-playing__artist now-playing__artist-button" onClick={() => onOpenProfile(dub.uploader)} type="button">{dub.artist}{dub.artistAListApproved && <AListBadge />}</button> : <span>{dub.artist}{dub.artistAListApproved && <AListBadge />}</span>}
-                <div>
-                  {(dub.tags?.length ? dub.tags : [dub.genre]).map((tag) => <TrackTag key={tag}>{tag}</TrackTag>)}
-                  <TrackFileMetadata
-                    audioFileName={dub.audioFileName}
-                    bitrateKbps={dub.bitrateKbps}
-                    fileType={dub.audioFormat}
-                  />
-                </div>
-              </div>
-              <time dateTime={downloadedAt}>Downloaded {formatLocalTimestamp(downloadedAt)}</time>
-              <div className="library-list__actions">
-                <Button leadingIcon={<Download />} onClick={() => onDownload(dub)} size="small" variant="secondary">Download again</Button>
-                {currentUsername && canShareDub(dub, currentUsername) && onShareWithFriend && (
-                  <Button aria-label={`Share ${dub.title} with a friend`} leadingIcon={<MessageCircle />} onClick={() => onShareWithFriend(dub)} size="small" variant="secondary">Share</Button>
-                )}
-                {dub.uploader === currentUsername && onEditDub && onDeleteDub && (
-                  <DubActionsMenu
-                    onDelete={() => onDeleteDub(dub)}
-                    onEdit={() => onEditDub(dub)}
-                    title={dub.title}
-                  />
-                )}
-              </div>
-            </li>
-          ))}
-        </ul>
+        <DubCardList {...cardProps} entries={downloads} label="Downloaded dubs" onEdit={onEditDub} onDelete={onDeleteDub} />
       ) : (
         <div className="empty-state"><Disc3 aria-hidden="true" /><strong>Your library is empty</strong>
           <span>Download a dub from the feed or a conversation and it will be saved here.</span></div>

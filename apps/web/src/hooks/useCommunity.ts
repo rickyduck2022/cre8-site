@@ -32,6 +32,7 @@ interface CommunitySnapshot {
   lastPlayback: PlaybackPosition | null;
   artists: ArtistOption[];
   dubs: Dub[];
+  sharedDubIds: string[];
   buddies: Buddy[];
   conversations: Conversation[];
   likedDubIds: string[];
@@ -47,6 +48,7 @@ interface CommunityState {
   lastPlayback: PlaybackPosition | null;
   artists: ArtistOption[];
   dubs: Dub[];
+  sharedDubIds: Set<string>;
   buddies: Buddy[];
   conversations: Conversation[];
   likedDubIds: Set<string>;
@@ -66,6 +68,7 @@ const initialState: CommunityState = {
   lastPlayback: null,
   artists: [],
   dubs: [],
+  sharedDubIds: new Set(),
   buddies: [],
   conversations: [],
   likedDubIds: new Set(),
@@ -145,6 +148,7 @@ export function useCommunity() {
       lastPlayback: snapshot.lastPlayback,
       artists: snapshot.artists,
       dubs: snapshot.dubs,
+      sharedDubIds: new Set(snapshot.sharedDubIds),
       buddies: snapshot.buddies,
       conversations: snapshot.conversations.map((conversation) => {
         const existing = current.conversations.find((item) => item.buddyId === conversation.buddyId);
@@ -286,6 +290,7 @@ export function useCommunity() {
           bpm: values.bpm,
           message: values.message.trim(),
           distribution: values.distribution ?? "worldwide",
+          aListPublic: values.aListPublic,
           uploadId: media.audioUploadId,
           artworkUploadId: media.artworkUploadId,
           durationSeconds: media.durationSeconds,
@@ -293,7 +298,7 @@ export function useCommunity() {
       });
       temporaryUploadIds = [];
       await refreshCommunity();
-      notify(`${values.title.trim()} was uploaded${dub.distribution === "private" ? " privately" : dub.distribution === "alist" ? " to A-List" : " to the Dub Feed"}.`);
+      notify(`${values.title.trim()} was uploaded${dub.distribution === "private" ? " privately" : dub.distribution === "alist" ? " to A-List" : " to the Dub Vault"}.`);
       return dub;
     } catch (requestError) {
       const message = requestError instanceof Error
@@ -368,6 +373,7 @@ export function useCommunity() {
           tags: values.tags,
           bpm: values.bpm,
           message: values.message.trim(),
+          aListPublic: values.aListPublic,
           uploadId: media.audioUploadId,
           artworkUploadId: media.artworkUploadId,
           durationSeconds: media.durationSeconds,
@@ -497,6 +503,20 @@ export function useCommunity() {
     }
   }
 
+  async function shareDubWithAListMember(userId: string, text: string, dubId: string): Promise<string | null> {
+    try {
+      const result = await requestApi<{ buddyId: string; snapshot: CommunitySnapshot }>(
+        `/api/dubs/${encodeURIComponent(dubId)}/share-member`,
+        { method: "POST", body: jsonBody({ userId, text }) },
+      );
+      applySnapshot(result.snapshot);
+      return result.buddyId;
+    } catch (requestError) {
+      notify(requestError instanceof Error ? requestError.message : "The dub could not be sent.", "error");
+      return null;
+    }
+  }
+
   async function unsendMessage(buddyId: string, messageId: string): Promise<boolean> {
     try {
       applySnapshot(await requestApi<CommunitySnapshot>(
@@ -553,7 +573,7 @@ export function useCommunity() {
         ...current,
         crates: current.crates.filter((item) => item.id !== crateId),
       }));
-      notify("Crate deleted. Its tracks remain in the Dub Feed.");
+      notify("Crate deleted. Its tracks remain in the Dub Vault.");
       return true;
     } catch (requestError) {
       notify(requestError instanceof Error ? requestError.message : "Crate could not be deleted.", "error");
@@ -652,6 +672,7 @@ export function useCommunity() {
     markConversationRead,
     loadOlderMessages,
     sendMessage,
+    shareDubWithAListMember,
     unsendMessage,
     createCrate,
     renameCrate,

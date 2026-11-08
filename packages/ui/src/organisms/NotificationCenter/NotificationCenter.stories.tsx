@@ -9,7 +9,7 @@ const meta = {
     notifications: [
       {
         id: "notification-1",
-        message: "Your dub was added to the Dub Feed.",
+        message: "Your dub was added to the Dub Vault.",
         type: "success",
         createdAt: now,
         read: false,

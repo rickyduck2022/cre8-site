@@ -13,6 +13,7 @@ export * from "./FriendLookup/FriendLookup";
 export * from "./FriendRequests/FriendRequests";
 export * from "./InviteCard/InviteCard";
 export * from "./Navigation/Navigation";
+export * from "./MobileNavigation/MobileNavigation";
 export * from "./Modal/Modal";
 export * from "./NotificationCenter/NotificationCenter";
 export * from "./NotificationViewport/NotificationViewport";

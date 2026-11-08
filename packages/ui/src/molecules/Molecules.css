@@ -30,6 +30,9 @@
 
 .dub-upload-form__private-friends { display: grid; gap: 0.625rem; min-width: 0; }
 .dub-upload-form__private-friends > p { color: var(--text-secondary); font-size: var(--type-size-label); line-height: 1.5; margin: 0; }
+.dub-upload-form__public { display: flex; align-items: flex-start; gap: 0.625rem; }
+.dub-upload-form__public span { display: grid; gap: 0.25rem; }
+.dub-upload-form__public small { color: var(--text-secondary); line-height: 1.5; }
 
 .dub-upload-form__field {
   color: var(--text-secondary);

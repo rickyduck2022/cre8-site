@@ -931,6 +931,157 @@ test("share history tracks each sender, friend and changed dub version across re
   }
 });
 
+test("received share history includes accessible dubs of every distribution and legacy shares", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "cre8-received-shares-"));
+  const dataPath = join(directory, "community.json");
+  const data = initializeData(dataPath, join(directory, "audio"));
+  data.users.find((user) => user.username === "holik").aListApproved = true;
+  for (const [id, distribution, uploader] of [
+    ["world", "worldwide", "meladee"], ["alist", "alist", "meladee"],
+    ["private", "private", "meladee"], ["legacy", "worldwide", "meladee"],
+    ["own", "worldwide", "holik"], ["unshared", "worldwide", "meladee"],
+    ["no-access", "private", "meladee"], ["outgoing", "worldwide", "holik"],
+  ]) {
+    data.dubs.push({ id, title: id, artist: uploader, artistId: `artist-${uploader}`,
+      uploaderId: `user-${uploader}`, uploader, uploaderDisplayName: uploader,
+      distribution, uploadedAt: "2026-01-01T00:00:00Z", version: 2, bpm: 0,
+      genre: "Jungle", duration: "00:00", artwork: "whitelabel", message: "" });
+  }
+  data.dubShares.push(
+    ...["world", "alist", "private", "own", "no-access", "deleted"].map((dubId) => ({ dubId, senderId: "user-meladee", recipientId: "user-holik", version: 1 })),
+    { dubId: "world", senderId: "someone-else", recipientId: "user-holik", version: 2 },
+    { dubId: "outgoing", senderId: "user-holik", recipientId: "user-meladee", version: 2 },
+  );
+  data.dubGrants.push({ dubId: "private", userId: "user-holik" });
+  data.conversations.push({ id: "legacy-conversation", ownerId: "user-holik", buddyId: "legacy-buddy", messages: [
+    { id: "old-share", sender: "them", dubId: "legacy", text: "Shared", sentAt: "2020-01-01T00:00:00Z" },
+    ...Array.from({ length: 31 }, (_, index) => ({ id: `message-${index}`, sender: "you", text: "Hello", sentAt: "2021-01-01T00:00:00Z" })),
+  ] });
+  writeFileSync(dataPath, JSON.stringify(data));
+  let server = await startTestServer(directory);
+  const login = async (username) => {
+    const response = await fetch(`${server.baseUrl}/api/login`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ username, password: username }) });
+    assert.equal(response.status, 200);
+    return response.headers.get("set-cookie").split(";")[0];
+  };
+  const snapshot = async (cookie) => (await fetch(`${server.baseUrl}/api/community`, { headers: { cookie } })).json();
+  try {
+    let recipient = await login("holik");
+    const owner = await login("meladee");
+    const before = await snapshot(recipient);
+    assert.deepEqual(new Set(before.sharedDubIds), new Set(["world", "alist", "private", "legacy", "own"]));
+    assert.equal(before.conversations.find((conversation) => conversation.buddyId === "legacy-buddy").messages.some((message) => message.id === "old-share"), false);
+    assert.equal(before.sharedDubIds.length, 5);
+    const revoke = await fetch(`${server.baseUrl}/api/dubs/private/grants/user-holik`, { method: "DELETE", headers: { cookie: owner } });
+    assert.equal(revoke.status, 200);
+    assert.equal((await snapshot(recipient)).sharedDubIds.includes("private"), false);
+    await server.close();
+    server = await startTestServer(directory);
+    recipient = await login("holik");
+    assert.deepEqual(new Set((await snapshot(recipient)).sharedDubIds), new Set(["world", "alist", "legacy", "own"]));
+  } finally {
+    await server.close();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("A-List public visibility and sharing with approved non-friends", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "cre8-alist-public-"));
+  const dataPath = join(directory, "community.json");
+  const data = initializeData(dataPath, join(directory, "audio"));
+  for (const username of ["holik", "meladee"]) data.users.find((user) => user.username === username).aListApproved = true;
+  writeFileSync(dataPath, JSON.stringify(data));
+  let server = await startTestServer(directory);
+  const login = async (username, password = username) => {
+    const response = await fetch(`${server.baseUrl}/api/login`, {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ username, password }),
+    });
+    assert.equal(response.status, 200);
+    return response.headers.get("set-cookie").split(";")[0];
+  };
+  const request = (cookie, path, method = "GET", body, headers = {}) => fetch(`${server.baseUrl}${path}`, {
+    method, headers: { cookie, ...(body ? { "content-type": "application/json" } : {}), ...headers },
+    ...(body ? { body: JSON.stringify(body) } : {}),
+  });
+  const snapshot = async (cookie) => (await request(cookie, "/api/community")).json();
+  try {
+    let owner = await login("holik");
+    let approved = await login("meladee");
+    let outsider = await registerAccount(server.baseUrl, "outsider");
+    const ownerProfile = await snapshot(owner);
+    const approvedId = (await snapshot(approved)).member.id;
+    const outsiderId = (await snapshot(outsider)).member.id;
+    const media = await fetch(`${server.baseUrl}/api/uploads?type=audio`, {
+      method: "POST", headers: { cookie: owner, "x-file-name": "track.wav", "content-type": "application/octet-stream" },
+      body: Buffer.from("audio data"),
+    });
+    const uploadId = (await media.json()).uploadId;
+    const fields = { title: "Exclusive", artistId: ownerProfile.artists[0].id, tags: [], bpm: 0, message: "" };
+    assert.equal((await request(owner, "/api/dubs", "POST", { ...fields, uploadId, distribution: "worldwide", aListPublic: true })).status, 400);
+    assert.equal((await request(owner, "/api/dubs", "POST", { ...fields, uploadId, distribution: "alist", aListPublic: "true" })).status, 400);
+    const publicMedia = await fetch(`${server.baseUrl}/api/uploads?type=audio`, {
+      method: "POST", headers: { cookie: owner, "x-file-name": "public.wav", "content-type": "application/octet-stream" },
+      body: Buffer.from("audio data"),
+    });
+    const publicUploadId = (await publicMedia.json()).uploadId;
+    const createdPublic = await request(owner, "/api/dubs", "POST", { ...fields, title: "Public A-List", uploadId: publicUploadId, distribution: "alist", aListPublic: true });
+    assert.equal(createdPublic.status, 201);
+    const publicDub = await createdPublic.json();
+    assert.equal(publicDub.aListPublic, true);
+    assert.ok((await snapshot(outsider)).dubs.some((item) => item.id === publicDub.id));
+    const created = await request(owner, "/api/dubs", "POST", { ...fields, uploadId, distribution: "alist" });
+    assert.equal(created.status, 201);
+    const dub = await created.json();
+    assert.equal(dub.aListPublic, false);
+    const sharePath = `/api/dubs/${dub.id}/share-member`;
+    assert.equal((await request(owner, sharePath, "POST", { userId: outsiderId, text: "Listen" })).status, 404);
+    assert.equal((await request(owner, sharePath, "POST", { userId: approvedId, text: "" })).status, 400);
+    assert.equal((await snapshot(owner)).buddies.some((buddy) => buddy.userId === outsiderId || buddy.userId === approvedId), false);
+    const delivery = await request(owner, sharePath, "POST", { userId: approvedId, text: "Listen" });
+    assert.equal(delivery.status, 201);
+    const { buddyId, snapshot: delivered } = await delivery.json();
+    assert.ok(delivered.buddies.some((buddy) => buddy.id === buddyId && buddy.userId === approvedId));
+    assert.ok((await snapshot(approved)).conversations.some((conversation) => conversation.messages.some((message) => message.dubId === dub.id)));
+    assert.ok((await snapshot(approved)).sharedDubIds.includes(dub.id));
+    assert.deepEqual(delivered.dubs.find((item) => item.id === dub.id).sharedBuddyIds, [buddyId]);
+    assert.equal((await request(outsider, `/api/dubs/${dub.id}/audio`)).status, 404);
+    assert.equal((await request(owner, `/api/dubs/${dub.id}`, "PATCH", { ...fields, aListPublic: "true" })).status, 400);
+    let changed = await (await request(owner, `/api/dubs/${dub.id}`, "PATCH", { ...fields, aListPublic: true })).json();
+    assert.equal(changed.aListPublic, true);
+    assert.equal(changed.version, dub.version + 1);
+    assert.deepEqual(changed.sharedBuddyIds, []);
+    assert.ok((await snapshot(outsider)).dubs.some((item) => item.id === dub.id));
+    assert.ok((await (await request(outsider, "/api/dubs/search?distribution=feed&distributionType=alist")).json()).dubs.some((item) => item.id === dub.id));
+    assert.equal((await request(outsider, "/api/dubs/search?distribution=alist")).status, 403);
+    assert.equal((await request(outsider, `/api/dubs/${dub.id}/audio`, "GET", undefined, { range: "bytes=0-2" })).status, 206);
+    assert.equal((await request(owner, sharePath, "POST", { userId: outsiderId, text: "Listen" })).status, 404);
+    const added = await (await request(owner, "/api/buddies", "POST", { username: "outsider" })).json();
+    const outsiderBuddy = added.buddies.find((buddy) => buddy.userId === outsiderId).id;
+    assert.equal((await request(owner, `/api/conversations/${outsiderBuddy}/messages`, "POST", { text: "Listen", dubId: dub.id })).status, 201);
+    assert.equal((await request(outsider, "/api/playback", "PUT", { dubId: dub.id, positionSeconds: 2 })).status, 200);
+    await server.close();
+    server = await startTestServer(directory);
+    owner = await login("holik");
+    approved = await login("meladee");
+    outsider = await login("outsider", "long-enough-password");
+    assert.equal((await snapshot(owner)).dubs.find((item) => item.id === dub.id).aListPublic, true);
+    changed = await (await request(owner, `/api/dubs/${dub.id}`, "PATCH", { ...fields, aListPublic: false })).json();
+    assert.equal(changed.version, dub.version + 2);
+    const after = await snapshot(outsider);
+    assert.equal(after.dubs.some((item) => item.id === dub.id), false);
+    assert.equal(after.sharedDubIds.includes(dub.id), false);
+    assert.equal(after.lastPlayback, null);
+    assert.ok(after.conversations.some((conversation) => conversation.messages.some((message) => message.text === "This dub is no longer available." && !message.dubId)));
+    assert.equal((await request(outsider, `/api/dubs/${dub.id}/audio`)).status, 404);
+    assert.equal((await request(owner, `/api/conversations/${outsiderBuddy}/messages`, "POST", { text: "Listen", dubId: dub.id })).status, 404);
+    assert.ok((await snapshot(approved)).dubs.some((item) => item.id === dub.id));
+  } finally {
+    await server.close();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
 test("distribution permissions protect discovery, media, messaging and revocation", async () => {
   const directory = mkdtempSync(join(tmpdir(), "cre8-distribution-"));
   const dataPath = join(directory, "community.json");
@@ -1035,6 +1186,7 @@ test("distribution permissions protect discovery, media, messaging and revocatio
     const grantedEvent = waitForMessage(socket, (event) => event.type === "community.snapshot" && event.snapshot.dubs.some((dub) => dub.id === privateDub.id));
     assert.equal((await request(owner, `/api/conversations/${ownerBuddy.id}/messages`, "POST", { text: "Shared a dub: Secret", dubId: privateDub.id })).status, 201);
     await grantedEvent;
+    assert.ok((await snapshot(outsider)).sharedDubIds.includes(privateDub.id));
     assert.deepEqual(await feedIds(outsider, "&distributionType=private&q=Secret"), [privateDub.id]);
     assert.equal((await request(outsider, `/api/dubs/${privateDub.id}/audio`, "GET", undefined, { range: "bytes=0-2" })).status, 206);
     assert.equal((await request(outsider, `/api/dubs/${privateDub.id}/artwork`)).status, 200);
@@ -1055,6 +1207,7 @@ test("distribution permissions protect discovery, media, messaging and revocatio
     const revokedEvent = waitForMessage(socket, (event) => event.type === "community.snapshot" && !event.snapshot.dubs.some((dub) => dub.id === privateDub.id));
     assert.equal((await request(owner, `/api/dubs/${privateDub.id}/grants/${recipientId}`, "DELETE")).status, 200);
     const revoked = (await revokedEvent).snapshot;
+    assert.equal(revoked.sharedDubIds.includes(privateDub.id), false);
     assert.deepEqual(await feedIds(outsider, "&distributionType=private"), []);
     assert.equal(revoked.lastPlayback, null);
     assert.equal(revoked.library.some((item) => item.dub.id === privateDub.id), false);

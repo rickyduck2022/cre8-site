@@ -53,10 +53,15 @@
 
 .dub-card__track-info { display: grid; gap: 0.75rem; min-width: 0; }
 .dub-card .organism-card.audio-player {
+  background: var(--surface-control);
   border: 0;
+  border-radius: 5px !important;
   box-shadow: none;
-  padding-left: 0;
-  padding-right: 0;
+  padding-left: 0.75rem;
+  padding-right: 0.75rem;
+}
+.dub-card--private .organism-card.audio-player {
+  background: var(--surface-canvas);
 }
 .dub-card__timestamp { color: var(--audio-active); font-family: var(--font-mono); font-size: var(--type-size-micro); }
 .dub-card__metadata { align-items: start; display: grid; gap: 0.375rem; grid-template-columns: minmax(0, 1fr) auto; }
@@ -82,8 +87,19 @@
 
 @media (max-width: 760px) {
   .dub-card {
-    gap: 0.75rem;
-    padding: 0.75rem;
+    border-radius: 0;
+    gap: 0.5rem;
+    padding: 0.625rem;
+  }
+
+  .dub-card__track {
+    gap: 0.5rem;
+    padding: 0.5rem 0;
+  }
+
+  .dub-card .organism-card.audio-player {
+    padding-bottom: 0;
+    padding-top: 0;
   }
 
   .dub-card__track-info {

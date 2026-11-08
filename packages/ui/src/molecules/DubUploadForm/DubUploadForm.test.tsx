@@ -1,7 +1,7 @@
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { DubUploadForm } from "./DubUploadForm";
-import type { Buddy } from "../../types/domain";
+import type { Buddy, Dub } from "../../types/domain";
 
 const buddies: Buddy[] = [
   { id: "friend-1", username: "meladee", displayName: "Meladee", presence: "online", genre: "Jungle", role: "DJ", bio: "", groups: [] },
@@ -14,6 +14,38 @@ afterEach(() => {
 });
 
 describe("DubUploadForm", () => {
+  it("submits public A-List visibility on upload and offers the right recipients on edit", async () => {
+    const file = new File(["audio"], "track.wav", { type: "audio/wav" });
+    vi.stubGlobal("FormData", class {
+      get(name: string) {
+        const values: Record<string, FormDataEntryValue | null> = { title: "Track", artistId: "artist-1", bpm: "", message: "", audioFile: file };
+        return values[name] ?? null;
+      }
+    });
+    const onSubmit = vi.fn().mockResolvedValue(false);
+    const members = [{ ...buddies[1], id: "member:user-2", aListApproved: true }];
+    const props = { artists: [{ id: "artist-1", name: "Artist" }], buddies, aListMembers: members, onCancel: vi.fn(), onSubmit };
+    const { container, unmount } = render(<DubUploadForm {...props} aListApproved />);
+    fireEvent.change(screen.getByRole("combobox", { name: "Distribution" }), { target: { value: "alist" } });
+    const publicCheckbox = screen.getByRole("checkbox", { name: /Public/ });
+    expect(publicCheckbox).not.toBeChecked();
+    fireEvent.click(publicCheckbox);
+    fireEvent.submit(container.querySelector("form")!);
+    await act(async () => {});
+    expect(onSubmit).toHaveBeenLastCalledWith(expect.objectContaining({ distribution: "alist", aListPublic: true }));
+    unmount();
+    const dub: Dub = { id: "dub", title: "Track", artist: "Artist", artistId: "artist-1", uploader: "artist", uploaderDisplayName: "Artist", uploadedAt: "", bpm: 0, genre: "Jungle", duration: "1:00", likes: 0, downloads: 0, artwork: "", message: "", distribution: "alist" };
+    const edit = render(<DubUploadForm {...props} initialDub={dub} />);
+    expect(screen.getByRole("checkbox", { name: /Holik/ })).toBeVisible();
+    expect(screen.queryByRole("checkbox", { name: /Meladee/ })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("checkbox", { name: /Holik/ }));
+    fireEvent.submit(edit.container.querySelector("form")!);
+    await act(async () => {});
+    expect(onSubmit).toHaveBeenLastCalledWith(expect.objectContaining({ aListPublic: false, buddyIds: ["member:user-2"] }));
+    fireEvent.click(screen.getByRole("checkbox", { name: /Public/ }));
+    expect(screen.getByRole("checkbox", { name: /Meladee/ })).toBeVisible();
+    expect(screen.getByRole("checkbox", { name: /Holik/ })).not.toBeChecked();
+  });
   it("allows private and worldwide uploads but reserves A-List for approved members", () => {
     const props = { artists: [{ id: "artist-1", name: "Artist" }], onCancel: vi.fn(), onSubmit: vi.fn() };
     const { rerender } = render(<DubUploadForm {...props} />);

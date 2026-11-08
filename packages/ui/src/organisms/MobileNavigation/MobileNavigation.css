@@ -1,0 +1,42 @@
+.mobile-tabs.mobile-navigation {
+  box-sizing: border-box;
+  grid-auto-flow: initial;
+  grid-auto-columns: auto;
+  grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+  height: var(--mobile-navigation-height);
+  overflow: visible;
+}
+
+.mobile-navigation .mobile-navigation__item {
+  align-items: center;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--border-radius-default);
+  color: var(--text-secondary);
+  display: flex;
+  flex-direction: column;
+  font-size: var(--type-size-micro);
+  gap: 0.2rem;
+  justify-content: center;
+  min-width: 0;
+  padding: 0.375rem 0.125rem;
+  position: relative;
+  text-align: center;
+  text-decoration: none;
+}
+
+.mobile-navigation .mobile-navigation__item[aria-current="page"] { color: var(--action-primary-hover); }
+.mobile-navigation .mobile-navigation__item--alist { background: var(--surface-inverse); border-color: var(--action-inverse); color: var(--action-inverse); }
+.mobile-navigation .mobile-navigation__item--alist[aria-current="page"] { background: var(--action-inverse); border-color: var(--action-inverse-pressed); color: var(--text-on-inverse-accent); }
+.mobile-navigation .mobile-navigation__item--private { background: var(--color-background); border-color: var(--border-default); color: var(--text-primary); }
+.mobile-navigation .mobile-navigation__item--private[aria-current="page"] { border-color: var(--audio-active); color: var(--audio-active); }
+.mobile-navigation__icon { display: inline-flex; height: 1rem; width: 1rem; }
+.mobile-navigation__icon svg { height: 100%; width: 100%; }
+.mobile-navigation__count { background: var(--surface-control); border-radius: 1rem; color: var(--text-primary); padding: 0 0.3rem; position: absolute; right: 0.125rem; top: 0.125rem; }
+.mobile-navigation__item:focus-visible { outline: var(--focus-outline-width) solid var(--focus-ring); outline-offset: var(--focus-outline-offset); }
+.mobile-navigation__menu.navigation { background: transparent; border: 0; min-height: 0; padding: 0; }
+.mobile-navigation__menu.navigation .navigation__sections,
+.mobile-navigation__menu.navigation .navigation__items { align-items: stretch; display: grid; width: 100%; }
+.mobile-navigation__menu.navigation .navigation__items { grid-template-columns: minmax(0, 1fr); justify-content: stretch; }
+.mobile-navigation__menu.navigation .navigation__label { display: block; }
+.mobile-navigation__menu.navigation .navigation__item { box-sizing: border-box; min-height: 2.75rem; width: 100%; }

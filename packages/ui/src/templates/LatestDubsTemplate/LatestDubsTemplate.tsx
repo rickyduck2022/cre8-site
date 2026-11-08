@@ -91,7 +91,7 @@ export function LatestDubsTemplate({
   onPlay,
   brandingImageSrc,
   brandingImageAlt = "Cre8 DnB branding",
-  feedName = "Dub Feed",
+  feedName = "Dub Vault",
   showIntro = true,
   prioritizeAList = false,
   queryAlreadyFiltered = false,

@@ -259,7 +259,11 @@
 .navigation__brand .brand__logo {
   max-width: 100%;
   margin-inline: 0 auto;
-  width: 70%;
+  width: 100%;
+}
+
+.navigation--sidebar .navigation__brand .brand__logo {
+  width: 50%;
 }
 
 .app-header--compact > .brand .brand__logo,
@@ -321,6 +325,53 @@
 .navigation__item[aria-current="page"] {
   background: var(--surface-control);
   color: var(--action-primary);
+}
+
+.navigation__item--alist,
+.navigation__item--alist:hover,
+.navigation__item--alist[aria-current="page"] {
+  background: var(--surface-inverse);
+  border: 1px solid var(--action-inverse);
+  color: var(--action-inverse);
+}
+
+.navigation__item--alist:hover {
+  background: var(--surface-inverse-control);
+  border-color: var(--action-inverse-pressed);
+  color: var(--action-inverse-pressed);
+}
+
+.navigation__item--alist[aria-current="page"] {
+  background: var(--action-inverse);
+  border-color: var(--action-inverse-pressed);
+  color: var(--text-on-inverse-accent);
+}
+
+.navigation__item--alist[aria-current="page"]:hover {
+  background: var(--action-inverse-hover);
+}
+
+.navigation__item--alist[aria-current="page"]:active {
+  background: var(--action-inverse-pressed);
+}
+
+.navigation__item--alist:focus-visible {
+  outline: var(--focus-outline-width) solid var(--focus-ring);
+  outline-offset: var(--focus-outline-offset);
+}
+
+.navigation__item--private,
+.navigation__item--private:hover,
+.navigation__item--private[aria-current="page"] {
+  background: var(--color-background);
+  border: 1px solid var(--border-default);
+  color: var(--text-primary);
+}
+
+.navigation__item--private:hover,
+.navigation__item--private[aria-current="page"] {
+  border-color: var(--audio-active);
+  color: var(--audio-active);
 }
 
 .navigation__icon {

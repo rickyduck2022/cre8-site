@@ -15,6 +15,7 @@ const meta = {
       },
     }],
     onDownload: () => undefined,
+    onPlay: () => undefined,
   },
 } satisfies Meta<typeof LibraryTemplate>;
 

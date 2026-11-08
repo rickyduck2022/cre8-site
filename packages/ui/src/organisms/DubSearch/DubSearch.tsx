@@ -45,13 +45,12 @@ export function createEmptyDubSearchFilters(): DubSearchFilters {
   };
 }
 
-export function getDubSearchFilterCount(filters: DubSearchFilters): number {
+export function getDubSearchFilterCount(filters: DubSearchFilters, defaultDistributions: Distribution[] = ["worldwide", "alist"]): number {
   return (
     filters.tags.length +
     Number(
-      filters.distributions.length !== 2 ||
-      !filters.distributions.includes("worldwide") ||
-      !filters.distributions.includes("alist"),
+      filters.distributions.length !== defaultDistributions.length ||
+      defaultDistributions.some((distribution) => !filters.distributions.includes(distribution)),
     ) +
     Number(Boolean(filters.minBpm || filters.maxBpm)) +
     Number(Boolean(filters.fileType)) +
@@ -69,6 +68,8 @@ export interface DubSearchProps {
   isSearching?: boolean;
   error?: string | null;
   showDistributionFilter?: boolean;
+  defaultDistributions?: Distribution[];
+  distributionHint?: string;
 }
 
 interface RangeInputProps {
@@ -129,11 +130,13 @@ export function DubSearch({
   isSearching = false,
   error,
   showDistributionFilter = true,
+  defaultDistributions = ["worldwide", "alist"],
+  distributionHint = "A-List dubs require approval unless public. Select Private to include your own and shared private dubs.",
 }: DubSearchProps) {
   const panelId = useId();
   const [expanded, setExpanded] = useState(false);
   const [draft, setDraft] = useState(filters);
-  const filterCount = getDubSearchFilterCount(filters);
+  const filterCount = getDubSearchFilterCount(filters, defaultDistributions);
   const updateFilter = <K extends keyof DubSearchFilters>(
     key: K,
     value: DubSearchFilters[K],
@@ -188,7 +191,7 @@ export function DubSearch({
                   </label>
                 ))}
               </div>
-              <span className="dub-search__distribution-hint">A-List dubs require approval. Select Private to include your own and shared private dubs.</span>
+              <span className="dub-search__distribution-hint">{distributionHint}</span>
             </fieldset>
           )}
           <TagSelector
@@ -239,11 +242,11 @@ export function DubSearch({
                 : `${resultCount} ${resultCount === 1 ? "dub" : "dubs"} found`}
             </span>
             <div className="dub-search__actions">
-              {(filterCount > 0 || getDubSearchFilterCount(draft) > 0 || query) && (
+              {(filterCount > 0 || getDubSearchFilterCount(draft, defaultDistributions) > 0 || query) && (
                 <Button
                   onClick={() => {
                     onQueryChange("");
-                    const empty = createEmptyDubSearchFilters();
+                    const empty = { ...createEmptyDubSearchFilters(), distributions: [...defaultDistributions] };
                     setDraft(empty);
                     onFiltersChange(empty);
                   }}

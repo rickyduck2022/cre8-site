@@ -53,12 +53,19 @@ and the library; delivery happens in individual Messenger conversations, with
 an optional message. Private uploads can also be sent to selected friends as
 part of the upload, or kept private for later sharing. If a delivery fails after
 upload, the upload remains saved and failed recipients can be retried without
-uploading again. A-List
-dubs can only be sent to approved A-List members. Private dubs are visible to
+uploading again. A-List uploads have an optional Public setting, off by default
+for new and existing dubs. Restricted A-List dubs are accessible only to
+approved members and can be sent to any other approved member; sharing with a
+non-friend adds them to the sender's Friend List and sends a Messenger message.
+Public A-List dubs are accessible to all members and can be shared with friends.
+Changing Public on an existing dub creates a new version. Restricting it removes
+API access for unapproved members and redacts existing messages, but cannot
+recall downloaded files. The dedicated A-List feed still requires approval.
+Private dubs are visible to
 their uploader and friends explicitly shared with in Messenger. Only the uploader can share a private dub or revoke a grant from
 My Dubs. Revocation prevents subsequent API access, but cannot recall files
 already downloaded or bytes already transferred. Unsending a message does not
-revoke private access; the uploader must revoke it separately. A-List access and uploads
+revoke private access; the uploader must revoke it separately. Restricted A-List access and A-List uploads
 require server-side A-List approval. Members can submit applications under
 A-List Submission; administrators configured through `ADMIN_USERNAMES` can
 review and approve, reject, request information or revoke access in the admin
@@ -66,12 +73,20 @@ app. Decisions, previous submission versions and notifications are persisted.
 Social profile URLs, events or brands, supporting artists and record labels are
 optional. Supplied social URLs must use HTTP or HTTPS.
 Follower counts are self-reported and unverified; no social API integration
-is used. The Dub Feed shows A-List dubs first for approved members, followed by
+is used. The Dub Vault shows accessible A-List dubs first, followed by
 Worldwide dubs; private dubs are excluded unless explicitly selected in the
 distribution filter, which includes only private dubs the member can access.
 The feed search accepts repeated `distributionType` parameters (`worldwide`,
 `private`, or `alist`) to match any selected type. Without them the feed retains
 its default scope, and the API's default Worldwide-only search remains available.
+Shared With Me lists and counts distinct accessible dubs received in Messenger,
+regardless of distribution. It uses persisted share history, legacy incoming
+messages and private grants, rather than the paginated conversation preview.
+Its search and filters apply to the shared collection, with all distributions
+selected by default. Dub Vault and A-List navigation counts reflect accessible
+dubs in their default feeds, independently of active search filters.
+Unsend does not erase share history; access revocation removes a dub from that
+page and from My Library.
 The API checks access independently for media, search, snapshots,
 messages, playback, crates, library and admin overview.
 Artist approval indicators reflect the linked account's current A-List status,

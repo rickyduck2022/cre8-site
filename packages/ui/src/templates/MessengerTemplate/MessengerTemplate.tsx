@@ -118,7 +118,8 @@ export function MessengerTemplate({
   );
   const visibleBuddies = buddies.slice(0, visibleBuddyCount);
   const filteredDubs = shareableDubs.filter((dub) =>
-    [dub.title, dub.artist].some((value) => value.toLocaleLowerCase().includes(shareQuery.trim().toLocaleLowerCase())),
+    (dub.distribution !== "alist" || dub.aListPublic === true || selectedBuddy?.aListApproved === true)
+    && [dub.title, dub.artist].some((value) => value.toLocaleLowerCase().includes(shareQuery.trim().toLocaleLowerCase())),
   );
   const visibleDubs = filteredDubs.slice(0, visibleDubCount);
 

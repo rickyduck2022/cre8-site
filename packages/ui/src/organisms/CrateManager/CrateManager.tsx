@@ -208,7 +208,7 @@ export function CrateManager({
 
                   {isDeleting && (
                     <div className="crate-manager__confirm" role="alert">
-                      <p>Delete “{crate.name}”? Its tracks will stay in the Dub Feed.</p>
+                      <p>Delete “{crate.name}”? Its tracks will stay in the Dub Vault.</p>
                       <Button onClick={() => void confirmDelete(crate.id)} size="small" variant="primary">Delete crate</Button>
                       <Button onClick={() => setDeletingCrateId(null)} size="small" variant="tertiary">Keep crate</Button>
                     </div>

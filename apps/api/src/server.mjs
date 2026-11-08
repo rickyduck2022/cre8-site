@@ -407,7 +407,7 @@ function validateApplication(input) {
 function canAccessDub(data, dub, user) {
   if (!dub || !user) return false;
   if (dub.distribution === "worldwide") return true;
-  if (dub.distribution === "alist") return user.aListApproved === true;
+  if (dub.distribution === "alist") return dub.aListPublic === true || user.aListApproved === true;
   if (dub.distribution === "private") {
     return dub.uploaderId === user.id
       || data.dubGrants.some((grant) => grant.dubId === dub.id && grant.userId === user.id);
@@ -493,6 +493,15 @@ function communitySnapshot(data, user) {
   const artists = data.artists.filter((artist) => artist.userId === user.id);
   const friendships = data.friendships.filter((friendship) => friendship.ownerId === user.id);
   const friendUserIds = new Set(friendships.map((friendship) => friendship.friendUserId));
+  const receivedDubIds = new Set([
+    ...data.dubShares.filter((share) => share.recipientId === user.id).map((share) => share.dubId),
+    ...data.dubGrants.filter((grant) => grant.userId === user.id).map((grant) => grant.dubId),
+    ...data.conversations.filter((conversation) => conversation.ownerId === user.id)
+      .flatMap((conversation) => conversation.messages.filter((message) => message.sender === "them" && message.dubId).map((message) => message.dubId)),
+  ]);
+  const accessibleDubs = data.dubs
+    .filter((dub) => canAccessDub(data, dub, user))
+    .sort((left, right) => Date.parse(right.uploadedAt) - Date.parse(left.uploadedAt));
   const conversations = data.conversations
     .filter((conversation) => conversation.ownerId === user.id)
     .map(({ buddyId, messages }) => ({
@@ -542,10 +551,8 @@ function communitySnapshot(data, user) {
       aListApproved: user.aListApproved === true,
     },
     artists,
-    dubs: data.dubs
-      .filter((dub) => canAccessDub(data, dub, user))
-      .sort((left, right) => Date.parse(right.uploadedAt) - Date.parse(left.uploadedAt))
-      .map((dub) => publicDub(data, dub, user.id)),
+    dubs: accessibleDubs.map((dub) => publicDub(data, dub, user.id)),
+    sharedDubIds: accessibleDubs.filter((dub) => receivedDubIds.has(dub.id)).map((dub) => dub.id),
     buddies,
     conversations,
     likedDubIds: data.likes.filter((like) => like.userId === user.id && canAccessDub(data, data.dubs.find((dub) => dub.id === like.dubId), user)).map((like) => like.dubId),
@@ -649,7 +656,7 @@ function createConversationMessage(data, user, buddyId, input) {
     if (!canAccessDub(data, dub, user) || (dub.distribution === "private" && dub.uploaderId !== user.id)) {
       return { error: "The shared dub is unavailable to this recipient.", status: 404 };
     }
-    if (dub.distribution === "alist" && recipient.aListApproved !== true) {
+    if (dub.distribution === "alist" && dub.aListPublic !== true && recipient.aListApproved !== true) {
       return { error: "A-List dubs can only be shared with approved A-List members.", status: 404 };
     }
     if (dub.distribution === "private" && !data.dubGrants.some((grant) => grant.dubId === dub.id && grant.userId === recipient.id)) {
@@ -1252,6 +1259,10 @@ export function createApiServer({
           json(response, 403, { error: "A-List approval is required to upload an exclusive dub." });
           return;
         }
+        if (input.aListPublic !== undefined && (distribution !== "alist" || typeof input.aListPublic !== "boolean")) {
+          json(response, 400, { error: "Public access is only available for A-List dubs and must be true or false." });
+          return;
+        }
         const title = String(input.title ?? "").trim();
         const artistId = String(input.artistId ?? "");
         const artist = data.artists.find((item) => item.id === artistId && item.userId === user.id);
@@ -1267,6 +1278,7 @@ export function createApiServer({
         const dub = {
           id: randomUUID(),
           distribution,
+          ...(distribution === "alist" ? { aListPublic: input.aListPublic === true } : {}),
           title,
           artist: artist.name,
           artistId: artist.id,
@@ -1313,6 +1325,10 @@ export function createApiServer({
           json(response, 400, { error: "A dub's distribution cannot be changed after upload." });
           return;
         }
+        if (input.aListPublic !== undefined && (dub.distribution !== "alist" || typeof input.aListPublic !== "boolean")) {
+          json(response, 400, { error: "Public access is only available for A-List dubs and must be true or false." });
+          return;
+        }
         if (!canAccessDub(data, dub, user)) {
           json(response, 404, { error: "Dub not found." });
           return;
@@ -1335,12 +1351,15 @@ export function createApiServer({
         const nextGenre = nextTags.join(", ").slice(0, 160) || "Uncategorized";
         const nextBpm = Number.isInteger(input.bpm) && input.bpm >= 1 && input.bpm <= 300 ? input.bpm : 0;
         const nextMessage = String(input.message ?? "").trim().slice(0, 400);
+        const nextAListPublic = input.aListPublic ?? (dub.aListPublic === true);
         const changed = dub.title !== title || dub.artistId !== artist.id
+          || (dub.distribution === "alist" && (dub.aListPublic === true) !== nextAListPublic)
           || JSON.stringify(dub.tags ?? []) !== JSON.stringify(nextTags)
           || dub.genre !== nextGenre || dub.bpm !== nextBpm || dub.message !== nextMessage
           || Boolean(audioUpload || artworkUpload);
         const replacedMedia = [];
         if (changed) dub.version += 1;
+        if (dub.distribution === "alist") dub.aListPublic = nextAListPublic;
         dub.title = title;
         dub.artist = artist.name;
         dub.artistId = artist.id;
@@ -1486,6 +1505,32 @@ export function createApiServer({
         broadcastCommunity(user.id);
         broadcastCommunity(grant.userId);
         json(response, 200, communitySnapshot(data, user));
+        return;
+      }
+      if (match && match[1] === "dubs" && match[3] === "share-member" && !match[4] && request.method === "POST") {
+        const input = await readJson(request);
+        const dub = data.dubs.find((item) => item.id === match[2]);
+        const recipient = data.users.find((item) => item.id === input.userId);
+        const text = String(input.text ?? "").trim();
+        if (!text || text.length > 2000) {
+          json(response, 400, { error: "Message must contain between 1 and 2000 characters." });
+          return;
+        }
+        if (!canAccessDub(data, dub, user) || dub.distribution !== "alist" || dub.aListPublic === true
+          || !recipient || recipient.id === user.id || recipient.aListApproved !== true) {
+          json(response, 404, { error: "The shared dub is unavailable to this recipient." });
+          return;
+        }
+        const friendship = findOrCreateFriendship(data, user, recipient);
+        const result = createConversationMessage(data, user, friendship.id, { text, dubId: dub.id });
+        if (result.error) {
+          json(response, result.status, { error: result.error });
+          return;
+        }
+        persist();
+        broadcastCommunity(user.id);
+        broadcastCommunity(recipient.id);
+        json(response, 201, { buddyId: friendship.id, snapshot: communitySnapshot(data, user) });
         return;
       }
       if (request.method === "POST" && route === "/api/buddies") {

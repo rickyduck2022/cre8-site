@@ -8,6 +8,7 @@ export interface NavigationItem {
   icon: ReactNode;
   href?: string;
   badge?: string;
+  variant?: "alist" | "private";
   onClick?: () => void;
 }
 
@@ -104,7 +105,7 @@ function NavigationSectionView({
           <a
             aria-current={activeItem === item.label ? "page" : undefined}
             aria-label={variant === "icons" ? item.label : undefined}
-            className="navigation__item"
+            className={["navigation__item", item.variant && `navigation__item--${item.variant}`].filter(Boolean).join(" ")}
             href={item.href ?? "#"}
             key={item.label}
             onClick={item.onClick}

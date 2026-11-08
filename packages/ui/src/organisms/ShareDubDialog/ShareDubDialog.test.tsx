@@ -21,6 +21,18 @@ beforeAll(() => {
 afterEach(cleanup);
 
 describe("ShareDubDialog", () => {
+  it("shares restricted A-List dubs with non-friends and preserves stable recipients after a snapshot changes", async () => {
+    const send = vi.fn(async () => true);
+    const member = { ...buddies[1], id: "member:user-2", aListApproved: true };
+    const props = { dub: { ...dub, distribution: "alist" as const }, buddies: [member], onClose: vi.fn(), onFindFriends: vi.fn(), onOpenChat: vi.fn(), onSendMessage: send };
+    const { rerender } = render(<ShareDubDialog {...props} />);
+    expect(screen.getByText(/non-friend adds them/)).toBeVisible();
+    fireEvent.click(screen.getByRole("checkbox", { name: /Holik/ }));
+    rerender(<ShareDubDialog {...props} buddies={[]} />);
+    fireEvent.click(screen.getByRole("button", { name: "Send dub" }));
+    await screen.findByText("Sent to Holik");
+    expect(send).toHaveBeenCalledWith("member:user-2", "Shared a dub: Night Drive", "dub-1");
+  });
   it("requires an explicit share again for friends already sent this version", async () => {
     const send = vi.fn(async (_buddyId: string, _text: string, _dubId: string) => true);
     render(<ShareDubDialog dub={{ ...dub, sharedBuddyIds: ["friend-1"] }} buddies={buddies} onClose={vi.fn()} onFindFriends={vi.fn()} onOpenChat={vi.fn()} onSendMessage={send} />);

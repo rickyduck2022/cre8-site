@@ -6,6 +6,24 @@ import type { Dub } from "../communityTypes";
 afterEach(cleanup);
 
 describe("MessengerTemplate shared dubs", () => {
+  it("only offers restricted A-List dubs to approved recipients, while public A-List dubs remain shareable", () => {
+    const dub: Dub = { id: "restricted", title: "Restricted", artist: "You", uploader: "you", uploaderDisplayName: "You", uploadedAt: "", bpm: 0, genre: "Jungle", duration: "1:00", likes: 0, downloads: 0, artwork: "", message: "", distribution: "alist" };
+    const publicDub = { ...dub, id: "public", title: "Public", aListPublic: true };
+    render(<MessengerTemplate
+      buddies={[
+        { id: "friend", username: "amber", displayName: "Amber", presence: "online", genre: "Jungle", role: "DJ", bio: "", groups: [] },
+        { id: "approved", username: "ben", displayName: "Ben", presence: "offline", genre: "Jungle", role: "DJ", bio: "", groups: [], aListApproved: true },
+      ]}
+      conversations={[]} dubs={[dub, publicDub]} shareableDubs={[dub, publicDub]} initialBuddyId="friend" chatConnectionStatus="connected" nowPlayingId={null} isPlaying={false}
+      onOpenProfile={vi.fn()} onPlay={vi.fn()} onStartConversation={vi.fn()} onSelectConversation={vi.fn()} onLoadOlderMessages={vi.fn(async () => null)} onSendMessage={vi.fn(async () => true)}
+    />);
+    fireEvent.click(screen.getByRole("button", { name: "Share one of My Dubs" }));
+    expect(screen.queryByRole("button", { name: "Share Restricted with Amber" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Share Public with Amber" })).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Open conversation with Ben" }));
+    fireEvent.click(screen.getByRole("button", { name: "Share one of My Dubs" }));
+    expect(screen.getByRole("button", { name: "Share Restricted with Ben" })).toBeVisible();
+  });
   it("selects conversations from the entire row and keeps profile access in the header", () => {
     const open = vi.fn();
     const select = vi.fn();

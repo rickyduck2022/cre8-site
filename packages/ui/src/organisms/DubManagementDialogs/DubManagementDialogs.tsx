@@ -13,6 +13,7 @@ export interface DubManagementDialogsProps {
   deletingDub: Dub | null;
   artists: ArtistOption[];
   buddies?: Buddy[];
+  aListMembers?: Buddy[];
   uploadProgress?: UploadProgressState | null;
   uploadError?: string;
   onCloseEdit: () => void;
@@ -24,6 +25,7 @@ export interface DubManagementDialogsProps {
 export function DubManagementDialogs({
   artists,
   buddies,
+  aListMembers,
   deletingDub,
   editingDub,
   onCloseDelete,
@@ -71,6 +73,7 @@ export function DubManagementDialogs({
             key={editingDub.id}
             artists={artists}
             buddies={buddies}
+            aListMembers={aListMembers}
             initialDub={editingDub}
             onCancel={onCloseEdit}
             onSubmit={saveDub}

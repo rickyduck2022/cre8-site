@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 import {
   Friends,
   FriendsFeed,
   Download,
   Disc3,
   MessageCircle,
+  LockKeyhole,
   Users,
 } from "@craft/icons";
 import {
@@ -22,11 +23,13 @@ import {
   LibraryTemplate,
   MyDubsTemplate,
   MessengerTemplate,
+  MobileNavigation,
   Modal,
   Navigation,
   NotificationViewport,
   ProfileTemplate,
   ShareDubDialog,
+  SharedWithMeTemplate,
   shareDubToFriends,
   TrackArtwork,
   createEmptyDubSearchFilters,
@@ -45,8 +48,9 @@ import type { CommunitySection } from "../types/community";
 import "./App.css";
 
 const sectionLabels: Record<CommunitySection, string> = {
-  dubs: "Dub Feed",
+  dubs: "Dub Vault",
   alist: "A-List",
+  "shared-with-me": "Shared With Me",
   "alist-application": "A-List Submission",
   buddies: "Friend List",
   messenger: "Messenger",
@@ -63,6 +67,7 @@ const sectionIcons: Record<CommunitySection, ReactNode> = {
   messenger: <MessageCircle />,
   profile: <Users />,
   library: <Download />,
+  "shared-with-me": <LockKeyhole />,
   "my-dubs": <Disc3 />,
 };
 
@@ -72,7 +77,7 @@ const cre8LogoSrc = "/cre8-main-logo.png";
 function isFeedDub(dub: Dub, aListFeed: boolean, approved: boolean, includePrivate = false): boolean {
   return aListFeed
     ? dub.distribution === "alist" && approved
-    : dub.distribution === "worldwide" || (dub.distribution === "alist" && approved) || (dub.distribution === "private" && includePrivate);
+    : dub.distribution === "worldwide" || (dub.distribution === "alist" && (approved || dub.aListPublic === true)) || (dub.distribution === "private" && includePrivate);
 }
 
 function getSectionFromHash(hash: string): CommunitySection {
@@ -80,7 +85,7 @@ function getSectionFromHash(hash: string): CommunitySection {
   return sections.includes(section) ? section : "dubs";
 }
 
-function createNavigationSections(unreadCount: number, aListApproved: boolean): NavigationSection[] {
+function createNavigationSections(unreadCount: number, aListApproved: boolean, sharedCount: number, feedCount: number, aListCount: number): NavigationSection[] {
   return [
     {
       label: "Your space",
@@ -88,8 +93,15 @@ function createNavigationSections(unreadCount: number, aListApproved: boolean): 
         label: sectionLabels[section],
         icon: sectionIcons[section],
         href: `#${section}`,
+        variant: section === "alist" ? "alist" as const : section === "shared-with-me" ? "private" as const : undefined,
         badge:
-          section === "messenger" && unreadCount > 0
+          section === "dubs"
+            ? String(feedCount)
+            : section === "alist"
+            ? String(aListCount)
+            : section === "shared-with-me"
+            ? String(sharedCount)
+            : section === "messenger" && unreadCount > 0
             ? String(unreadCount)
             : undefined,
       })),
@@ -134,6 +146,7 @@ export function App() {
     markConversationRead,
     loadOlderMessages,
     sendMessage,
+    shareDubWithAListMember,
     unsendMessage,
     updateProfile,
     unreadCount,
@@ -166,10 +179,15 @@ export function App() {
   const [isRegistering, setIsRegistering] = useState(false);
   const [registrationError, setRegistrationError] = useState("");
   const [registrationPending, setRegistrationPending] = useState(false);
+  const memberBuddyIds = useRef(new Map<string, string>());
 
+  const sharedDubs = state.dubs.filter((dub) => state.sharedDubIds.has(dub.id));
+  const approved = state.member?.aListApproved === true;
+  const feedCount = state.dubs.filter((dub) => isFeedDub(dub, false, approved)).length;
+  const aListCount = state.dubs.filter((dub) => isFeedDub(dub, true, approved)).length;
   const navigationSections = useMemo(
-    () => createNavigationSections(unreadCount, state.member?.aListApproved === true),
-    [unreadCount, state.member?.aListApproved],
+    () => createNavigationSections(unreadCount, approved, sharedDubs.length, feedCount, aListCount),
+    [unreadCount, approved, sharedDubs.length, feedCount, aListCount],
   );
   const nowPlaying = state.dubs.find((dub) => dub.id === state.nowPlayingId) ?? null;
   const previewTrack = nowPlaying ?? state.dubs.find((dub) => dub.distribution === "worldwide");
@@ -182,10 +200,21 @@ export function App() {
         state.suggestedMembers.find((member) => member.username === profileUsername) ??
         null;
   const isOwnProfile = profile?.username === state.member?.username;
-  const profileUploads = state.dubs.filter((dub) => dub.uploader === profile?.username && dub.distribution === "worldwide");
   const myDubs = state.member
     ? state.dubs.filter((dub) => dub.uploader === state.member?.username)
     : [];
+  const profileUploads = isOwnProfile
+    ? myDubs
+    : state.dubs.filter((dub) => dub.uploader === profile?.username && (dub.distribution === "worldwide" || (dub.distribution === "alist" && dub.aListPublic === true)));
+  const aListMembers = [
+    ...state.buddies.filter((buddy) => buddy.aListApproved === true && buddy.userId).map((buddy) => ({ ...buddy, id: `member:${buddy.userId}` })),
+    ...state.suggestedMembers.filter((member) => member.aListApproved === true).map((member) => ({ ...member, id: `member:${member.id}` })),
+  ];
+  function shareDialogId(id: string, dub: Dub) {
+    if (dub.distribution !== "alist" || dub.aListPublic === true || id.startsWith("member:")) return id;
+    const userId = state.buddies.find((buddy) => buddy.id === id)?.userId;
+    return userId ? `member:${userId}` : id;
+  }
   const profileBuddy = state.buddies.find((buddy) => buddy.username === profile?.username);
   useEffect(() => {
     function syncSectionWithHash() {
@@ -238,6 +267,11 @@ export function App() {
   }
 
   async function handleShareDub(values: Parameters<typeof addDub>[0]) {
+    if (shareDubTargetId && values.distribution === "alist" && values.aListPublic !== true
+      && !state.buddies.some((buddy) => buddy.id === shareDubTargetId && buddy.aListApproved === true)) {
+      notify("This recipient must be an approved A-List member for a restricted A-List dub. Enable Public or choose another distribution.", "error");
+      return false;
+    }
     setIsUploadSubmitting(true);
     try {
       const dub = await addDub(values);
@@ -268,11 +302,20 @@ export function App() {
     setSharingDub({ dub });
   }
 
+  async function sendToRecipient(recipientId: string, text: string, dubId: string): Promise<boolean> {
+    if (!recipientId.startsWith("member:")) return sendMessage(recipientId, text, dubId);
+    const userId = recipientId.slice("member:".length);
+    const buddyId = await shareDubWithAListMember(userId, text, dubId);
+    if (!buddyId) return false;
+    memberBuddyIds.current.set(userId, buddyId);
+    return true;
+  }
+
   async function handleUpdateDub(dubId: string, values: Parameters<typeof updateDub>[1]) {
     const dub = await updateDub(dubId, values);
     if (!dub) return null;
     const targetIds = values.buddyIds ?? [];
-    const result = await shareDubToFriends(targetIds, dub.id, `Shared a dub: ${dub.title}`, sendMessage);
+    const result = await shareDubToFriends(targetIds, dub.id, `Shared a dub: ${dub.title}`, sendToRecipient);
     if (result.failed.length) {
       notify(`${dub.title} was saved, but could not be sent to every selected friend. Retry without saving again.`, "error");
       setSharingDub({ dub, failedIds: result.failed, sentIds: result.sent });
@@ -505,7 +548,7 @@ export function App() {
               onShareWithFriend={beginSharingDub}
               showIntro={false}
               showDistributionFilter={activeSection === "dubs"}
-              feedName={activeSection === "alist" ? "A-List" : "Dub Feed"}
+              feedName={activeSection === "alist" ? "A-List" : "Dub Vault"}
               onOpenProfile={openProfile}
               onPlay={togglePlayback}
               onQueryChange={setSearchQuery}
@@ -550,11 +593,56 @@ export function App() {
           <LibraryTemplate
             downloads={state.library}
             onDownload={downloadDub}
+            onPlay={togglePlayback}
+            likedDubIds={state.likedDubIds}
+            nowPlayingId={state.nowPlayingId}
+            isPlaying={state.isPlaying}
+            currentTimeSeconds={state.currentTime}
+            durationSeconds={state.duration}
+            volume={state.volume}
+            shuffle={state.shuffle}
+            repeat={state.repeat}
+            playbackError={state.playbackError}
+            onSeek={seekPlayback}
+            onSeekProgress={seekPlaybackProgress}
+            onPrevious={playPreviousDub}
+            onNext={playNextDub}
+            onVolumeChange={setVolume}
+            onShuffleChange={setShuffle}
+            onRepeatChange={setRepeat}
             onOpenProfile={openProfile}
             currentUsername={state.member.username}
             onEditDub={beginDubEdit}
             onDeleteDub={beginDubDelete}
             onShareWithFriend={beginSharingDub}
+          />
+        )}
+        {activeSection === "shared-with-me" && (
+          <SharedWithMeTemplate
+            dubs={sharedDubs}
+            currentUsername={state.member.username}
+            likedDubIds={state.likedDubIds}
+            nowPlayingId={state.nowPlayingId}
+            isPlaying={state.isPlaying}
+            currentTimeSeconds={state.currentTime}
+            durationSeconds={state.duration}
+            volume={state.volume}
+            shuffle={state.shuffle}
+            repeat={state.repeat}
+            playbackError={state.playbackError}
+            onSeek={seekPlayback}
+            onSeekProgress={seekPlaybackProgress}
+            onPrevious={playPreviousDub}
+            onNext={playNextDub}
+            onVolumeChange={setVolume}
+            onShuffleChange={setShuffle}
+            onRepeatChange={setRepeat}
+            onDownload={downloadDub}
+            onPlay={togglePlayback}
+            onOpenProfile={openProfile}
+            onShareWithFriend={beginSharingDub}
+            onEdit={beginDubEdit}
+            onDelete={beginDubDelete}
           />
         )}
         {activeSection === "my-dubs" && (
@@ -656,20 +744,9 @@ export function App() {
         )}
         {activeSection === "profile" && !profile && <p role="status">This profile is no longer available.</p>}
       </div>
-      <nav className="mobile-tabs" aria-label="Main sections">
-        {sections.filter((section) => section !== "alist" || state.member?.aListApproved).map((section) => (
-          <button
-            aria-current={activeSection === section ? "page" : undefined}
-            className={activeSection === section ? "is-active" : ""}
-            key={section}
-            onClick={() => { if (section === "profile") setProfileUsername(""); navigateTo(section); }}
-            type="button"
-          >
-            {sectionIcons[section]}
-            <span>{sectionLabels[section]}</span>
-          </button>
-        ))}
-      </nav>
+      <MobileNavigation activeItem={sectionLabels[activeSection]}
+        primaryHrefs={["#dubs", "#alist", "#shared-with-me", "#messenger"]}
+        sections={navigationSections.map((section) => ({ ...section, items: section.items.map((item) => item.href === "#profile" ? { ...item, onClick: () => setProfileUsername("") } : item) }))} />
 
       <NotificationViewport
         notifications={activeNotifications}
@@ -677,11 +754,12 @@ export function App() {
       />
       {sharingDub && (
         <ShareDubDialog
-          buddies={state.buddies}
+          buddies={(dubsById.get(sharingDub.dub.id) ?? sharingDub.dub).distribution === "alist" && !(dubsById.get(sharingDub.dub.id) ?? sharingDub.dub).aListPublic ? aListMembers : state.buddies}
+          friends={state.buddies}
           dub={dubsById.get(sharingDub.dub.id) ?? sharingDub.dub}
-          key={sharingDub.dub.id}
-          initialBuddyIds={sharingDub.failedIds}
-          initiallySentIds={sharingDub.sentIds}
+          key={`${sharingDub.dub.id}-${(dubsById.get(sharingDub.dub.id) ?? sharingDub.dub).aListPublic === true}`}
+          initialBuddyIds={sharingDub.failedIds?.map((id) => shareDialogId(id, dubsById.get(sharingDub.dub.id) ?? sharingDub.dub))}
+          initiallySentIds={sharingDub.sentIds?.map((id) => shareDialogId(id, dubsById.get(sharingDub.dub.id) ?? sharingDub.dub))}
           initialFailure={Boolean(sharingDub.failedIds?.length)}
           onClose={() => setSharingDub(null)}
           onOpenProfile={(username) => { setSharingDub(null); openProfile(username); }}
@@ -691,9 +769,17 @@ export function App() {
           }}
           onOpenChat={(buddyId) => {
             setSharingDub(null);
-            openChat(buddyId);
+            if (buddyId.startsWith("member:")) {
+              const userId = buddyId.slice("member:".length);
+              const resolvedId = memberBuddyIds.current.get(userId) ?? state.buddies.find((buddy) => buddy.userId === userId)?.id;
+              if (!resolvedId) {
+                notify("The conversation could not be opened.", "error");
+                return;
+              }
+              openChat(resolvedId);
+            } else openChat(buddyId);
           }}
-          onSendMessage={sendMessage}
+          onSendMessage={sendToRecipient}
         />
       )}
       <Modal
@@ -710,6 +796,7 @@ export function App() {
           artists={state.artists}
           aListApproved={state.member.aListApproved}
           buddies={state.buddies}
+          aListMembers={aListMembers}
           initialBuddyIds={shareDubTargetId ? [shareDubTargetId] : []}
           onSubmit={handleShareDub}
           submissionError={uploadError}
@@ -764,6 +851,7 @@ export function App() {
       <DubManagementDialogs
         artists={state.artists}
         buddies={state.buddies}
+        aListMembers={aListMembers}
         deletingDub={deletingDub}
         editingDub={editingDub}
         onCloseDelete={() => setDeletingDub(null)}

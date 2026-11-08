@@ -201,6 +201,16 @@
 }
 
 @media (max-width: 520px) {
+  .dub-search__distribution-options {
+    gap: 0.25rem;
+  }
+
+  .dub-search__distribution {
+    border-radius: 0;
+    gap: 0.375rem;
+    padding: 0.375rem 0.5rem;
+  }
+
   .dub-search__row {
     align-items: stretch;
     flex-direction: column;

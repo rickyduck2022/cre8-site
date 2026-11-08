@@ -17,6 +17,26 @@ const dub: Dub = {
 };
 
 describe("ProfileTemplate ownership controls", () => {
+  it("shows all supplied distribution types in My Dubs with their management actions", () => {
+    const uploads: Dub[] = [
+      { ...dub, distribution: "worldwide", title: "Worldwide dub" },
+      { ...dub, id: "alist", distribution: "alist", title: "A-List dub" },
+      { ...dub, id: "private", distribution: "private", title: "Private dub" },
+    ];
+    const onEditDub = vi.fn();
+    render(<ProfileTemplate
+      profile={profile} uploads={uploads} isOwnProfile playingDubId={null} isPlaying={false}
+      onEditProfile={vi.fn()} onMessage={vi.fn()} onPlay={vi.fn()} onDownload={vi.fn()} onEditDub={onEditDub} onDeleteDub={vi.fn()}
+    />);
+    expect(screen.getByRole("heading", { name: /My Dubs 3/ })).toBeVisible();
+    for (const upload of uploads) {
+      expect(screen.getByRole("region", { name: `Audio player: ${upload.title}` })).toBeVisible();
+      fireEvent.click(screen.getByRole("button", { name: `Actions for ${upload.title}` }));
+      fireEvent.click(screen.getByRole("button", { name: `Edit ${upload.title}` }));
+      expect(onEditDub).toHaveBeenLastCalledWith(upload);
+    }
+  });
+
   it("shows approval beside the profile name only while approved", () => {
     const props = {
       uploads: [], isOwnProfile: true, playingDubId: null, isPlaying: false,

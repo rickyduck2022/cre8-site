@@ -24,7 +24,7 @@ describe("UploadProgress", () => {
     );
 
     expect(screen.getByText("Publishing your dub")).toBeInTheDocument();
-    expect(screen.getByText("Finishing your post and updating the Dub Feed."))
+    expect(screen.getByText("Finishing your post and updating the Dub Vault."))
       .toBeInTheDocument();
   });
 });

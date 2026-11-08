@@ -79,6 +79,7 @@ export interface Dub {
   likedByCurrentUser?: boolean;
   downloaders?: Array<{ username: string; displayName: string; downloadedAt: string; avatarUrl?: string; aListApproved?: boolean }>;
   distribution?: "worldwide" | "private" | "alist";
+  aListPublic?: boolean;
   version?: number;
   sharedBuddyIds?: string[];
   grants?: Array<{ id: string; username: string; displayName: string; avatarUrl?: string; aListApproved?: boolean }>;
