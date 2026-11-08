@@ -1,3 +1,4 @@
+import { cn } from "../../utils/cn";
 import "./ProgressBar.css";
 
 export interface ProgressBarProps {
@@ -15,7 +16,7 @@ export function ProgressBar({ className, label, value }: ProgressBarProps) {
       aria-valuemax={100}
       aria-valuemin={0}
       aria-valuenow={progress}
-      className={["progress-bar", className].filter(Boolean).join(" ")}
+      className={cn("progress-bar", className)}
       role="progressbar"
     >
       <span className="progress-bar__value" style={{ width: `${progress}%` }} />

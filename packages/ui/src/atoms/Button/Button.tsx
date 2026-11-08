@@ -1,4 +1,5 @@
 import type { ButtonHTMLAttributes, ReactNode } from "react";
+import { cn } from "../../utils/cn";
 import "./Button.css";
 
 export type ButtonVariant = "primary" | "secondary" | "tertiary";
@@ -26,16 +27,14 @@ export function Button({
   variant = "primary",
   ...props
 }: ButtonProps) {
-  const classes = [
+  const classes = cn(
     "button",
     `button--${variant}`,
     `button--${size}`,
     hideLabelOnMobile && "button--hide-label-mobile",
     compactOnMobile && "button--compact-on-mobile",
     className,
-  ]
-    .filter(Boolean)
-    .join(" ");
+  );
 
   return (
     <button
