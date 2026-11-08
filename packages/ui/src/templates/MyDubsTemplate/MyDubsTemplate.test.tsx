@@ -30,9 +30,29 @@ function renderPage() {
 }
 
 describe("MyDubsTemplate", () => {
+  it("shows owner statistics with separate download and unique supporter counts", () => {
+    render(<MyDubsTemplate
+      dubs={[{ ...dub, downloads: 3, likes: 1, downloaders: [{ username: "meladee", displayName: "Meladee", downloadedAt: "2026-11-01T12:00:00Z" }] }]}
+      likedDubIds={new Set()}
+      nowPlayingId={null}
+      isPlaying={false}
+      onDownload={vi.fn()}
+      onPlay={vi.fn()}
+      onShareDub={vi.fn()}
+      onEditDub={vi.fn()}
+      onDeleteDub={vi.fn()}
+    />);
+    fireEvent.click(screen.getByText("Statistics for Night Drive"));
+    expect(screen.getByText("Manual download requests: 3")).toBeVisible();
+    expect(screen.getByText("Unique supporters: 1")).toBeVisible();
+    expect(screen.getByRole("list", { name: "Supporters of Night Drive" })).toHaveTextContent("Meladee (@meladee)");
+  });
+
   it("renders the shared dub card and filters the user's tracks", () => {
     renderPage();
     expect(screen.getByText("Night Drive")).toBeInTheDocument();
+    fireEvent.click(screen.getByText("Statistics for Night Drive"));
+    expect(screen.getByText("Supporter details are unavailable.")).toBeVisible();
     fireEvent.change(screen.getByRole("searchbox", { name: "Search my dubs" }), { target: { value: "bass" } });
     expect(screen.getByText("No dubs found")).toBeInTheDocument();
   });

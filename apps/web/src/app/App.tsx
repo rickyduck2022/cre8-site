@@ -443,8 +443,7 @@ export function App() {
               currentUsername={state.member.username}
               onEditDub={beginDubEdit}
               onDeleteDub={beginDubDelete}
-              brandingImageSrc="/we-are-cre8-dnb.png"
-              brandingImageAlt="We Are Cre8 DnB"
+              showIntro={false}
               onOpenProfile={openProfile}
               onPlay={togglePlayback}
               onQueryChange={setSearchQuery}

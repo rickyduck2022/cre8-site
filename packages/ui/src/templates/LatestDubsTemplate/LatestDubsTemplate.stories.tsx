@@ -54,3 +54,9 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const Default: Story = {};
+
+export const DubplateExchange: Story = { args: { feedName: "The Dubplate Exchange", showIntro: false } };
+export const DubVault: Story = { args: { feedName: "The Dub Vault", showIntro: false } };
+export const Rotation: Story = { args: { feedName: "The Rotation", showIntro: false } };
+export const Selection: Story = { args: { feedName: "The Selection", showIntro: false } };
+export const DubRoom: Story = { args: { feedName: "The Dub Room", showIntro: false } };

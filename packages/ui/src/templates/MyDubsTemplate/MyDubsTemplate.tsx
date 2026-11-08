@@ -93,31 +93,47 @@ export function MyDubsTemplate({
 
       <section aria-label="My Dubs" className="my-dubs-template__list feed-list">
         {pagination.items.map((dub) => (
-          <DubCard
-            dub={dub}
-            hasLiked={likedDubIds.has(dub.id)}
-            isPlaying={isPlaying && nowPlayingId === dub.id}
-            isCurrentTrack={nowPlayingId === dub.id}
-            currentTimeSeconds={currentTimeSeconds}
-            durationSeconds={durationSeconds}
-            volume={volume}
-            shuffle={shuffle}
-            repeat={repeat}
-            playbackError={nowPlayingId === dub.id ? playbackError : undefined}
-            onSeek={onSeek}
-            onSeekProgress={onSeekProgress}
-            onPrevious={onPrevious}
-            onNext={onNext}
-            onVolumeChange={onVolumeChange}
-            onShuffleChange={onShuffleChange}
-            onRepeatChange={onRepeatChange}
-            onDownload={onDownload}
-            onPlay={onPlay}
-            onEdit={onEditDub}
-            onDelete={onDeleteDub}
-            manageable
-            key={dub.id}
-          />
+          <div className="my-dubs-template__track" key={dub.id}>
+            <DubCard
+              dub={dub}
+              hasLiked={likedDubIds.has(dub.id)}
+              isPlaying={isPlaying && nowPlayingId === dub.id}
+              isCurrentTrack={nowPlayingId === dub.id}
+              currentTimeSeconds={currentTimeSeconds}
+              durationSeconds={durationSeconds}
+              volume={volume}
+              shuffle={shuffle}
+              repeat={repeat}
+              playbackError={nowPlayingId === dub.id ? playbackError : undefined}
+              onSeek={onSeek}
+              onSeekProgress={onSeekProgress}
+              onPrevious={onPrevious}
+              onNext={onNext}
+              onVolumeChange={onVolumeChange}
+              onShuffleChange={onShuffleChange}
+              onRepeatChange={onRepeatChange}
+              onDownload={onDownload}
+              onPlay={onPlay}
+              onEdit={onEditDub}
+              onDelete={onDeleteDub}
+              manageable
+            />
+            <details className="my-dubs-template__statistics">
+              <summary>Statistics for {dub.title}</summary>
+              <p>Manual download requests: {dub.downloads.toLocaleString()}</p>
+              <p>Unique supporters: {dub.likes.toLocaleString()}</p>
+              <p>Downloads are counted when requested, not when the file transfer completes.</p>
+              {dub.downloaders === undefined ? (
+                <p>Supporter details are unavailable.</p>
+              ) : dub.downloaders.length > 0 ? (
+                <ul aria-label={`Supporters of ${dub.title}`}>
+                  {dub.downloaders.map((supporter) => (
+                    <li key={supporter.username}>{supporter.displayName} (@{supporter.username})</li>
+                  ))}
+                </ul>
+              ) : <p>No supporters yet.</p>}
+            </details>
+          </div>
         ))}
         {filteredDubs.length === 0 && (
           <div className="empty-state">

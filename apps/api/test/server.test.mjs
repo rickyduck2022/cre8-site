@@ -576,6 +576,8 @@ test("starter account has no seeded tracks and retains uploaded community activi
     const uploaderSnapshot = await fetch(`${server.baseUrl}/api/community`, { headers: { cookie } }).then((response) => response.json());
     const uploaderDub = uploaderSnapshot.dubs.find((item) => item.id === newDub.id);
     assert.equal(uploaderDub.downloads, 3);
+    assert.equal(uploaderDub.likes, 2);
+    assert.equal(uploaderDub.downloaders.length, 2);
     assert.ok(uploaderDub.downloaders.some((downloader) => downloader.username === "downloadfan"));
     assert.equal(uploaderSnapshot.library.length, 2);
     const fanSnapshot = await fetch(`${server.baseUrl}/api/community`, { headers: { cookie: fanCookie } }).then((response) => response.json());

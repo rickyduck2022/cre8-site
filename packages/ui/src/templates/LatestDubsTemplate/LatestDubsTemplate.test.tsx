@@ -13,6 +13,23 @@ const dub: Dub = {
 };
 
 describe("LatestDubsTemplate ownership controls", () => {
+  it("can show a compact music-first heading without the rotation introduction", () => {
+    render(<LatestDubsTemplate
+      dubs={[dub]}
+      likedDubIds={new Set()}
+      nowPlayingId={null}
+      isPlaying={false}
+      onDownload={vi.fn()}
+      onOpenProfile={vi.fn()}
+      onPlay={vi.fn()}
+      showIntro={false}
+      feedName="The Dub Vault"
+    />);
+    expect(screen.getByRole("heading", { name: "The Dub Vault" })).toBeInTheDocument();
+    expect(screen.queryByText("YOUR COMMUNITY, IN ROTATION")).not.toBeInTheDocument();
+    expect(screen.getByRole("tablist", { name: "Sort dubs" })).toBeInTheDocument();
+  });
+
   it("shows the playing indicator only on the active dub card", () => {
     const otherDub = { ...dub, id: "other", title: "Other Dub", uploader: "someone-else" };
     const props = {

@@ -45,6 +45,8 @@ export interface LatestDubsTemplateProps {
   onPlay: (dub: Dub) => void;
   brandingImageSrc?: string;
   brandingImageAlt?: string;
+  feedName?: string;
+  showIntro?: boolean;
   currentUsername?: string;
   onEditDub?: (dub: Dub) => void;
   onDeleteDub?: (dub: Dub) => void;
@@ -84,6 +86,8 @@ export function LatestDubsTemplate({
   onPlay,
   brandingImageSrc,
   brandingImageAlt = "Cre8 DnB branding",
+  feedName = "Dub Feed",
+  showIntro = true,
   currentUsername,
   onEditDub,
   onDeleteDub,
@@ -112,27 +116,31 @@ export function LatestDubsTemplate({
 
   return (
     <div className="latest-dubs-template">
-      <section className={brandingImageSrc ? "page-intro latest-dubs-template__intro" : "page-intro"}>
-        {brandingImageSrc && (
-          <img
-            alt={brandingImageAlt}
-            className="latest-dubs-template__branding"
-            src={brandingImageSrc}
-          />
-        )}
-        <div className={brandingImageSrc ? "latest-dubs-template__intro-copy" : undefined}>
-          <span className="eyebrow">YOUR COMMUNITY, IN ROTATION</span>
-          <h1>{crateName ?? "Dub Feed"}</h1>
-          <p>
-            {crateName
-              ? "Dubs saved in this crate."
-              : "Discover the freshest dubs from artists across the Drum & Bass and Jungle scene."}
-          </p>
-        </div>
-        <Badge dot variant="audio">
-          {dubs.length} fresh dubs
-        </Badge>
-      </section>
+      {showIntro ? (
+        <section className={brandingImageSrc ? "page-intro latest-dubs-template__intro" : "page-intro"}>
+          {brandingImageSrc && (
+            <img
+              alt={brandingImageAlt}
+              className="latest-dubs-template__branding"
+              src={brandingImageSrc}
+            />
+          )}
+          <div className={brandingImageSrc ? "latest-dubs-template__intro-copy" : undefined}>
+            <span className="eyebrow">YOUR COMMUNITY, IN ROTATION</span>
+            <h1>{crateName ?? feedName}</h1>
+            <p>
+              {crateName
+                ? "Dubs saved in this crate."
+                : "Discover the freshest dubs from artists across the Drum & Bass and Jungle scene."}
+            </p>
+          </div>
+          <Badge dot variant="audio">
+            {dubs.length} fresh dubs
+          </Badge>
+        </section>
+      ) : (
+        <h1 className="latest-dubs-template__title">{crateName ?? feedName}</h1>
+      )}
 
       <div className="feed-toolbar">
         <div className="feed-toolbar__filters" role="tablist" aria-label="Sort dubs">

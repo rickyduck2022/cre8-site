@@ -4,6 +4,10 @@
   min-width: 0;
 }
 
+.latest-dubs-template__title {
+  margin: 0;
+}
+
 .latest-dubs-template__intro {
   align-items: center;
   display: grid;
