@@ -48,6 +48,26 @@ describe("A-List application workflow", () => {
     expect(screen.getByRole("button", { name: "Resubmit application" })).toBeVisible();
   });
 
+  it("announces a missing role without submitting and preserves the entered fields", async () => {
+    const onSubmit = vi.fn().mockResolvedValue(true);
+    render(<AListApplication artistName="Artist" application={null} onSubmit={onSubmit} />);
+    fireEvent.change(screen.getByLabelText("How long have you been DJing?"), { target: { value: "10 years" } });
+    for (const provider of ["Instagram", "TikTok", "Facebook"]) {
+      fireEvent.change(screen.getByLabelText(`${provider} profile URL`), { target: { value: `https://example.com/${provider}` } });
+    }
+    fireEvent.click(screen.getByRole("button", { name: "Submit application" }));
+    expect(screen.getByRole("alert")).toHaveTextContent("Select at least one role.");
+    expect(screen.getByRole("group", { name: "Roles (select all that apply)" })).toHaveAccessibleDescription("Select at least one role.");
+    expect(screen.getByRole("checkbox", { name: "DJ" })).toHaveFocus();
+    expect(onSubmit).not.toHaveBeenCalled();
+    expect(screen.getByLabelText("How long have you been DJing?")).toHaveValue("10 years");
+    fireEvent.click(screen.getByRole("checkbox", { name: "DJ" }));
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Submit application" }));
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledOnce());
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
   it("reviews details and requires a message before requesting more information", async () => {
     const request = vi.fn().mockImplementation((path: string) => Promise.resolve(path.endsWith("/members")
       ? { members: [] } : { applications: [{ ...application, username: "artist", displayName: "Artist", approved: false }] }));

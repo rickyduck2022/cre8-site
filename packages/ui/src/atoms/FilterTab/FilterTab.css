@@ -5,7 +5,7 @@
   color: var(--text-secondary);
   cursor: pointer;
   font: inherit;
-  font-size: var(--font-size-11);
+  font-size: var(--type-size-label);
   line-height: 1.25;
   padding: 0.3125rem 0.5rem;
   transition:

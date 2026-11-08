@@ -40,7 +40,7 @@
 .app-login__form > label {
   color: var(--text-secondary);
   display: grid;
-  font-size: var(--font-size-11);
+  font-size: var(--type-size-label);
   gap: 0.4rem;
 }
 
@@ -50,6 +50,8 @@
   border-radius: 0.5rem;
   color: var(--text-primary);
   font: inherit;
+  font-size: var(--type-size-input);
+  line-height: var(--type-leading-body);
   min-height: 2.5rem;
   padding: 0.5rem 0.75rem;
 }

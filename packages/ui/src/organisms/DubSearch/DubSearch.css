@@ -45,7 +45,7 @@
 .dub-search__panel > .tag-selector legend,
 .dub-search__range legend {
   color: var(--text-primary);
-  font-size: var(--font-size-13);
+  font-size: var(--type-size-compact);
   font-weight: 700;
   letter-spacing: 0.01em;
 }
@@ -75,7 +75,7 @@
 .dub-search__select > span,
 .dub-search__range label > span {
   color: var(--text-secondary);
-  font-size: var(--font-size-10);
+  font-size: var(--type-size-caption);
   font-weight: 700;
   letter-spacing: 0.045em;
   text-transform: uppercase;
@@ -112,7 +112,7 @@
   border-top: 1px solid var(--border-default);
   color: var(--text-secondary);
   display: flex;
-  font-size: var(--font-size-12);
+  font-size: var(--type-size-compact);
   justify-content: space-between;
   padding-top: 0.75rem;
 }

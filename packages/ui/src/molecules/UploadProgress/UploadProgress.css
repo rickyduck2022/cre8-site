@@ -11,7 +11,7 @@
   align-items: center;
   color: var(--text-primary);
   display: flex;
-  font-size: var(--font-size-11);
+  font-size: var(--type-size-label);
   gap: 1rem;
   justify-content: space-between;
 }
@@ -20,12 +20,12 @@
   color: var(--audio-active);
   flex: none;
   font-family: var(--font-mono);
-  font-size: var(--font-size-10);
+  font-size: var(--type-size-caption);
 }
 
 .upload-progress__hint {
   color: var(--text-secondary);
-  font-size: var(--font-size-10);
+  font-size: var(--type-size-caption);
   line-height: 1.4;
   margin: 0;
 }

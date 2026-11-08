@@ -14,19 +14,19 @@
 }
 
 .avatar--small {
-  font-size: var(--font-size-10);
+  font-size: var(--type-size-caption);
   height: 1.5rem;
   width: 1.5rem;
 }
 
 .avatar--medium {
-  font-size: var(--font-size-12);
+  font-size: var(--type-size-compact);
   height: 2rem;
   width: 2rem;
 }
 
 .avatar--large {
-  font-size: var(--font-size-14);
+  font-size: var(--type-size-body);
   height: 2.5rem;
   width: 2.5rem;
 }

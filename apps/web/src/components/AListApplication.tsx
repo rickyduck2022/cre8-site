@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useId, useRef, useState, type FormEvent } from "react";
 import { Button, type AListApplication as Application, type AListApplicationFields, type AListProvider, type AListRole } from "@craft/ui";
 import "./AListApplication.css";
 
@@ -29,13 +29,15 @@ export function AListApplication({ application, artistName, approved, onSubmit }
   const [fields, setFields] = useState<AListApplicationFields>(() => application?.versions.at(-1)?.fields ?? emptyFields(artistName));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const roleErrorId = useId();
+  const firstRoleRef = useRef<HTMLInputElement>(null);
   const lastDecision = application?.decisions.at(-1);
   const canSubmit = !approved && (!application || ["rejected", "revoked", "more_information"].includes(application.status));
   const statusLabel = application?.status === "more_information" ? "More information requested" : application?.status === "pending" ? "Pending review" : application?.status;
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!fields.roles.length) { setError("Select at least one role."); return; }
+    if (!fields.roles.length) { setError("Select at least one role."); firstRoleRef.current?.focus(); return; }
     setError("");
     setBusy(true);
     try { await onSubmit(fields); } finally { setBusy(false); }
@@ -56,13 +58,12 @@ export function AListApplication({ application, artistName, approved, onSubmit }
       {!application && approved && <section className="alist-application__status" aria-label="Application status"><strong>Status: Approved</strong><p>Your account already has A-List access.</p></section>}
       {canSubmit && <form className="alist-application__form" onSubmit={(event) => void submit(event)}>
         <label>Artist name<input required maxLength={100} value={fields.artistName} onChange={(event) => setFields({ ...fields, artistName: event.target.value })} /></label>
-        <fieldset><legend>Roles (select all that apply)</legend><div className="alist-application__roles">{roles.map((role) => <label key={role}><input type="checkbox" checked={fields.roles.includes(role)} onChange={(event) => setFields({ ...fields, roles: event.target.checked ? [...fields.roles, role] : fields.roles.filter((item) => item !== role) })} />{role}</label>)}</div></fieldset>
+        <fieldset aria-describedby={error ? roleErrorId : undefined}><legend>Roles (select all that apply)</legend><div className="alist-application__roles">{roles.map((role, index) => <label key={role}><input ref={index === 0 ? firstRoleRef : undefined} type="checkbox" checked={fields.roles.includes(role)} onChange={(event) => { setFields({ ...fields, roles: event.target.checked ? [...fields.roles, role] : fields.roles.filter((item) => item !== role) }); if (event.target.checked) setError(""); }} />{role}</label>)}</div>{error && <p className="alist-application__error" id={roleErrorId} role="alert">{error}</p>}</fieldset>
         <label>How long have you been DJing?<input required maxLength={100} value={fields.djExperience} onChange={(event) => setFields({ ...fields, djExperience: event.target.value })} /></label>
         <label>How long have you been producing? (optional)<input maxLength={100} value={fields.producerExperience} onChange={(event) => setFields({ ...fields, producerExperience: event.target.value })} /></label>
         {([["events", "Event or brand"], ["supporters", "Supporting artist"], ["labels", "Record label"]] as const).map(([key, label]) => <fieldset key={key}><legend>Up to three {key === "supporters" ? "supporting artists" : key === "labels" ? "record labels" : "events or brands"}</legend><div className="alist-application__grid">{[0, 1, 2].map((index) => <label key={index}>{label} {index + 1}<input maxLength={120} value={fields[key][index] ?? ""} onChange={(event) => setListItem(key, index, event.target.value)} /></label>)}</div></fieldset>)}
         <fieldset><legend>Social media</legend><p>Follower counts are self-reported and unverified.</p>{providers.map(({ key, label }) => <div className="alist-application__grid" key={key}><label>{label} profile URL{key === "soundcloud" && " (optional)"}<input type="url" required={key !== "soundcloud"} maxLength={300} value={fields.social[key].url} onChange={(event) => setFields({ ...fields, social: { ...fields.social, [key]: { ...fields.social[key], url: event.target.value } } })} /></label><label>{label} followers (optional, unverified)<input type="number" min="0" max="10000000000" step="1" value={fields.social[key].followers ?? ""} onChange={(event) => setFields({ ...fields, social: { ...fields.social, [key]: { ...fields.social[key], followers: event.target.value === "" ? null : Number(event.target.value) } } })} /></label></div>)}</fieldset>
         <label>Additional information (optional)<textarea maxLength={2000} rows={5} value={fields.additionalInfo} onChange={(event) => setFields({ ...fields, additionalInfo: event.target.value })} /></label>
-        {error && <p role="alert">{error}</p>}
         <Button type="submit" loading={busy} disabled={busy}>{application ? "Resubmit application" : "Submit application"}</Button>
       </form>}
     </div>

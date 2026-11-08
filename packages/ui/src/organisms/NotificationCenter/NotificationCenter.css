@@ -79,7 +79,7 @@
 }
 
 .notification-center__header h2 {
-  font-size: var(--font-size-12);
+  font-size: var(--type-size-compact);
   margin: 0;
 }
 
@@ -91,7 +91,7 @@
   color: var(--text-secondary);
   cursor: pointer;
   font: inherit;
-  font-size: var(--font-size-10);
+  font-size: var(--type-size-caption);
   padding: 0.35rem;
 }
 
@@ -164,7 +164,7 @@
 
 .notification-center__content p {
   color: var(--text-primary);
-  font-size: var(--font-size-11);
+  font-size: var(--type-size-label);
   line-height: 1.45;
   margin: 0;
   overflow-wrap: anywhere;
@@ -173,7 +173,7 @@
 .notification-center__content time {
   color: var(--text-secondary);
   display: block;
-  font-size: var(--font-size-9);
+  font-size: var(--type-size-micro);
   margin-top: 0.35rem;
 }
 
@@ -184,7 +184,7 @@
 
 .notification-center__empty {
   color: var(--text-secondary);
-  font-size: var(--font-size-11);
+  font-size: var(--type-size-label);
   margin: 0;
   padding: 1.25rem 1rem;
   text-align: center;

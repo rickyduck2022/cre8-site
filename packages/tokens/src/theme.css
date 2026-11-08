@@ -35,9 +35,32 @@
   --focus-ring: var(--color-cyan-400);
   --link-default: var(--color-blue-500);
 
-  /* Fonts */
-  --font-interface: 'Inter', sans-serif;
-  --font-mono: 'IBM Plex Mono', monospace;
+  /* Font names are optional local fonts; no external font request is required. */
+  --font-interface: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, 'Cascadia Code', 'Consolas', monospace;
+
+  /* Semantic typography */
+  --type-size-micro: 0.625rem;
+  --type-size-caption: 0.6875rem;
+  --type-size-label: 0.75rem;
+  --type-size-compact: 0.8125rem;
+  --type-size-body: 0.875rem;
+  --type-size-input: 0.875rem;
+  --type-size-section: 1.125rem;
+  --type-size-heading: 1.25rem;
+  --type-size-title: 1.4375rem;
+  --type-size-page: clamp(1.75rem, 3vw, 2.25rem);
+  --type-size-button-small: 0.6875rem;
+  --type-size-button-medium: 0.75rem;
+  --type-size-button-large: 0.875rem;
+  --type-leading-tight: 1.2;
+  --type-leading-control: 1.25;
+  --type-leading-body: 1.5;
+  --type-weight-regular: 400;
+  --type-weight-medium: 600;
+  --type-weight-strong: 700;
+  --type-tracking-heading: -0.035em;
+  --type-tracking-eyebrow: 0.14em;
 
   /* Typography scale: retain the optical sizes used in the foundations source. */
   --font-size-9: 9px;
@@ -59,13 +82,14 @@
   --font-size-29: 29px;
   --font-size-30: 30px;
 
-  --text-caption: var(--font-size-9);
-  --text-label: var(--font-size-11);
-  --text-body: var(--font-size-14);
-  --text-title: var(--font-size-20);
+  --text-caption: var(--type-size-caption);
+  --text-label: var(--type-size-label);
+  --text-body: var(--type-size-body);
+  --text-title: var(--type-size-heading);
 }
 
 body {
   font-family: var(--font-interface);
   font-size: var(--text-body);
+  line-height: var(--type-leading-body);
 }

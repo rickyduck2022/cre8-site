@@ -8,7 +8,7 @@
 
 .crate-manager__intro {
   color: var(--text-secondary);
-  font-size: var(--font-size-11);
+  font-size: var(--type-size-label);
   line-height: 1.5;
   margin: 0;
 }
@@ -38,7 +38,7 @@
   border-radius: 0.5rem;
   color: var(--text-secondary);
   display: flex;
-  font-size: var(--font-size-11);
+  font-size: var(--type-size-label);
   gap: 0.625rem;
   min-width: 0;
   padding: 0.625rem 0.75rem;
@@ -113,14 +113,14 @@
 .crate-manager__identity strong,
 .crate-manager__track-info strong {
   color: var(--text-primary);
-  font-size: var(--font-size-11);
+  font-size: var(--type-size-label);
   overflow-wrap: anywhere;
 }
 
 .crate-manager__identity span,
 .crate-manager__track-info small {
   color: var(--text-secondary);
-  font-size: var(--font-size-9);
+  font-size: var(--type-size-micro);
 }
 
 .crate-manager__actions {
@@ -141,7 +141,7 @@
 
 .crate-manager__confirm p {
   flex: 1 1 100%;
-  font-size: var(--font-size-11);
+  font-size: var(--type-size-label);
   margin: 0;
 }
 
@@ -181,7 +181,7 @@
   color: var(--text-secondary);
   display: flex;
   flex-wrap: wrap;
-  font-size: var(--font-size-11);
+  font-size: var(--type-size-label);
   gap: 0.5rem;
   justify-content: center;
   margin: 0;
