@@ -5,13 +5,14 @@ import type { DubUploadFormValues } from "../../molecules/DubUploadForm/DubUploa
 import { ModalFooter } from "../../molecules/ModalFooter/ModalFooter";
 import type { UploadProgressState } from "../../molecules/notificationTypes";
 import { Modal } from "../Modal/Modal";
-import type { ArtistOption, Dub } from "../../templates/communityTypes";
+import type { ArtistOption, Buddy, Dub } from "../../templates/communityTypes";
 import "./DubManagementDialogs.css";
 
 export interface DubManagementDialogsProps {
   editingDub: Dub | null;
   deletingDub: Dub | null;
   artists: ArtistOption[];
+  buddies?: Buddy[];
   uploadProgress?: UploadProgressState | null;
   uploadError?: string;
   onCloseEdit: () => void;
@@ -22,6 +23,7 @@ export interface DubManagementDialogsProps {
 
 export function DubManagementDialogs({
   artists,
+  buddies,
   deletingDub,
   editingDub,
   onCloseDelete,
@@ -32,13 +34,19 @@ export function DubManagementDialogs({
   uploadProgress = null,
 }: DubManagementDialogsProps) {
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   async function saveDub(values: DubUploadFormValues) {
     if (!editingDub) return false;
-    const updated = await onUpdateDub(editingDub.id, values);
-    if (!updated) return false;
-    onCloseEdit();
-    return updated;
+    setIsSaving(true);
+    try {
+      const updated = await onUpdateDub(editingDub.id, values);
+      if (!updated) return false;
+      onCloseEdit();
+      return updated;
+    } finally {
+      setIsSaving(false);
+    }
   }
 
   async function deleteDub() {
@@ -55,13 +63,14 @@ export function DubManagementDialogs({
     <>
       <Modal
         isOpen={Boolean(editingDub)}
-        onClose={onCloseEdit}
+        onClose={() => !isSaving && onCloseEdit()}
         title={editingDub ? `Edit ${editingDub.title}` : "Edit dub"}
       >
         {editingDub && (
           <DubUploadForm
             key={editingDub.id}
             artists={artists}
+            buddies={buddies}
             initialDub={editingDub}
             onCancel={onCloseEdit}
             onSubmit={saveDub}

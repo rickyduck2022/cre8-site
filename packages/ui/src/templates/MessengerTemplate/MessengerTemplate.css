@@ -6,4 +6,6 @@
 
 .share-a-dub__search { margin: 0.625rem; }
 .share-a-dub__entry:disabled { cursor: wait; opacity: 0.6; }
+.share-a-dub__entry--shared { cursor: default; }
+.share-a-dub__entry--shared:hover { background: transparent; }
 .shared-dub-message > p { margin: 0 0 0.625rem; white-space: pre-wrap; overflow-wrap: anywhere; }

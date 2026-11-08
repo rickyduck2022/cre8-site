@@ -68,6 +68,15 @@ is used. The Worldwide feed and its search exclude both other
 tiers. The API checks access independently for media, search, snapshots,
 messages, playback, crates, library and admin overview.
 
+Share history is tracked per sender, friend, dub and current version, independently
+of paginated messages. A friend already sent that version is marked Shared and
+can explicitly be selected using Share again. A successful edit that changes
+track metadata or media creates a new version; saving without changes does not.
+Unsent messages and revoked private access do not erase the share history.
+Schema 5 data migrates with empty versioned share history: older messages cannot
+reliably be attributed to the current version because earlier edits were not
+versioned.
+
 Conversation snapshots include the most recent 30 messages per conversation.
 The authenticated `GET /api/conversations/:buddyId/messages` endpoint returns
 the newest page; pass `?before=<message-id>` to fetch the page immediately

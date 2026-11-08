@@ -135,7 +135,7 @@ export function DubCard({
             </div>
             <TrackTag
               aria-label={`Distribution: ${distributionLabel}`}
-              className="dub-card__distribution"
+              className={`dub-card__distribution dub-card__distribution--${dub.distribution ?? "worldwide"}`}
               variant="accent"
             >
               {distributionLabel}

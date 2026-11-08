@@ -681,7 +681,7 @@ test("schema v3 migration preserves records and defaults existing dubs to Worldw
     writeFileSync(join(mediaDirectory, "legacy.wav"), "audio");
     writeFileSync(dataPath, JSON.stringify(data));
     const migrated = initializeData(dataPath, mediaDirectory);
-    assert.equal(migrated.schemaVersion, 5);
+    assert.equal(migrated.schemaVersion, 6);
     assert.equal(migrated.dubs[0].distribution, "worldwide");
     assert.deepEqual(migrated.downloads, data.downloads);
     assert.equal(readFileSync(join(mediaDirectory, "legacy.wav"), "utf8"), "audio");
@@ -704,11 +704,29 @@ test("schema v4 migration preserves existing grants and A-List status", () => {
     data.dubGrants.push({ dubId: "private", userId: data.users[1].id });
     writeFileSync(dataPath, JSON.stringify(data));
     const migrated = initializeData(dataPath, join(directory, "audio"));
-    assert.equal(migrated.schemaVersion, 5);
+    assert.equal(migrated.schemaVersion, 6);
     assert.equal(migrated.users[0].aListApproved, true);
     assert.deepEqual(migrated.dubGrants, data.dubGrants);
     assert.deepEqual(migrated.aListApplications, []);
     assert.deepEqual(migrated.notifications, []);
+  } finally { rmSync(directory, { recursive: true, force: true }); }
+});
+
+test("schema v5 migration preserves dubs and messages without guessing their shared version", () => {
+  const directory = mkdtempSync(join(tmpdir(), "cre8-v5-migration-"));
+  const dataPath = join(directory, "community.json");
+  try {
+    const data = initializeData(dataPath, join(directory, "audio"));
+    data.schemaVersion = 5;
+    delete data.dubShares;
+    data.dubs.push({ id: "legacy", title: "Old track", distribution: "private", uploaderId: "user-meladee" });
+    data.conversations.push({ ownerId: "user-meladee", buddyId: "old-friend", messages: [{ id: "old-message", sender: "you", text: "Shared", dubId: "legacy" }] });
+    writeFileSync(dataPath, JSON.stringify(data));
+    const migrated = initializeData(dataPath, join(directory, "audio"));
+    assert.equal(migrated.schemaVersion, 6);
+    assert.equal(migrated.dubs[0].version, 1);
+    assert.deepEqual(migrated.dubShares, []);
+    assert.equal(migrated.conversations[0].messages[0].dubId, "legacy");
   } finally { rmSync(directory, { recursive: true, force: true }); }
 });
 
@@ -821,6 +839,74 @@ test("A-List applications, decisions, notifications and access persist across se
     if (socket) socket.terminate();
     await server.close();
     if (oldAdmins === undefined) delete process.env.ADMIN_USERNAMES; else process.env.ADMIN_USERNAMES = oldAdmins;
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("share history tracks each sender, friend and changed dub version across restarts", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "cre8-share-version-"));
+  const dataPath = join(directory, "community.json");
+  const data = initializeData(dataPath, join(directory, "audio"));
+  data.dubs.push({
+    id: "versioned", version: 1, title: "Original", artist: "Meladee", artistId: "artist-meladee",
+    uploaderId: "user-meladee", uploadedAt: "2026-01-01T00:00:00Z", distribution: "worldwide",
+    bpm: 174, tags: ["Jungle"], genre: "Jungle", message: "Hello", duration: "03:00", artwork: "whitelabel",
+  });
+  writeFileSync(dataPath, JSON.stringify(data));
+  let server = await startTestServer(directory);
+  const login = async (username) => {
+    const response = await fetch(`${server.baseUrl}/api/login`, {
+      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ username, password: username }),
+    });
+    assert.equal(response.status, 200);
+    return response.headers.get("set-cookie").split(";")[0];
+  };
+  const request = (cookie, path, method = "GET", body) => fetch(`${server.baseUrl}${path}`, {
+    method, headers: { cookie, ...(body ? { "content-type": "application/json" } : {}) },
+    ...(body ? { body: JSON.stringify(body) } : {}),
+  });
+  const snapshot = async (cookie) => (await request(cookie, "/api/community")).json();
+  try {
+    let owner = await login("meladee");
+    const recipient = await login("holik");
+    await request(owner, "/api/buddies", "POST", { username: "holik" });
+    const buddyId = (await snapshot(owner)).buddies.find((buddy) => buddy.username === "holik").id;
+    const share = () => request(owner, `/api/conversations/${buddyId}/messages`, "POST", { text: "Listen", dubId: "versioned" });
+    assert.deepEqual((await snapshot(owner)).dubs[0].sharedBuddyIds, []);
+    assert.equal((await share()).status, 201);
+    let ownerSnapshot = await snapshot(owner);
+    assert.deepEqual(ownerSnapshot.dubs[0].sharedBuddyIds, [buddyId]);
+    assert.deepEqual((await snapshot(recipient)).dubs[0].sharedBuddyIds, []);
+    const messageId = ownerSnapshot.conversations[0].messages[0].id;
+    assert.equal((await request(owner, `/api/conversations/${buddyId}/messages/${messageId}`, "DELETE")).status, 200);
+    assert.deepEqual((await snapshot(owner)).dubs[0].sharedBuddyIds, [buddyId]);
+    const fields = { title: "Original", artistId: "artist-meladee", tags: ["Jungle"], bpm: 174, message: "Hello" };
+    const unchanged = await (await request(owner, "/api/dubs/versioned", "PATCH", fields)).json();
+    assert.equal(unchanged.version, 1);
+    assert.deepEqual(unchanged.sharedBuddyIds, [buddyId]);
+    const updated = await (await request(owner, "/api/dubs/versioned", "PATCH", { ...fields, title: "Updated" })).json();
+    assert.equal(updated.version, 2);
+    assert.deepEqual(updated.sharedBuddyIds, []);
+    assert.equal((await share()).status, 201);
+    const media = await fetch(`${server.baseUrl}/api/uploads?type=audio`, {
+      method: "POST", headers: { cookie: owner, "x-file-name": "replacement.wav", "content-type": "application/octet-stream" },
+      body: Buffer.from("replacement audio"),
+    });
+    assert.equal(media.status, 201);
+    const replacement = await (await request(owner, "/api/dubs/versioned", "PATCH", { ...fields, title: "Updated", uploadId: (await media.json()).uploadId })).json();
+    assert.equal(replacement.version, 3);
+    assert.deepEqual(replacement.sharedBuddyIds, []);
+    assert.equal((await share()).status, 201);
+    await server.close();
+    server = await startTestServer(directory);
+    owner = await login("meladee");
+    ownerSnapshot = await snapshot(owner);
+    assert.equal(ownerSnapshot.dubs[0].version, 3);
+    assert.deepEqual(ownerSnapshot.dubs[0].sharedBuddyIds, [buddyId]);
+    assert.equal((await request(owner, "/api/dubs/versioned", "DELETE")).status, 200);
+    assert.deepEqual(JSON.parse(readFileSync(dataPath, "utf8")).dubShares, []);
+  } finally {
+    await server.close();
     rmSync(directory, { recursive: true, force: true });
   }
 });
@@ -1003,7 +1089,7 @@ test("schema v2 migration removes only built-in dubs and their activity", async 
 
   try {
     const migrated = JSON.parse(readFileSync(dataPath, "utf8"));
-    assert.equal(migrated.schemaVersion, 5);
+    assert.equal(migrated.schemaVersion, 6);
     assert.equal(migrated.dubs[0].distribution, "worldwide");
     assert.deepEqual(migrated.dubs.map((dub) => dub.id), ["uploaded-dub"]);
     assert.deepEqual(migrated.likes.map((like) => like.dubId), ["uploaded-dub"]);
@@ -1014,7 +1100,7 @@ test("schema v2 migration removes only built-in dubs and their activity", async 
     await server.close();
     server = await startTestServer(directory);
     const persisted = JSON.parse(readFileSync(dataPath, "utf8"));
-    assert.equal(persisted.schemaVersion, 5);
+    assert.equal(persisted.schemaVersion, 6);
     assert.deepEqual(persisted.dubs.map((dub) => dub.id), ["uploaded-dub"]);
   } finally {
     await server.close();

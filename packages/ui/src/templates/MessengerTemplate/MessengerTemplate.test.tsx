@@ -6,6 +6,26 @@ import type { Dub } from "../communityTypes";
 afterEach(cleanup);
 
 describe("MessengerTemplate shared dubs", () => {
+  it("offers an explicit share again action for dubs already sent to the selected friend", async () => {
+    const dub: Dub = {
+      id: "dub", title: "My Release", artist: "You", uploader: "you", uploaderDisplayName: "You",
+      uploadedAt: "2026-11-01T12:00:00Z", bpm: 0, genre: "Jungle", duration: "03:30",
+      likes: 0, downloads: 0, artwork: "whitelabel", message: "", sharedBuddyIds: ["friend-1"],
+    };
+    const send = vi.fn(async () => true);
+    render(<MessengerTemplate
+      buddies={[{ id: "friend-1", username: "amber", displayName: "Amber", presence: "online", genre: "Jungle", role: "DJ", bio: "", groups: [] }]}
+      conversations={[]} dubs={[dub]} shareableDubs={[dub]} initialBuddyId="friend-1"
+      chatConnectionStatus="connected" nowPlayingId={null} isPlaying={false}
+      onOpenProfile={vi.fn()} onPlay={vi.fn()} onStartConversation={vi.fn()}
+      onSelectConversation={vi.fn()} onLoadOlderMessages={vi.fn(async () => null)} onSendMessage={send}
+    />);
+    fireEvent.click(screen.getByRole("button", { name: "Share one of My Dubs" }));
+    expect(screen.queryByRole("button", { name: "Share My Release with Amber" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Share My Release again with Amber" }));
+    await waitFor(() => expect(send).toHaveBeenCalledWith("friend-1", "Shared a dub: My Release", "dub"));
+  });
+
   it("offers only owned dubs and can open the existing upload flow", async () => {
     const ownDub: Dub = {
       id: "my-dub", title: "My Release", artist: "You", uploader: "you",

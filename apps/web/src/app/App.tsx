@@ -256,6 +256,20 @@ export function App() {
     setSharingDub({ dub });
   }
 
+  async function handleUpdateDub(dubId: string, values: Parameters<typeof updateDub>[1]) {
+    const dub = await updateDub(dubId, values);
+    if (!dub) return null;
+    const targetIds = values.buddyIds ?? [];
+    const result = await shareDubToFriends(targetIds, dub.id, `Shared a dub: ${dub.title}`, sendMessage);
+    if (result.failed.length) {
+      notify(`${dub.title} was saved, but could not be sent to every selected friend. Retry without saving again.`, "error");
+      setSharingDub({ dub, failedIds: result.failed, sentIds: result.sent });
+    } else if (targetIds.length) {
+      notify(`${dub.title} was sent to ${targetIds.length} ${targetIds.length === 1 ? "friend" : "friends"} in Messenger.`);
+    }
+    return dub;
+  }
+
   async function handleLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setLoginError("");
@@ -641,7 +655,7 @@ export function App() {
       {sharingDub && (
         <ShareDubDialog
           buddies={state.buddies}
-          dub={sharingDub.dub}
+          dub={dubsById.get(sharingDub.dub.id) ?? sharingDub.dub}
           key={sharingDub.dub.id}
           initialBuddyIds={sharingDub.failedIds}
           initiallySentIds={sharingDub.sentIds}
@@ -723,12 +737,13 @@ export function App() {
       </Modal>
       <DubManagementDialogs
         artists={state.artists}
+        buddies={state.buddies}
         deletingDub={deletingDub}
         editingDub={editingDub}
         onCloseDelete={() => setDeletingDub(null)}
         onCloseEdit={() => setEditingDub(null)}
         onDeleteDub={deleteDub}
-        onUpdateDub={updateDub}
+        onUpdateDub={handleUpdateDub}
         uploadError={uploadError}
         uploadProgress={uploadProgress}
       />

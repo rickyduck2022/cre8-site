@@ -459,7 +459,21 @@ export function MessengerTemplate({
                         />
                       </div>
                     )}
-                    {visibleDubs.map((dub) => (
+                    {visibleDubs.map((dub) => dub.sharedBuddyIds?.includes(selectedBuddy.id) ? (
+                      <div className="share-a-dub__entry share-a-dub__entry--shared" key={dub.id}>
+                        <div>
+                          <strong>{dub.title}</strong>
+                          <span>{dub.artist} · Shared</span>
+                        </div>
+                        <Button
+                          aria-label={`Share ${dub.title} again with ${selectedBuddy.displayName}`}
+                          disabled={sharing}
+                          onClick={() => void shareDub(dub)}
+                          size="small"
+                          variant="secondary"
+                        >Share again</Button>
+                      </div>
+                    ) : (
                       <button
                         aria-label={`Share ${dub.title} with ${selectedBuddy.displayName}`}
                         className="share-a-dub__entry"

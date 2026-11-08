@@ -23,6 +23,7 @@ describe("DubCard actions", () => {
     const tag = screen.getByLabelText(`Distribution: ${label}`);
     expect(tag).toHaveTextContent(label);
     expect(tag).toHaveClass("track-tag--accent", "dub-card__distribution");
+    expect(tag).toHaveClass(`dub-card__distribution--${distribution ?? "worldwide"}`);
     const metadata = tag.parentElement!;
     expect(metadata).toHaveClass("dub-card__metadata");
     expect(metadata.querySelector(".dub-card__metadata-tags")).toHaveTextContent("Jungle");

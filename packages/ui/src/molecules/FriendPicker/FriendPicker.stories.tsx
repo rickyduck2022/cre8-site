@@ -23,3 +23,4 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 export const Default: Story = {};
 export const NoFriends: Story = { args: { buddies: [] } };
+export const AlreadyShared: Story = { args: { sharedIds: ["friend-1"] } };

@@ -15,7 +15,7 @@ const defaultAdminDirectory = resolve(process.env.ADMIN_DIST_DIRECTORY ?? resolv
 const maxAudioUploadBytes = 100 * 1024 * 1024;
 const maxArtworkUploadBytes = 10 * 1024 * 1024;
 const sessionLifetimeSeconds = 60 * 60 * 24 * 7;
-const dataSchemaVersion = 5;
+const dataSchemaVersion = 6;
 const conversationPageSize = 30;
 const dubTags = new Set(["Jump Up", "Rollers", "Dancefloor", "Jungle", "Liquid", "Neurofunk", "Vocal", "Deep", "Minimal", "Techstep", "Atmospheric", "Old School"]);
 function normalizeDubTags(tags) {
@@ -111,6 +111,7 @@ function createSeedState() {
     aListApplications: [],
     aListAccessDecisions: [],
     notifications: [],
+    dubShares: [],
   };
 }
 
@@ -147,6 +148,11 @@ export function initializeData(dataPath = defaultDataPath, mediaDirectory = defa
     data.notifications = [];
     data.schemaVersion = 5;
   }
+  if (data.schemaVersion === 5) {
+    data.dubs = data.dubs.map((dub) => ({ ...dub, version: 1 }));
+    data.dubShares = [];
+    data.schemaVersion = 6;
+  }
   if (data.schemaVersion !== dataSchemaVersion) {
     throw new Error(`Unsupported community data schema version: ${data.schemaVersion}.`);
   }
@@ -157,6 +163,7 @@ export function initializeData(dataPath = defaultDataPath, mediaDirectory = defa
   }
   data.dubs = data.dubs.map((dub) => ({
     ...dub,
+    version: dub.version ?? 1,
     bitrateKbps: Number.isFinite(dub.bitrateKbps) ? Math.round(dub.bitrateKbps) : undefined,
     artistId: dub.artistId ?? "artist-meladee",
     uploaderId: dub.uploaderId ?? meladee.id,
@@ -166,7 +173,7 @@ export function initializeData(dataPath = defaultDataPath, mediaDirectory = defa
   for (const dub of data.dubs) {
     dub.audioUrl ??= `/api/dubs/${dub.id}/audio`;
   }
-  for (const key of ["friendships", "conversations", "likes", "downloads", "crates", "uploads", "dubGrants", "aListApplications", "aListAccessDecisions", "notifications"]) {
+  for (const key of ["friendships", "conversations", "likes", "downloads", "crates", "uploads", "dubGrants", "aListApplications", "aListAccessDecisions", "notifications", "dubShares"]) {
     data[key] ??= [];
   }
   backfillBidirectionalFriendships(data);
@@ -430,6 +437,10 @@ function publicDub(data, dub, currentUserId) {
     likes: data.likes.filter((like) => like.dubId === dub.id).length,
     downloads: data.downloads.filter((download) => download.dubId === dub.id).length,
     likedByCurrentUser: data.likes.some((like) => like.dubId === dub.id && like.userId === currentUserId),
+    sharedBuddyIds: data.friendships
+      .filter((friendship) => friendship.ownerId === currentUserId && data.dubShares.some((share) =>
+        share.dubId === dub.id && share.senderId === currentUserId && share.recipientId === friendship.friendUserId && share.version === dub.version))
+      .map((friendship) => friendship.id),
   };
   if (dub.uploaderId === currentUserId) {
     const downloaderByUser = new Map();
@@ -634,6 +645,9 @@ function createConversationMessage(data, user, buddyId, input) {
     if (dub.distribution === "private" && !data.dubGrants.some((grant) => grant.dubId === dub.id && grant.userId === recipient.id)) {
       data.dubGrants.push({ dubId: dub.id, userId: recipient.id });
     }
+    data.dubShares = data.dubShares.filter((share) =>
+      share.dubId !== dub.id || share.senderId !== user.id || share.recipientId !== recipient.id);
+    data.dubShares.push({ dubId: dub.id, senderId: user.id, recipientId: recipient.id, version: dub.version });
   }
   const recipientFriendship = findOrCreateFriendship(data, recipient, user);
   const sentAt = new Date().toISOString();
@@ -1244,6 +1258,7 @@ export function createApiServer({
           uploader: user.username,
           uploaderDisplayName: user.displayName,
           uploadedAt: new Date().toISOString(),
+          version: 1,
           bpm: Number.isInteger(input.bpm) && input.bpm >= 1 && input.bpm <= 300 ? input.bpm : 0,
           tags: normalizeDubTags(input.tags),
           genre: normalizeDubTags(input.tags).join(", ").slice(0, 160)
@@ -1300,14 +1315,23 @@ export function createApiServer({
           return;
         }
 
+        const nextTags = normalizeDubTags(input.tags);
+        const nextGenre = nextTags.join(", ").slice(0, 160) || "Uncategorized";
+        const nextBpm = Number.isInteger(input.bpm) && input.bpm >= 1 && input.bpm <= 300 ? input.bpm : 0;
+        const nextMessage = String(input.message ?? "").trim().slice(0, 400);
+        const changed = dub.title !== title || dub.artistId !== artist.id
+          || JSON.stringify(dub.tags ?? []) !== JSON.stringify(nextTags)
+          || dub.genre !== nextGenre || dub.bpm !== nextBpm || dub.message !== nextMessage
+          || Boolean(audioUpload || artworkUpload);
         const replacedMedia = [];
+        if (changed) dub.version += 1;
         dub.title = title;
         dub.artist = artist.name;
         dub.artistId = artist.id;
-        dub.tags = normalizeDubTags(input.tags);
-        dub.genre = dub.tags.join(", ").slice(0, 160) || "Uncategorized";
-        dub.bpm = Number.isInteger(input.bpm) && input.bpm >= 1 && input.bpm <= 300 ? input.bpm : 0;
-        dub.message = String(input.message ?? "").trim().slice(0, 400);
+        dub.tags = nextTags;
+        dub.genre = nextGenre;
+        dub.bpm = nextBpm;
+        dub.message = nextMessage;
         if (audioUpload) {
           for (const account of data.users) {
             if (account.lastPlayback?.dubId === dub.id) delete account.lastPlayback;
@@ -1360,6 +1384,7 @@ export function createApiServer({
         data.likes = data.likes.filter((item) => item.dubId !== dub.id);
         data.downloads = data.downloads.filter((item) => item.dubId !== dub.id);
         data.dubGrants = data.dubGrants.filter((item) => item.dubId !== dub.id);
+        data.dubShares = data.dubShares.filter((item) => item.dubId !== dub.id);
         persist();
         for (const storedName of [dub.storedAudioName, dub.storedArtworkName]) {
           if (!storedName) continue;

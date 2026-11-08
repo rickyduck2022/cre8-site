@@ -21,6 +21,19 @@ beforeAll(() => {
 afterEach(cleanup);
 
 describe("ShareDubDialog", () => {
+  it("requires an explicit share again for friends already sent this version", async () => {
+    const send = vi.fn(async (_buddyId: string, _text: string, _dubId: string) => true);
+    render(<ShareDubDialog dub={{ ...dub, sharedBuddyIds: ["friend-1"] }} buddies={buddies} onClose={vi.fn()} onFindFriends={vi.fn()} onOpenChat={vi.fn()} onSendMessage={send} />);
+    expect(screen.getByRole("checkbox", { name: /Meladee/ })).toBeDisabled();
+    expect(screen.getByRole("checkbox", { name: /Holik/ })).toBeEnabled();
+    fireEvent.click(screen.getByRole("button", { name: "Share again with Meladee" }));
+    expect(screen.getByRole("checkbox", { name: /Meladee/ })).toBeChecked();
+    fireEvent.click(screen.getByRole("checkbox", { name: /Holik/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Send dub" }));
+    await screen.findByText("Sent to Meladee, Holik");
+    expect(send.mock.calls.map((call) => call[0])).toEqual(["friend-1", "friend-2"]);
+  });
+
   it("finds a friend, sends a note and opens the conversation after confirmation", async () => {
     const send = vi.fn(async () => true);
     const openChat = vi.fn();
@@ -73,7 +86,7 @@ describe("ShareDubDialog", () => {
 
   it("allows retrying failed upload deliveries without resending successful ones", async () => {
     const send = vi.fn(async () => true);
-    render(<ShareDubDialog dub={dub} buddies={buddies} initialBuddyIds={["friend-2"]} initiallySentIds={["friend-1"]} initialFailure onClose={vi.fn()} onFindFriends={vi.fn()} onOpenChat={vi.fn()} onSendMessage={send} />);
+    render(<ShareDubDialog dub={{ ...dub, sharedBuddyIds: ["friend-1", "friend-2"] }} buddies={buddies} initialBuddyIds={["friend-2"]} initiallySentIds={["friend-1"]} initialFailure onClose={vi.fn()} onFindFriends={vi.fn()} onOpenChat={vi.fn()} onSendMessage={send} />);
     expect(screen.getByRole("checkbox", { name: /Meladee/ })).toBeDisabled();
     expect(screen.getByRole("checkbox", { name: /Holik/ })).toBeChecked();
     fireEvent.click(screen.getByRole("button", { name: "Retry selected" }));

@@ -77,7 +77,7 @@ export function DubUploadForm({
         bpm: bpmValue ? Number(bpmValue) : undefined,
         message: String(formData.get("message") ?? ""),
         distribution: isEditing ? initialDub?.distribution : distribution,
-        buddyIds: !isEditing && distribution === "private" ? buddyIds.filter((id) => buddies.some((buddy) => buddy.id === id)) : undefined,
+        buddyIds: isEditing || distribution === "private" ? buddyIds.filter((id) => buddies.some((buddy) => buddy.id === id)) : undefined,
         audioFile: selectedAudioFile,
         artworkFile:
           artworkFile instanceof File && artworkFile.size > 0
@@ -135,6 +135,14 @@ export function DubUploadForm({
           </div>
         )}
         {isEditing && <p>Distribution: {initialDub?.distribution === "alist" ? "A-List" : initialDub?.distribution === "private" ? "Private" : "Worldwide"} (cannot be changed after upload)</p>}
+        {isEditing && (
+          <div className="dub-upload-form__private-friends">
+            <p>Optional: send the saved track to friends in Messenger. Changes create a new version; friends marked Shared received the current version.</p>
+            {initialDub?.distribution === "private" && <p>Sending grants private access. Unsend does not revoke access or recall downloaded files.</p>}
+            {initialDub?.distribution === "alist" && <p>Only approved A-List members can receive this dub.</p>}
+            <FriendPicker buddies={buddies} sharedIds={initialDub?.sharedBuddyIds} selectedIds={buddyIds} onChange={setBuddyIds} />
+          </div>
+        )}
         <div className="dub-upload-form__row">
           <TagSelector
             label="Tags"

@@ -82,7 +82,7 @@ export function ShareDubDialog({ dub, buddies, onClose, onFindFriends, onOpenCha
           </p>
           {buddies.length ? (
             <>
-              <FriendPicker buddies={buddies} disabled={pending} disabledIds={sentIds} selectedIds={buddyIds} onChange={setBuddyIds} />
+              <FriendPicker buddies={buddies} disabled={pending} disabledIds={sentIds} sharedIds={dub.sharedBuddyIds} allowSharedIds={failedIds} selectedIds={buddyIds} onChange={setBuddyIds} />
               <label className="share-dub-dialog__message">
                 <span>Add a message <small>(optional)</small></span>
                 <textarea disabled={pending} maxLength={2000} onChange={(event) => setMessage(event.currentTarget.value)} placeholder="Say something about this dub..." rows={2} value={message} />

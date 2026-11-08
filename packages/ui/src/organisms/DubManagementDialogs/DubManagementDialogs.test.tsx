@@ -35,6 +35,26 @@ describe("DubManagementDialogs", () => {
     expect(onCloseEdit).toHaveBeenCalled();
   });
 
+  it("lets an editor select friends, explicitly reshare and passes them with the saved track", async () => {
+    const onUpdateDub = vi.fn(async () => dub);
+    render(<DubManagementDialogs
+      editingDub={{ ...dub, distribution: "private", sharedBuddyIds: ["friend-1"] }}
+      deletingDub={null}
+      artists={[{ id: "artist-1", name: "Amber" }]}
+      buddies={[
+        { id: "friend-1", username: "meladee", displayName: "Meladee", presence: "online", genre: "Jungle", role: "DJ", bio: "", groups: [] },
+        { id: "friend-2", username: "holik", displayName: "Holik", presence: "online", genre: "Jungle", role: "DJ", bio: "", groups: [] },
+      ]}
+      onCloseEdit={vi.fn()} onCloseDelete={vi.fn()} onUpdateDub={onUpdateDub}
+      onDeleteDub={vi.fn(async () => true)}
+    />);
+    expect(screen.getByRole("checkbox", { name: /Meladee/ })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Share again with Meladee" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: /Holik/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+    await waitFor(() => expect(onUpdateDub).toHaveBeenCalledWith("dub-1", expect.objectContaining({ buddyIds: ["friend-1", "friend-2"] })));
+  });
+
   it("confirms deletion through the shared confirmation dialog", async () => {
     const onDeleteDub = vi.fn(async () => true);
     const onCloseDelete = vi.fn();
