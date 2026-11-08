@@ -9,6 +9,7 @@ import "../Organisms.css";
 
 export interface AppHeaderProps {
   userName?: string;
+  userAvatarUrl?: string;
   searchPlaceholder?: string;
   variant?: "default" | "compact" | "mobile";
   onCreate?: () => void;
@@ -42,6 +43,7 @@ export function AppHeader({
   searchPlaceholder = "Search dubs, people, or genres",
   searchValue,
   userName = "MelaDee",
+  userAvatarUrl,
   variant = "default",
 }: AppHeaderProps) {
   return (
@@ -87,6 +89,7 @@ export function AppHeader({
             onEditProfile={onEditProfile}
             onLogout={onLogout}
             userName={userName}
+            userAvatarUrl={userAvatarUrl}
           />
         )}
       </div>

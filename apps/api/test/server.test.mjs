@@ -171,6 +171,78 @@ function waitForClose(socket) {
   });
 }
 
+test("profile pictures reach members, dubs, friends and connected clients", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "cre8-avatars-"));
+  const dataPath = join(directory, "community.json");
+  const data = initializeData(dataPath, join(directory, "audio"));
+  data.dubs.push({
+    id: "avatar-dub", title: "Test Dub", artist: "Meladee", artistId: "artist-meladee",
+    uploaderId: "user-meladee", uploadedAt: "2026-01-01T00:00:00Z",
+  });
+  writeFileSync(dataPath, JSON.stringify(data));
+  const server = await startTestServer(directory);
+  let socket;
+  const login = async (username) => {
+    const response = await fetch(`${server.baseUrl}/api/login`, {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ username, password: username }),
+    });
+    assert.equal(response.status, 200);
+    return response.headers.get("set-cookie").split(";")[0];
+  };
+  const uploadAvatar = async (cookie) => {
+    const response = await fetch(`${server.baseUrl}/api/uploads?type=avatar`, {
+      method: "POST", headers: { cookie, "content-type": "image/png", "x-file-name": "avatar.png" },
+      body: Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
+    });
+    assert.equal(response.status, 201);
+    return (await response.json()).uploadId;
+  };
+  const updateAvatar = async (cookie, avatarUploadId) => {
+    const response = await fetch(`${server.baseUrl}/api/profile`, {
+      method: "PATCH", headers: { cookie, "content-type": "application/json" },
+      body: JSON.stringify({ avatarUploadId }),
+    });
+    assert.equal(response.status, 200);
+    return (await response.json()).member.avatarUrl;
+  };
+  try {
+    const meladee = await login("meladee");
+    const holik = await login("holik");
+    socket = openChat(server.baseUrl, holik);
+    await waitForOpen(socket);
+    const firstUpload = await uploadAvatar(meladee);
+    const updateEvent = waitForMessage(socket, (event) => event.type === "community.snapshot"
+      && event.snapshot.suggestedMembers.some((member) => member.username === "meladee" && member.avatarUrl));
+    const avatarUrl = await updateAvatar(meladee, firstUpload);
+    const snapshot = (await updateEvent).snapshot;
+    assert.equal(snapshot.suggestedMembers.find((member) => member.username === "meladee").avatarUrl, avatarUrl);
+    assert.equal(snapshot.dubs[0].uploaderAvatarUrl, avatarUrl);
+    assert.equal((await fetch(`${server.baseUrl}${avatarUrl}`, { headers: { cookie: holik } })).status, 200);
+    const search = await (await fetch(`${server.baseUrl}/api/members?q=meladee`, { headers: { cookie: holik } })).json();
+    assert.equal(search.members[0].avatarUrl, avatarUrl);
+    const friendResponse = await fetch(`${server.baseUrl}/api/buddies`, {
+      method: "POST", headers: { cookie: holik, "content-type": "application/json" },
+      body: JSON.stringify({ username: "meladee" }),
+    });
+    assert.equal((await friendResponse.json()).buddies[0].avatarUrl, avatarUrl);
+    const secondUpload = await uploadAvatar(meladee);
+    const friendUpdate = waitForMessage(socket, (event) => event.type === "community.snapshot"
+      && event.snapshot.buddies.some((buddy) => buddy.username === "meladee" && buddy.avatarUrl !== avatarUrl));
+    const newUrl = await updateAvatar(meladee, secondUpload);
+    assert.notEqual(newUrl, avatarUrl);
+    assert.equal((await friendUpdate).snapshot.buddies[0].avatarUrl, newUrl);
+  } finally {
+    if (socket) {
+      const closed = waitForClose(socket);
+      socket.close();
+      await closed;
+    }
+    await server.close();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
 test("artists can register, sign in immediately, and retain their linked profile", async () => {
   let server = await startTestServer();
   try {

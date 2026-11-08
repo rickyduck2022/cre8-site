@@ -232,6 +232,7 @@ export function MessengerTemplate({
                     <Avatar
                       name={buddy.displayName}
                       size="medium"
+                      src={buddy.avatarUrl}
                       status={buddy.presence === "offline" ? "inactive" : "active"}
                     />
                     <PresenceIndicator presence={buddy.presence} />
@@ -250,7 +251,7 @@ export function MessengerTemplate({
         {selectedBuddy ? (
           <div className="chat-panel">
             <header className="chat-panel__header">
-              <Avatar name={selectedBuddy.displayName} size="small" />
+              <Avatar name={selectedBuddy.displayName} size="small" src={selectedBuddy.avatarUrl} />
               <div>
                 <strong>{selectedBuddy.displayName}</strong>
                 <span>

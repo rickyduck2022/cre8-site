@@ -15,6 +15,7 @@ export interface BuddySuggestion {
   username: string;
   displayName: string;
   genre: string;
+  avatarUrl?: string;
 }
 
 export interface BuddyListTemplateProps {
@@ -154,6 +155,7 @@ export function BuddyListTemplate({
               <Avatar
                 name={buddy.displayName}
                 size="medium"
+                src={buddy.avatarUrl}
                 status={buddy.presence === "offline" ? "inactive" : "active"}
               />
               <PresenceIndicator presence={buddy.presence} />
@@ -221,7 +223,7 @@ export function BuddyListTemplate({
         <div className="discover-buddies__grid">
           {suggestionPagination.items.map((suggestion) => (
               <article className="suggestion-card" key={suggestion.username}>
-                <Avatar name={suggestion.displayName} size="medium" />
+                <Avatar name={suggestion.displayName} size="medium" src={suggestion.avatarUrl} />
                 <div>
                   <strong>{suggestion.displayName}</strong>
                   <span>@{suggestion.username} · {suggestion.genre}</span>

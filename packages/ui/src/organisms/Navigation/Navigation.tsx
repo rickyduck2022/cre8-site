@@ -20,6 +20,7 @@ export interface NavigationProps {
   sections: NavigationSection[];
   activeItem?: string;
   userName?: string;
+  userAvatarUrl?: string;
   userDetail?: string;
   variant?: "sidebar" | "horizontal" | "icons";
   hideOnMobile?: boolean;
@@ -34,6 +35,7 @@ export function Navigation({
   logoSrc,
   userDetail = "Member",
   userName,
+  userAvatarUrl,
   variant = "sidebar",
   hideOnMobile = false,
 }: NavigationProps) {
@@ -66,7 +68,7 @@ export function Navigation({
       {userName && (
         <div className="navigation__footer">
           <div className="member-identity">
-            <Avatar name={userName} size="small" />
+            <Avatar name={userName} size="small" src={userAvatarUrl} />
             <span className="member-identity__copy">
               <span className="member-identity__name">{userName}</span>
               <span className="member-identity__detail">{userDetail}</span>

@@ -11,9 +11,11 @@ describe("AccountMenu", () => {
         onEditProfile={onEditProfile}
         onLogout={onLogout}
         userName="Meladee"
+        userAvatarUrl="/meladee.png"
       />,
     );
 
+    expect(screen.getByRole("img", { name: "Meladee" }).querySelector("img")).toHaveAttribute("src", "/meladee.png");
     fireEvent.mouseEnter(screen.getByRole("button", { name: "Account menu for Meladee" }).parentElement!);
     fireEvent.click(screen.getByRole("menuitem", { name: "Edit profile" }));
     expect(onEditProfile).toHaveBeenCalledOnce();

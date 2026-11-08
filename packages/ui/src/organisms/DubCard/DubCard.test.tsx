@@ -13,6 +13,18 @@ const dub: Dub = {
 };
 
 describe("DubCard actions", () => {
+  it("shows the uploader's profile picture and falls back to initials", () => {
+    const { rerender } = render(<DubCard dub={{ ...dub, uploaderAvatarUrl: "/avatar.png?v=1" }} onDownload={vi.fn()} onPlay={vi.fn()} />);
+    const avatar = screen.getByRole("img", { name: "Amber" });
+    expect(avatar.querySelector("img")).toHaveAttribute("src", "/avatar.png?v=1");
+    fireEvent.error(avatar.querySelector("img")!);
+    expect(avatar).toHaveTextContent("A");
+    rerender(<DubCard dub={{ ...dub, uploaderAvatarUrl: "/avatar.png?v=2" }} onDownload={vi.fn()} onPlay={vi.fn()} />);
+    expect(avatar.querySelector("img")).toHaveAttribute("src", "/avatar.png?v=2");
+    rerender(<DubCard dub={dub} onDownload={vi.fn()} onPlay={vi.fn()} />);
+    expect(avatar).toHaveTextContent("A");
+  });
+
   it("seeks an inactive track and forwards transport controls", () => {
     const onSeek = vi.fn();
     const onNext = vi.fn();

@@ -34,6 +34,10 @@ optional genre. Registration creates a linked artist profile and signs the
 artist in immediately. Signing out clears the server-side session and expires
 the session cookie.
 
+Profile avatar URLs are included with members, friends, and dub uploaders.
+Updating a profile image changes its URL and sends refreshed community
+snapshots to connected members so their avatar badges update.
+
 Conversation snapshots include the most recent 30 messages per conversation.
 The authenticated `GET /api/conversations/:buddyId/messages` endpoint returns
 the newest page; pass `?before=<message-id>` to fetch the page immediately

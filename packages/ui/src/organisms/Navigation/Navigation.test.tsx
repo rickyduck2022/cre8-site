@@ -14,4 +14,9 @@ describe("Navigation", () => {
     expect(screen.queryByRole("navigation", { name: /pagination/i })).not.toBeInTheDocument();
     expect(screen.queryByText(/page \d+ of \d+/i)).not.toBeInTheDocument();
   });
+
+  it("shows the current member's profile picture", () => {
+    render(<Navigation sections={[]} userName="Amber" userAvatarUrl="/amber.png" />);
+    expect(screen.getByRole("img", { name: "Amber" }).querySelector("img")).toHaveAttribute("src", "/amber.png");
+  });
 });

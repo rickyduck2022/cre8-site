@@ -151,6 +151,8 @@ export function App() {
   );
   const nowPlaying = state.dubs.find((dub) => dub.id === state.nowPlayingId) ?? null;
   const previewTrack = nowPlaying ?? state.dubs[0];
+  const dubsById = new Map(state.dubs.map((dub) => [dub.id, dub]));
+  const suggestedByUsername = new Map(state.suggestedMembers.map((member) => [member.username, member]));
   const profile =
     profileUsername === state.member?.username || !profileUsername
       ? state.member
@@ -362,6 +364,7 @@ export function App() {
           searchValue={searchQuery}
           unreadNotificationCount={unreadNotificationCount}
           userName={state.member.displayName}
+          userAvatarUrl={state.member.avatarUrl}
           variant="compact"
         />
       }
@@ -374,6 +377,7 @@ export function App() {
           sections={navigationSections}
           userDetail={state.member.role}
           userName={state.member.displayName}
+          userAvatarUrl={state.member.avatarUrl}
         />
       }
       audioPlayer={
@@ -415,7 +419,10 @@ export function App() {
         {activeSection === "dubs" && (
           <>
             <LatestDubsTemplate
-              dubs={isDubSearchActive ? dubSearch.results ?? [] : state.dubs}
+              dubs={isDubSearchActive ? (dubSearch.results ?? []).map((dub) => {
+                const current = dubsById.get(dub.id);
+                return current ? { ...dub, uploaderAvatarUrl: current.uploaderAvatarUrl } : dub;
+              }) : state.dubs}
               likedDubIds={state.likedDubIds}
               nowPlayingId={state.nowPlayingId}
               isPlaying={state.isPlaying}
@@ -456,7 +463,10 @@ export function App() {
             suggestedMembers={state.suggestedMembers}
             onAddFriend={(buddy) => void addBuddy(buddy.username)}
             memberSearchQuery={memberSearchQuery}
-            memberSearchResults={memberSearchResults}
+            memberSearchResults={memberSearchResults.map((member) => {
+              const current = suggestedByUsername.get(member.username);
+              return current ? { ...member, avatarUrl: current.avatarUrl } : member;
+            })}
             isSearchingMembers={isSearchingMembers}
             onMemberSearchQueryChange={setMemberSearchQuery}
             onAddMatchedMember={(member) => void addBuddy(member.username)}

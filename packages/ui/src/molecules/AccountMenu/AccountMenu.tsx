@@ -4,6 +4,7 @@ import "../Molecules.css";
 
 export interface AccountMenuProps {
   userName: string;
+  userAvatarUrl?: string;
   onEditProfile: () => void;
   onLogout: () => void;
 }
@@ -12,6 +13,7 @@ export function AccountMenu({
   onEditProfile,
   onLogout,
   userName,
+  userAvatarUrl,
 }: AccountMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -84,7 +86,7 @@ export function AccountMenu({
         onFocus={() => setIsOpen(true)}
         type="button"
       >
-        <Avatar name={userName} size="small" />
+        <Avatar name={userName} size="small" src={userAvatarUrl} />
       </button>
       {isOpen && (
         <div aria-label="Account options" className="account-menu__popover" role="menu">

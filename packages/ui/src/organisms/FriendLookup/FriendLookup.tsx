@@ -34,6 +34,7 @@ export function FriendLookup({ isSearching = false, onAdd, onQueryChange, query,
                   className="friend-lookup__avatar"
                   name={member.displayName}
                   size="small"
+                  src={member.avatarUrl}
                 />
                 <span className="friend-lookup__result-copy">
                   <strong>{member.displayName}</strong>

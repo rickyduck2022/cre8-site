@@ -358,6 +358,7 @@ function publicDub(data, dub, currentUserId) {
     artist: artist?.name ?? publicFields.artist,
     uploader: uploader?.username ?? publicFields.uploader,
     uploaderDisplayName: uploader?.displayName ?? publicFields.uploaderDisplayName,
+    uploaderAvatarUrl: uploader?.avatarUrl,
     likes: data.likes.filter((like) => like.dubId === dub.id).length,
     downloads: data.downloads.filter((download) => download.dubId === dub.id).length,
     likedByCurrentUser: data.likes.some((like) => like.dubId === dub.id && like.userId === currentUserId),
@@ -452,7 +453,7 @@ function communitySnapshot(data, user) {
     likedDubIds: data.likes.filter((like) => like.userId === user.id).map((like) => like.dubId),
     suggestedMembers: data.users
       .filter((other) => other.id !== user.id && !friendUserIds.has(other.id))
-      .map(({ id, username, displayName, genre }) => ({ id, username, displayName, genre })),
+      .map(({ id, username, displayName, genre, avatarUrl }) => ({ id, username, displayName, genre, avatarUrl })),
     crates: publicCrates(data, user.id),
     library: data.downloads
       .filter((download) => download.userId === user.id)
@@ -932,6 +933,7 @@ export function createApiServer({
             username: candidate.username,
             displayName: candidate.displayName,
             genre: candidate.genre,
+            avatarUrl: candidate.avatarUrl,
           }));
         json(response, 200, { members });
         return;
@@ -1283,7 +1285,7 @@ export function createApiServer({
         for (const { upload, storedField, urlField, expectedType } of profileImageUploads) {
           if (user[storedField] && user[storedField] !== upload.storedName) replacedMedia.push(user[storedField]);
           user[storedField] = upload.storedName;
-          user[urlField] = `/api/profiles/${encodeURIComponent(user.id)}/${expectedType}`;
+          user[urlField] = `/api/profiles/${encodeURIComponent(user.id)}/${expectedType}?v=${encodeURIComponent(upload.id)}`;
           data.uploads = data.uploads.filter((item) => item.id !== upload.id);
         }
         for (const artist of data.artists.filter((item) => item.userId === user.id)) {
@@ -1296,7 +1298,7 @@ export function createApiServer({
           const oldImagePath = resolve(mediaDirectory, basename(storedName));
           if (existsSync(oldImagePath)) unlinkSync(oldImagePath);
         }
-        broadcastCommunity(user.id);
+        for (const connectedUserId of socketsByUser.keys()) broadcastCommunity(connectedUserId);
         json(response, 200, communitySnapshot(data, user));
         return;
       }

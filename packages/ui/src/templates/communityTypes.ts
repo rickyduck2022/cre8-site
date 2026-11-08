@@ -10,6 +10,7 @@ export interface Buddy {
   userId?: string;
   username: string;
   displayName: string;
+  avatarUrl?: string;
   presence: Presence;
   genre: string;
   role: string;
@@ -24,6 +25,7 @@ export interface MemberSearchResult {
   username: string;
   displayName: string;
   genre: string;
+  avatarUrl?: string;
 }
 
 export interface Dub {
@@ -33,6 +35,7 @@ export interface Dub {
   artistId?: string;
   uploader: string;
   uploaderDisplayName: string;
+  uploaderAvatarUrl?: string;
   uploadedAt: string;
   bpm: number;
   genre: string;

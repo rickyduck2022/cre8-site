@@ -17,7 +17,7 @@ describe("MessengerTemplate shared dubs", () => {
     const onCreateAndShareDub = vi.fn();
     const onSendMessage = vi.fn(async () => true);
     render(<MessengerTemplate
-      buddies={[{ id: "friend-1", username: "amber", displayName: "Amber", presence: "online", genre: "Jungle", role: "DJ", bio: "", groups: [] }]}
+      buddies={[{ id: "friend-1", username: "amber", displayName: "Amber", presence: "online", genre: "Jungle", role: "DJ", bio: "", groups: [], avatarUrl: "/amber.png" }]}
       conversations={[]}
       dubs={[ownDub, foreignDub]}
       shareableDubs={[ownDub]}
@@ -33,6 +33,10 @@ describe("MessengerTemplate shared dubs", () => {
       onLoadOlderMessages={vi.fn(async () => null)}
       onSendMessage={onSendMessage}
     />);
+    expect(screen.getAllByRole("img", { name: "Amber" })).toHaveLength(2);
+    for (const avatar of screen.getAllByRole("img", { name: "Amber" })) {
+      expect(avatar.querySelector("img")).toHaveAttribute("src", "/amber.png");
+    }
     const trigger = screen.getByRole("button", { name: "Share one of My Dubs" });
     fireEvent.click(trigger);
     expect(screen.getByText("My Release")).toBeInTheDocument();

@@ -32,7 +32,7 @@ interface CommunitySnapshot {
   buddies: Buddy[];
   conversations: Conversation[];
   likedDubIds: string[];
-  suggestedMembers: Array<{ username: string; displayName: string; genre: string }>;
+  suggestedMembers: Array<{ username: string; displayName: string; genre: string; avatarUrl?: string }>;
   crates: Crate[];
   library: LibraryDownload[];
 }

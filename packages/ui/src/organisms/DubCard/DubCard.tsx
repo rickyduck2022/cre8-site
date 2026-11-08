@@ -70,7 +70,7 @@ export function DubCard({
   return (
     <article className="dub-card">
       <div className="dub-card__topline">
-        <Avatar name={dub.uploaderDisplayName} size="medium" status="active" />
+        <Avatar name={dub.uploaderDisplayName} size="medium" src={dub.uploaderAvatarUrl} status="active" />
         <div className="dub-card__author">
           {onOpenProfile ? (
             <button
