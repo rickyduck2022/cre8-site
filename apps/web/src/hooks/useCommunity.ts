@@ -11,6 +11,9 @@ import type {
   UploadProgressState,
   ArtistRegistrationValues,
   LibraryDownload,
+  AListApplication,
+  AListApplicationFields,
+  NotificationMessage,
 } from "@craft/ui";
 import { uploadFile } from "../services/uploadFile";
 import { readAudioDurationSeconds } from "../services/readAudioDuration";
@@ -35,6 +38,8 @@ interface CommunitySnapshot {
   suggestedMembers: Array<{ username: string; displayName: string; genre: string; avatarUrl?: string }>;
   crates: Crate[];
   library: LibraryDownload[];
+  aListApplication: AListApplication | null;
+  notifications: NotificationMessage[];
 }
 
 interface CommunityState {
@@ -48,6 +53,8 @@ interface CommunityState {
   suggestedMembers: CommunitySnapshot["suggestedMembers"];
   crates: Crate[];
   library: LibraryDownload[];
+  aListApplication: AListApplication | null;
+  serverNotifications: NotificationMessage[];
 }
 
 interface ApiError {
@@ -65,6 +72,8 @@ const initialState: CommunityState = {
   suggestedMembers: [],
   crates: [],
   library: [],
+  aListApplication: null,
+  serverNotifications: [],
 };
 
 async function requestApi<T>(
@@ -155,6 +164,8 @@ export function useCommunity() {
       suggestedMembers: snapshot.suggestedMembers,
       crates: snapshot.crates,
       library: snapshot.library ?? [],
+      aListApplication: snapshot.aListApplication,
+      serverNotifications: snapshot.notifications,
     }));
     for (const incoming of newMessages) {
       const buddyName = snapshot.buddies.find(
@@ -171,6 +182,26 @@ export function useCommunity() {
     const snapshot = await requestApi<CommunitySnapshot>("/api/community");
     applySnapshot(snapshot);
     return snapshot;
+  }
+
+  async function submitAListApplication(fields: AListApplicationFields) {
+    try {
+      await requestApi("/api/alist/application", { method: "POST", body: jsonBody(fields) });
+      await refreshCommunity();
+      notify("Your A-List application has been submitted.");
+      return true;
+    } catch (requestError) {
+      notify(requestError instanceof Error ? requestError.message : "Application could not be submitted.", "error");
+      return false;
+    }
+  }
+
+  async function updateServerNotifications(path: string, method: "POST" | "DELETE") {
+    try {
+      applySnapshot(await requestApi<CommunitySnapshot>(path, { method }));
+    } catch (requestError) {
+      notify(requestError instanceof Error ? requestError.message : "Notifications could not be updated.", "error");
+    }
   }
 
   const chatConnectionStatus = useChatConnection(
@@ -581,9 +612,24 @@ export function useCommunity() {
     loading,
     error,
     ...notificationState,
+    notifications: [...state.serverNotifications, ...notificationState.notifications].sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt)),
+    unreadNotificationCount: state.serverNotifications.filter((item) => !item.read).length + notificationState.unreadNotificationCount,
+    dismissNotification: (id: string) => {
+      if (state.serverNotifications.some((item) => item.id === id)) void updateServerNotifications(`/api/notifications/${encodeURIComponent(id)}`, "DELETE");
+      else notificationState.dismissNotification(id);
+    },
+    clearNotifications: () => {
+      notificationState.clearNotifications();
+      if (state.serverNotifications.length) void updateServerNotifications("/api/notifications", "DELETE");
+    },
+    markNotificationsRead: () => {
+      notificationState.markNotificationsRead();
+      if (state.serverNotifications.some((item) => !item.read)) void updateServerNotifications("/api/notifications/read", "POST");
+    },
     uploadProgress,
     uploadError,
     notify,
+    submitAListApplication,
     login,
     registerArtist,
     logout,

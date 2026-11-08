@@ -681,12 +681,146 @@ test("schema v3 migration preserves records and defaults existing dubs to Worldw
     writeFileSync(join(mediaDirectory, "legacy.wav"), "audio");
     writeFileSync(dataPath, JSON.stringify(data));
     const migrated = initializeData(dataPath, mediaDirectory);
-    assert.equal(migrated.schemaVersion, 4);
+    assert.equal(migrated.schemaVersion, 5);
     assert.equal(migrated.dubs[0].distribution, "worldwide");
     assert.deepEqual(migrated.downloads, data.downloads);
     assert.equal(readFileSync(join(mediaDirectory, "legacy.wav"), "utf8"), "audio");
     assert.deepEqual(migrated.dubGrants, []);
   } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("schema v4 migration preserves existing grants and A-List status", () => {
+  const directory = mkdtempSync(join(tmpdir(), "cre8-v4-migration-"));
+  const dataPath = join(directory, "community.json");
+  try {
+    const data = initializeData(dataPath, join(directory, "audio"));
+    data.schemaVersion = 4;
+    delete data.aListApplications;
+    delete data.aListAccessDecisions;
+    delete data.notifications;
+    data.users[0].aListApproved = true;
+    data.dubGrants.push({ dubId: "private", userId: data.users[1].id });
+    writeFileSync(dataPath, JSON.stringify(data));
+    const migrated = initializeData(dataPath, join(directory, "audio"));
+    assert.equal(migrated.schemaVersion, 5);
+    assert.equal(migrated.users[0].aListApproved, true);
+    assert.deepEqual(migrated.dubGrants, data.dubGrants);
+    assert.deepEqual(migrated.aListApplications, []);
+    assert.deepEqual(migrated.notifications, []);
+  } finally { rmSync(directory, { recursive: true, force: true }); }
+});
+
+test("A-List applications, decisions, notifications and access persist across sessions", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "cre8-alist-"));
+  const dataPath = join(directory, "community.json");
+  const data = initializeData(dataPath, join(directory, "audio"));
+  data.users.find((user) => user.username === "holik").aListApproved = true;
+  data.dubs.push({ id: "exclusive", distribution: "alist", uploaderId: "user-holik", title: "Exclusive", uploadedAt: "2026-01-01T00:00:00Z", storedAudioName: "exclusive.wav", audioSource: "upload" });
+  mkdirSync(join(directory, "audio"), { recursive: true });
+  writeFileSync(join(directory, "audio", "exclusive.wav"), "audio");
+  writeFileSync(dataPath, JSON.stringify(data));
+  const oldAdmins = process.env.ADMIN_USERNAMES;
+  process.env.ADMIN_USERNAMES = "holik";
+  let server = await startTestServer(directory);
+  let socket;
+  const login = async (username) => {
+    const response = await fetch(`${server.baseUrl}/api/login`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ username, password: username }) });
+    assert.equal(response.status, 200);
+    return response.headers.get("set-cookie").split(";")[0];
+  };
+  const call = (cookie, path, method = "GET", body) => fetch(`${server.baseUrl}${path}`, {
+    method, headers: { cookie, ...(body ? { "content-type": "application/json" } : {}) },
+    ...(body ? { body: JSON.stringify(body) } : {}),
+  });
+  const snapshot = async (cookie) => (await call(cookie, "/api/community")).json();
+  const fields = {
+    artistName: "Meladee", roles: ["DJ", "Producer"], djExperience: "10 years",
+    producerExperience: "", events: ["Event"], supporters: ["Artist"], labels: ["Label"],
+    social: { instagram: { url: "https://instagram.com/example", followers: 123 }, tiktok: { url: "https://tiktok.com/example" }, facebook: { url: "https://facebook.com/example" } },
+    additionalInfo: "My application",
+  };
+  try {
+    let applicant = await login("meladee");
+    let admin = await login("holik");
+    assert.equal((await (await call(admin, "/api/admin/overview")).json()).administrator.username, "holik");
+    assert.equal((await call(applicant, "/api/admin/alist/members")).status, 403);
+    assert.equal((await call(applicant, "/api/admin/alist/applications")).status, 403);
+    assert.equal((await call(applicant, "/api/admin/alist/applications/fake/decision", "POST", { action: "approve" })).status, 403);
+    assert.equal((await call(applicant, "/api/alist/application", "POST", { ...fields, roles: [] })).status, 400);
+    assert.equal((await call(applicant, "/api/alist/application", "POST", { ...fields, social: { ...fields.social, instagram: { url: "javascript:alert(1)" } } })).status, 400);
+    const submitted = await call(applicant, "/api/alist/application", "POST", fields);
+    assert.equal(submitted.status, 201);
+    const application = await submitted.json();
+    assert.equal(application.status, "pending");
+    assert.equal((await snapshot(admin)).aListApplication, null);
+    assert.equal((await call(applicant, "/api/alist/application", "POST", fields)).status, 409);
+    const list = await (await call(admin, "/api/admin/alist/applications")).json();
+    assert.equal(list.applications[0].versions[0].fields.social.instagram.followers, 123);
+    const decisionPath = `/api/admin/alist/applications/${application.id}/decision`;
+    assert.equal((await call(admin, decisionPath, "POST", { action: "request_information" })).status, 400);
+    assert.equal((await call(admin, decisionPath, "POST", { action: "request_information", note: "Please add an event." })).status, 200);
+    let state = await snapshot(applicant);
+    assert.equal(state.aListApplication.status, "more_information");
+    assert.match(state.notifications[0].message, /Please add an event/);
+    assert.equal(state.notifications[0].read, false);
+    assert.equal((await call(applicant, "/api/notifications/read", "POST")).status, 200);
+    assert.equal((await snapshot(applicant)).notifications[0].read, true);
+    assert.equal((await call(applicant, "/api/alist/application", "POST", { ...fields, events: ["New event"] })).status, 201);
+    state = await snapshot(applicant);
+    assert.equal(state.aListApplication.versions.length, 2);
+    assert.equal(state.aListApplication.status, "pending");
+    socket = openChat(server.baseUrl, applicant);
+    await waitForOpen(socket);
+    const approvedEvent = waitForMessage(socket, (event) => event.type === "community.snapshot" && event.snapshot.member.aListApproved);
+    assert.equal((await call(admin, decisionPath, "POST", { action: "approve", note: "Welcome!" })).status, 200);
+    const approved = (await approvedEvent).snapshot;
+    assert.ok(approved.dubs.some((dub) => dub.id === "exclusive"));
+    assert.equal((await call(applicant, "/api/dubs/exclusive/audio")).status, 200);
+    const upload = await fetch(`${server.baseUrl}/api/uploads?type=audio`, { method: "POST", headers: { cookie: applicant, "x-file-name": "approved.wav", "content-type": "audio/wav" }, body: Buffer.from("audio") });
+    const uploadId = (await upload.json()).uploadId;
+    assert.equal((await call(applicant, "/api/dubs", "POST", { title: "Approved dub", artistId: approved.artists[0].id, distribution: "alist", uploadId })).status, 201);
+    assert.equal((await call(admin, decisionPath, "POST", { action: "approve" })).status, 409);
+    const revokedEvent = waitForMessage(socket, (event) => event.type === "community.snapshot" && !event.snapshot.member.aListApproved);
+    assert.equal((await call(admin, decisionPath, "POST", { action: "revoke", note: "Access revoked." })).status, 200);
+    const revoked = (await revokedEvent).snapshot;
+    assert.equal(revoked.dubs.some((dub) => dub.id === "exclusive"), false);
+    assert.equal((await call(applicant, "/api/dubs/exclusive/audio")).status, 404);
+    assert.equal((await call(applicant, "/api/alist/application", "POST", fields)).status, 201);
+    const reapplication = (await snapshot(applicant)).aListApplication;
+    assert.notEqual(reapplication.id, application.id);
+    assert.equal((await call(admin, decisionPath, "POST", { action: "approve" })).status, 409);
+    assert.equal((await call(admin, `/api/admin/alist/applications/${reapplication.id}/decision`, "POST", { action: "reject" })).status, 200);
+    socket.close(); await waitForClose(socket); socket = undefined;
+    await server.close();
+    server = await startTestServer(directory);
+    applicant = await login("meladee");
+    admin = await login("holik");
+    state = await snapshot(applicant);
+    assert.equal(state.aListApplication.status, "rejected");
+    assert.equal(state.member.aListApproved, false);
+    assert.equal(state.notifications.length, 4);
+    assert.equal(state.notifications.filter((item) => !item.read).length, 3);
+    assert.equal((await (await call(admin, "/api/admin/alist/applications")).json()).applications.length, 2);
+    const approvedMembers = await (await call(admin, "/api/admin/alist/members")).json();
+    assert.equal(approvedMembers.members.some((item) => item.username === "holik"), true);
+    assert.equal((await call(applicant, "/api/admin/alist/members/user-holik/revoke", "POST", {})).status, 403);
+    assert.equal((await call(admin, "/api/admin/alist/members/user-holik/revoke", "POST", { note: "Review" })).status, 200);
+    assert.equal((await snapshot(admin)).member.aListApproved, false);
+    assert.equal((await snapshot(admin)).notifications[0].read, false);
+    assert.equal(JSON.parse(readFileSync(dataPath, "utf8")).aListAccessDecisions.at(-1).administrator, "holik");
+    assert.equal((await call(admin, "/api/admin/alist/members/user-holik/revoke", "POST", {})).status, 409);
+    const notificationId = state.notifications[0].id;
+    assert.equal((await call(admin, `/api/notifications/${notificationId}`, "DELETE")).status, 404);
+    assert.equal((await call(applicant, `/api/notifications/${notificationId}`, "DELETE")).status, 200);
+    assert.equal((await call(applicant, "/api/notifications", "DELETE")).status, 200);
+    assert.equal((await snapshot(applicant)).notifications.length, 0);
+    assert.equal((await call(applicant, "/api/alist/application", "POST", fields)).status, 201);
+  } finally {
+    if (socket) socket.terminate();
+    await server.close();
+    if (oldAdmins === undefined) delete process.env.ADMIN_USERNAMES; else process.env.ADMIN_USERNAMES = oldAdmins;
     rmSync(directory, { recursive: true, force: true });
   }
 });
@@ -862,7 +996,7 @@ test("schema v2 migration removes only built-in dubs and their activity", async 
 
   try {
     const migrated = JSON.parse(readFileSync(dataPath, "utf8"));
-    assert.equal(migrated.schemaVersion, 4);
+    assert.equal(migrated.schemaVersion, 5);
     assert.equal(migrated.dubs[0].distribution, "worldwide");
     assert.deepEqual(migrated.dubs.map((dub) => dub.id), ["uploaded-dub"]);
     assert.deepEqual(migrated.likes.map((like) => like.dubId), ["uploaded-dub"]);
@@ -873,7 +1007,7 @@ test("schema v2 migration removes only built-in dubs and their activity", async 
     await server.close();
     server = await startTestServer(directory);
     const persisted = JSON.parse(readFileSync(dataPath, "utf8"));
-    assert.equal(persisted.schemaVersion, 4);
+    assert.equal(persisted.schemaVersion, 5);
     assert.deepEqual(persisted.dubs.map((dub) => dub.id), ["uploaded-dub"]);
   } finally {
     await server.close();

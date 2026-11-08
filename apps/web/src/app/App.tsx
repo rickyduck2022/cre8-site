@@ -33,6 +33,7 @@ import {
   type NavigationSection,
 } from "@craft/ui";
 import { DemoModeNotice } from "../components/DemoModeNotice";
+import { AListApplication } from "../components/AListApplication";
 import { useCommunity } from "../hooks/useCommunity";
 import { useMemberSearch } from "../hooks/useMemberSearch";
 import { useDubSearch } from "../hooks/useDubSearch";
@@ -42,6 +43,7 @@ import "./App.css";
 const sectionLabels: Record<CommunitySection, string> = {
   dubs: "Dub Feed",
   alist: "A-List",
+  "alist-application": "A-List Submission",
   buddies: "Friend List",
   messenger: "Messenger",
   profile: "My Profile",
@@ -52,6 +54,7 @@ const sectionLabels: Record<CommunitySection, string> = {
 const sectionIcons: Record<CommunitySection, ReactNode> = {
   dubs: <FriendsFeed />,
   alist: <Disc3 />,
+  "alist-application": <Users />,
   buddies: <Friends />,
   messenger: <MessageCircle />,
   profile: <Users />,
@@ -115,6 +118,7 @@ export function App() {
     updateDub,
     deleteDub,
     revokeDubGrant,
+    submitAListApplication,
     addBuddy,
     removeBuddy,
     markConversationRead,
@@ -461,6 +465,13 @@ export function App() {
           </>
         )}
         {activeSection === "alist" && !state.member.aListApproved && <p>A-List approval is required to view this feed.</p>}
+        {activeSection === "alist-application" && <AListApplication
+          key={`${state.member.id}-${state.aListApplication?.id ?? "new"}`}
+          application={state.aListApplication}
+          artistName={state.member.displayName}
+          approved={state.member.aListApproved}
+          onSubmit={submitAListApplication}
+        />}
         {activeSection === "buddies" && (
           <BuddyListTemplate
             buddies={state.buddies}

@@ -15,7 +15,7 @@ const defaultAdminDirectory = resolve(process.env.ADMIN_DIST_DIRECTORY ?? resolv
 const maxAudioUploadBytes = 100 * 1024 * 1024;
 const maxArtworkUploadBytes = 10 * 1024 * 1024;
 const sessionLifetimeSeconds = 60 * 60 * 24 * 7;
-const dataSchemaVersion = 4;
+const dataSchemaVersion = 5;
 const conversationPageSize = 30;
 const dubTags = new Set(["Jump Up", "Rollers", "Dancefloor", "Jungle", "Liquid", "Neurofunk", "Vocal", "Deep", "Minimal", "Techstep", "Atmospheric", "Old School"]);
 function normalizeDubTags(tags) {
@@ -108,6 +108,9 @@ function createSeedState() {
     crates: [],
     uploads: [],
     dubGrants: [],
+    aListApplications: [],
+    aListAccessDecisions: [],
+    notifications: [],
   };
 }
 
@@ -138,6 +141,12 @@ export function initializeData(dataPath = defaultDataPath, mediaDirectory = defa
     data.dubGrants = [];
     data.schemaVersion = 4;
   }
+  if (data.schemaVersion === 4) {
+    data.aListApplications = [];
+    data.aListAccessDecisions = [];
+    data.notifications = [];
+    data.schemaVersion = 5;
+  }
   if (data.schemaVersion !== dataSchemaVersion) {
     throw new Error(`Unsupported community data schema version: ${data.schemaVersion}.`);
   }
@@ -157,7 +166,7 @@ export function initializeData(dataPath = defaultDataPath, mediaDirectory = defa
   for (const dub of data.dubs) {
     dub.audioUrl ??= `/api/dubs/${dub.id}/audio`;
   }
-  for (const key of ["friendships", "conversations", "likes", "downloads", "crates", "uploads", "dubGrants"]) {
+  for (const key of ["friendships", "conversations", "likes", "downloads", "crates", "uploads", "dubGrants", "aListApplications", "aListAccessDecisions", "notifications"]) {
     data[key] ??= [];
   }
   backfillBidirectionalFriendships(data);
@@ -333,6 +342,60 @@ function serveWebRequest(request, response, route, webDirectory) {
   return true;
 }
 
+const aListRoles = new Set(["DJ", "Producer", "DJ & Producer", "MC / Vocalist", "Other"]);
+const aListProviders = ["instagram", "tiktok", "facebook", "soundcloud"];
+
+function isAdministrator(user) {
+  return String(process.env.ADMIN_USERNAMES ?? "").split(",")
+    .map((name) => name.trim().toLocaleLowerCase()).filter(Boolean)
+    .includes(user.username.toLocaleLowerCase());
+}
+
+function validateApplication(input) {
+  if (!input || typeof input !== "object" || Array.isArray(input)) throw Object.assign(new Error("Provide an application."), { status: 400 });
+  const text = (value, label, max, required = false) => {
+    if (value === undefined || value === null) value = "";
+    if (typeof value !== "string" || value.trim().length > max || (required && !value.trim())) {
+      throw Object.assign(new Error(`Provide a valid ${label}${required ? " (required)" : ""}, up to ${max} characters.`), { status: 400 });
+    }
+    return value.trim();
+  };
+  const list = (value, label) => {
+    if (!Array.isArray(value) || value.length > 3) throw Object.assign(new Error(`Provide up to three ${label}.`), { status: 400 });
+    return value.map((item) => text(item, label, 120)).filter(Boolean);
+  };
+  if (!Array.isArray(input.roles) || input.roles.length === 0 || input.roles.some((role) => !aListRoles.has(role))) {
+    throw Object.assign(new Error("Select at least one valid role."), { status: 400 });
+  }
+  const social = {};
+  for (const provider of aListProviders) {
+    const entry = input.social?.[provider] ?? {};
+    if (typeof entry !== "object" || Array.isArray(entry)) throw Object.assign(new Error(`Provide valid ${provider} details.`), { status: 400 });
+    const url = text(entry.url, `${provider} URL`, 300, provider !== "soundcloud");
+    if (url) {
+      let parsed;
+      try { parsed = new URL(url); } catch { throw Object.assign(new Error(`Provide a valid ${provider} URL.`), { status: 400 }); }
+      if (!["http:", "https:"].includes(parsed.protocol)) throw Object.assign(new Error(`Provide a valid ${provider} URL.`), { status: 400 });
+    }
+    const count = entry.followers;
+    if (count !== null && count !== undefined && (!Number.isSafeInteger(count) || count < 0 || count > 10000000000)) {
+      throw Object.assign(new Error(`Provide a valid ${provider} follower count.`), { status: 400 });
+    }
+    social[provider] = { url, followers: count ?? null };
+  }
+  return {
+    artistName: text(input.artistName, "artist name", 100, true),
+    roles: [...new Set(input.roles)],
+    djExperience: text(input.djExperience, "DJ experience", 100, true),
+    producerExperience: text(input.producerExperience, "producing experience", 100),
+    events: list(input.events, "events"),
+    supporters: list(input.supporters, "supporting artists"),
+    labels: list(input.labels, "record labels"),
+    social,
+    additionalInfo: text(input.additionalInfo, "additional information", 2000),
+  };
+}
+
 function canAccessDub(data, dub, user) {
   if (!dub || !user) return false;
   if (dub.distribution === "worldwide") return true;
@@ -443,6 +506,9 @@ function communitySnapshot(data, user) {
   return {
     lastPlayback: user.lastPlayback && canAccessDub(data, data.dubs.find((dub) => dub.id === user.lastPlayback.dubId), user)
       ? user.lastPlayback : null,
+    aListApplication: data.aListApplications.filter((application) => application.userId === user.id).at(-1) ?? null,
+    notifications: data.notifications.filter((notification) => notification.userId === user.id)
+      .map(({ userId, ...notification }) => notification),
     member: {
       id: user.id,
       username: user.username,
@@ -806,13 +872,11 @@ export function createApiServer({
         json(response, 401, { error: "Sign in to continue." });
         return;
       }
-      if (route === "/api/admin/overview" && request.method === "GET") {
-        const administrators = new Set(String(process.env.ADMIN_USERNAMES ?? "")
-          .split(",").map((name) => name.trim().toLocaleLowerCase()).filter(Boolean));
-        if (!administrators.has(user.username.toLocaleLowerCase())) {
+      if (route.startsWith("/api/admin/") && !isAdministrator(user)) {
           json(response, 403, { error: "This account is not configured as an administrator." });
           return;
-        }
+      }
+      if (route === "/api/admin/overview" && request.method === "GET") {
         const since = Date.now() - 7 * 24 * 60 * 60 * 1000;
         const accessibleDubs = data.dubs.filter((dub) => canAccessDub(data, dub, user));
         const accessibleDubIds = new Set(accessibleDubs.map((dub) => dub.id));
@@ -849,6 +913,7 @@ export function createApiServer({
         const topDubs = [...dubs].sort((a, b) => b.downloads - a.downloads).slice(0, 5);
         json(response, 200, {
           generatedAt: new Date().toISOString(),
+          administrator: { username: user.username, displayName: user.displayName },
           metrics: {
             members: users.length, tracks: dubs.length,
             downloads: data.downloads.filter((download) => accessibleDubIds.has(download.dubId)).length,
@@ -861,6 +926,131 @@ export function createApiServer({
           },
           users, dubs, topDubs, activity,
         });
+        return;
+      }
+      if (route === "/api/alist/application" && request.method === "POST") {
+        const fields = validateApplication(await readJson(request));
+        const latest = data.aListApplications.filter((application) => application.userId === user.id).at(-1);
+        if (user.aListApproved === true || latest?.status === "pending") {
+          json(response, 409, { error: "An application is already pending or your account is approved." });
+          return;
+        }
+        const now = new Date().toISOString();
+        let application;
+        if (latest?.status === "more_information") {
+          application = latest;
+          application.versions.push({ fields, submittedAt: now });
+          application.status = "pending";
+          application.updatedAt = now;
+        } else {
+          application = { id: randomUUID(), userId: user.id, status: "pending", createdAt: now, updatedAt: now, versions: [{ fields, submittedAt: now }], decisions: [] };
+          data.aListApplications.push(application);
+        }
+        persist();
+        broadcastCommunity(user.id);
+        json(response, 201, application);
+        return;
+      }
+      if (route === "/api/admin/alist/applications" && request.method === "GET") {
+        json(response, 200, { applications: data.aListApplications.map((application) => {
+          const applicant = data.users.find((item) => item.id === application.userId);
+          return { ...application, username: applicant?.username ?? "unknown", displayName: applicant?.displayName ?? "Unknown", approved: applicant?.aListApproved === true };
+        }).reverse() });
+        return;
+      }
+      if (route === "/api/admin/alist/members" && request.method === "GET") {
+        json(response, 200, { members: data.users.filter((item) => item.aListApproved === true).map(({ id, username, displayName }) => ({ id, username, displayName })) });
+        return;
+      }
+      const revokeMemberMatch = route.match(/^\/api\/admin\/alist\/members\/([^/]+)\/revoke$/);
+      if (revokeMemberMatch && request.method === "POST") {
+        const input = await readJson(request);
+        const applicant = data.users.find((item) => item.id === revokeMemberMatch[1]);
+        if (!applicant) { json(response, 404, { error: "Member not found." }); return; }
+        if (applicant.aListApproved !== true) { json(response, 409, { error: "This member does not have A-List access." }); return; }
+        if (input?.note !== undefined && (typeof input.note !== "string" || input.note.trim().length > 2000)) {
+          json(response, 400, { error: "Provide a valid note up to 2000 characters." }); return;
+        }
+        const note = input?.note?.trim() ?? "";
+        const now = new Date().toISOString();
+        const decision = { action: "revoke", note, administratorId: user.id, administrator: user.username, decidedAt: now };
+        const latest = data.aListApplications.filter((item) => item.userId === applicant.id).at(-1);
+        if (latest?.status === "approved") {
+          latest.status = "revoked";
+          latest.updatedAt = now;
+          latest.decisions.push(decision);
+        }
+        data.aListAccessDecisions.push({ userId: applicant.id, ...decision });
+        applicant.aListApproved = false;
+        data.notifications.push({ id: randomUUID(), userId: applicant.id, message: `Your A-List access has been revoked. You can apply again.${note ? ` ${note}` : ""}`, type: "info", createdAt: now, read: false });
+        persist();
+        broadcastCommunity(applicant.id);
+        json(response, 200, { status: "revoked" });
+        return;
+      }
+      const decisionMatch = route.match(/^\/api\/admin\/alist\/applications\/([^/]+)\/decision$/);
+      if (decisionMatch && request.method === "POST") {
+        const input = await readJson(request);
+        const application = data.aListApplications.find((item) => item.id === decisionMatch[1]);
+        const applicant = application && data.users.find((item) => item.id === application.userId);
+        if (!application || !applicant) {
+          json(response, 404, { error: "Application not found." });
+          return;
+        }
+        const action = input?.action;
+        const note = typeof input?.note === "string" ? input.note.trim() : "";
+        if (!["approve", "reject", "request_information", "revoke"].includes(action) || (input?.note !== undefined && typeof input.note !== "string") || note.length > 2000 || (action === "request_information" && !note)) {
+          json(response, 400, { error: "Provide a valid decision and include a note when requesting information." });
+          return;
+        }
+        const latest = data.aListApplications.filter((item) => item.userId === applicant.id).at(-1);
+        if (latest !== application || (action === "revoke" ? application.status !== "approved" || applicant.aListApproved !== true : application.status !== "pending")) {
+          json(response, 409, { error: "This application is no longer eligible for that decision." });
+          return;
+        }
+        const now = new Date().toISOString();
+        const statuses = { approve: "approved", reject: "rejected", request_information: "more_information", revoke: "revoked" };
+        application.status = statuses[action];
+        application.updatedAt = now;
+        application.decisions.push({ action, note, administratorId: user.id, administrator: user.username, decidedAt: now });
+        applicant.aListApproved = action === "approve";
+        const messages = {
+          approve: "Your A-List application has been approved.",
+          reject: "Your A-List application was not approved. You can apply again.",
+          request_information: "More information is needed for your A-List application.",
+          revoke: "Your A-List access has been revoked. You can apply again.",
+        };
+        data.notifications.push({ id: randomUUID(), userId: applicant.id, message: `${messages[action]}${note ? ` ${note}` : ""}`, type: "info", createdAt: now, read: false });
+        persist();
+        broadcastCommunity(applicant.id);
+        json(response, 200, { status: application.status });
+        return;
+      }
+      if (route === "/api/notifications/read" && request.method === "POST") {
+        for (const notification of data.notifications) if (notification.userId === user.id) notification.read = true;
+        persist();
+        broadcastCommunity(user.id);
+        json(response, 200, communitySnapshot(data, user));
+        return;
+      }
+      if (route === "/api/notifications" && request.method === "DELETE") {
+        data.notifications = data.notifications.filter((notification) => notification.userId !== user.id);
+        persist();
+        broadcastCommunity(user.id);
+        json(response, 200, communitySnapshot(data, user));
+        return;
+      }
+      const notificationMatch = route.match(/^\/api\/notifications\/([^/]+)$/);
+      if (notificationMatch && request.method === "DELETE") {
+        const index = data.notifications.findIndex((notification) => notification.id === notificationMatch[1] && notification.userId === user.id);
+        if (index === -1) {
+          json(response, 404, { error: "Notification not found." });
+          return;
+        }
+        data.notifications.splice(index, 1);
+        persist();
+        broadcastCommunity(user.id);
+        json(response, 200, communitySnapshot(data, user));
         return;
       }
       if (request.method === "GET" && route === "/api/community") {

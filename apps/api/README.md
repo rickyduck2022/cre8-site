@@ -52,9 +52,12 @@ Private dubs are visible to their uploader and friends explicitly shared with
 in Messenger. Only the uploader can share a private dub or revoke a grant from
 My Dubs. Revocation prevents subsequent API access, but cannot recall files
 already downloaded or bytes already transferred. A-List access and uploads
-require the server-side `aListApproved` user flag; the application and admin
-approval workflow is not implemented yet, so there is no in-app way to grant
-or revoke that status. The Worldwide feed and its search exclude both other
+require server-side A-List approval. Members can submit applications under
+A-List Submission; administrators configured through `ADMIN_USERNAMES` can
+review and approve, reject, request information or revoke access in the admin
+app. Decisions, previous submission versions and notifications are persisted.
+Follower counts are self-reported and unverified; no social API integration
+is used. The Worldwide feed and its search exclude both other
 tiers. The API checks access independently for media, search, snapshots,
 messages, playback, crates, library and admin overview.
 

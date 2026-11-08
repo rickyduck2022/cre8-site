@@ -1,4 +1,26 @@
 export type Presence = "online" | "away" | "offline";
+export type AListRole = "DJ" | "Producer" | "DJ & Producer" | "MC / Vocalist" | "Other";
+export type AListProvider = "instagram" | "tiktok" | "facebook" | "soundcloud";
+export interface AListApplicationFields {
+  artistName: string;
+  roles: AListRole[];
+  djExperience: string;
+  producerExperience: string;
+  events: string[];
+  supporters: string[];
+  labels: string[];
+  social: Record<AListProvider, { url: string; followers: number | null }>;
+  additionalInfo: string;
+}
+export interface AListApplication {
+  id: string;
+  userId: string;
+  status: "pending" | "approved" | "rejected" | "more_information" | "revoked";
+  createdAt: string;
+  updatedAt: string;
+  versions: Array<{ fields: AListApplicationFields; submittedAt: string }>;
+  decisions: Array<{ action: string; note: string; administratorId: string; administrator: string; decidedAt: string }>;
+}
 export type ChatConnectionStatus =
   | "connecting"
   | "connected"

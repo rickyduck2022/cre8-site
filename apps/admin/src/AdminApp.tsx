@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { Avatar, Badge, Button } from "@craft/ui";
+import { AListReviews } from "./AListReviews";
 
-type Section = "overview" | "members" | "releases";
+type Section = "overview" | "members" | "releases" | "applications";
 type UserRow = { id: string; username: string; displayName: string; genre: string; role: string; presence: string; createdAt: string | null; uploads: number; friends: number };
 type DubRow = { id: string; title: string; artist: string; uploader: string; username: string; uploadedAt: string; genre: string; tags: string[]; likes: number; downloads: number };
 type Dashboard = { generatedAt: string; administrator: { username: string; displayName: string }; metrics: { members: number; tracks: number; downloads: number; connections: number; uploadsThisWeek: number; membersThisWeek: number }; users: UserRow[]; dubs: DubRow[]; topDubs: DubRow[]; activity: Array<{ date: string; uploads: number; members: number }> };
@@ -72,20 +73,21 @@ export function AdminApp() {
     <div className="admin-login__art" aria-hidden="true"><div className="sound-orbit sound-orbit--one"/><div className="sound-orbit sound-orbit--two"/><div className="sound-orbit sound-orbit--three"/><div className="sound-core">c<span>8</span></div><div className="sound-caption">THE COMMUNITY, IN MOTION</div></div>
   </main>;
 
-  const activeItems: Record<Section, string> = { overview: "Overview", members: "Members", releases: "Releases" };
+  const activeItems: Record<Section, string> = { overview: "Overview", members: "Members", releases: "Releases", applications: "A-List Applications" };
   const maxActivity = Math.max(1, ...(dashboard.activity.map((day) => day.uploads + day.members)));
   return <div className="admin-shell">
     <aside className="admin-sidebar">
       <a className="admin-brand" href="#overview"><span className="admin-brand__mark">c</span><span>cre8<span className="admin-brand__sub"> / ADMIN</span></span></a>
       <div className="admin-workspace"><span className="admin-workspace__icon">c8</span><span><strong>Community</strong><small>Administration</small></span><span className="admin-workspace__dots">···</span></div>
       <div className="admin-nav-label">WORKSPACE</div>
-      <nav className="admin-nav" aria-label="Admin sections">{(["overview", "members", "releases"] as Section[]).map((item) => <button key={item} type="button" className={section === item ? "is-active" : ""} onClick={() => { setSection(item); setQuery(""); }}><span className="admin-nav__icon">{item === "overview" ? "◫" : item === "members" ? "♧" : "♫"}</span>{activeItems[item]}{item === "members" && <span className="admin-nav__count">{dashboard.metrics.members}</span>}</button>)}</nav>
+      <nav className="admin-nav" aria-label="Admin sections">{(["overview", "members", "releases", "applications"] as Section[]).map((item) => <button key={item} type="button" className={section === item ? "is-active" : ""} onClick={() => { setSection(item); setQuery(""); }}><span className="admin-nav__icon">{item === "overview" ? "◫" : item === "members" ? "♧" : item === "applications" ? "★" : "♫"}</span>{activeItems[item]}{item === "members" && <span className="admin-nav__count">{dashboard.metrics.members}</span>}</button>)}</nav>
       <div className="admin-sidebar__bottom"><div className="admin-live"><span/>All systems operational</div><div className="admin-sidebar__version">CRE8 ADMIN <span>v1.0</span></div></div>
     </aside>
     <main className="admin-main">
       <header className="admin-topbar"><div className="admin-breadcrumb">Workspace <span>/</span> <strong>{activeItems[section]}</strong></div><div className="admin-topbar__right"><span className="admin-status"><i/> Live data</span><span className="admin-topbar__divider"/><button className="admin-user" onClick={() => void logout()} type="button" title="Sign out"><Avatar name={currentUser.displayName} size="small"/><span><strong>{currentUser.displayName}</strong><small>Administrator · Sign out</small></span><span className="admin-user__arrow">⌄</span></button></div></header>
       <div className="admin-content">
         {error && <div role="alert" className="admin-error admin-error--inline">{error}</div>}
+        {section === "applications" && <AListReviews request={request} />}
         {section === "overview" && <>
           <div className="page-heading"><div><div className="eyebrow">SUNDAY, {new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "long", year: "numeric" }).format(new Date()).toUpperCase()}</div><h1>Community overview<span className="heading-period">.</span></h1><p>Here’s what’s happening across your community.</p></div><Button variant="secondary" onClick={() => void loadDashboard().catch((cause) => setError(cause instanceof Error ? cause.message : "Refresh failed."))}><span aria-hidden="true">↻</span> Refresh data</Button></div>
           <div className="metric-grid">{[{ name: "Total members", value: dashboard.metrics.members, delta: `+${dashboard.metrics.membersThisWeek} this week`, icon: "♧", tone: "lime" }, { name: "Tracks uploaded", value: dashboard.metrics.tracks, delta: `+${dashboard.metrics.uploadsThisWeek} this week`, icon: "♫", tone: "orange" }, { name: "Total downloads", value: dashboard.metrics.downloads, delta: "All time", icon: "↓", tone: "blue" }, { name: "Connections made", value: dashboard.metrics.connections, delta: "Across the community", icon: "⌘", tone: "violet" }].map((metric) => <article className="metric-card" key={metric.name}><div className="metric-card__top"><span>{metric.name}</span><span className={`metric-card__icon metric-card__icon--${metric.tone}`}>{metric.icon}</span></div><div className="metric-card__value">{metric.value.toLocaleString("en-GB")}</div><div className="metric-card__delta"><span>↗</span> {metric.delta}</div></article>)}</div>

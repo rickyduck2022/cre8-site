@@ -89,3 +89,24 @@
 .start-conversation-list > button {
   justify-content: flex-start;
 }
+
+@media (max-width: 760px) {
+  .community-dashboard-template {
+    display: block;
+  }
+
+  .community-dashboard-template .dashboard-template__main {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .community-dashboard-template .audio-player--full {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .mobile-tabs {
+    grid-auto-columns: minmax(4.5rem, 1fr);
+    grid-auto-flow: column;
+    grid-template-columns: none;
+    overflow-x: auto;
+  }
+}
