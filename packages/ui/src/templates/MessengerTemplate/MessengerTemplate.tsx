@@ -240,11 +240,15 @@ export function MessengerTemplate({
               );
               const latest = conversation?.messages.at(-1);
               return (
-                <div
+                <button
+                  aria-current={selectedBuddy?.id === buddy.id ? "true" : undefined}
+                  aria-label={`Open conversation with ${buddy.displayName}`}
                   className={`conversation-link${selectedBuddy?.id === buddy.id ? " is-selected" : ""}`}
                   key={buddy.id}
+                  onClick={() => selectConversation(buddy.id)}
+                  type="button"
                 >
-                  <button aria-label={`View ${buddy.displayName}'s profile`} className={`buddy-row__avatar buddy-row__avatar--${buddy.presence}`} onClick={() => onOpenProfile(buddy.username)} type="button">
+                  <span className={`buddy-row__avatar buddy-row__avatar--${buddy.presence}`}>
                     <Avatar
                       name={buddy.displayName}
                       size="medium"
@@ -252,13 +256,13 @@ export function MessengerTemplate({
                       status={buddy.presence === "offline" ? "inactive" : "active"}
                     />
                     <PresenceIndicator presence={buddy.presence} />
-                  </button>
+                  </span>
                   <span className="conversation-link__copy">
-                    <button className="text-button conversation-link__profile" onClick={() => onOpenProfile(buddy.username)} type="button"><strong>{buddy.displayName}{buddy.aListApproved && <AListBadge />}</strong></button>
-                    <button aria-current={selectedBuddy?.id === buddy.id ? "true" : undefined} aria-label={`Open conversation with ${buddy.displayName}`} className="text-button conversation-link__preview" onClick={() => selectConversation(buddy.id)} type="button">{latest?.unsent ? "This message was unsent." : latest?.text ?? "Start a conversation"}</button>
+                    <strong>{buddy.displayName}{buddy.aListApproved && <AListBadge />}</strong>
+                    <span>{latest?.unsent ? "This message was unsent." : latest?.text ?? "Start a conversation"}</span>
                   </span>
                   {buddy.unread && <Badge>{buddy.unread}</Badge>}
-                </div>
+                </button>
               );
             })}
           </InfiniteScroll>

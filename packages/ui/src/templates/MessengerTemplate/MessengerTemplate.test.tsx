@@ -6,20 +6,30 @@ import type { Dub } from "../communityTypes";
 afterEach(cleanup);
 
 describe("MessengerTemplate shared dubs", () => {
-  it("opens profiles from conversation identities while preserving conversation selection", () => {
+  it("selects conversations from the entire row and keeps profile access in the header", () => {
     const open = vi.fn();
     const select = vi.fn();
     render(<MessengerTemplate
-      buddies={[{ id: "friend", username: "amber", displayName: "Amber", presence: "online", genre: "Jungle", role: "DJ", bio: "", groups: [] }]}
-      conversations={[]} dubs={[]} initialBuddyId="friend" chatConnectionStatus="connected" nowPlayingId={null} isPlaying={false}
+      buddies={[
+        { id: "friend", username: "amber", displayName: "Amber", presence: "online", genre: "Jungle", role: "DJ", bio: "", groups: [] },
+        { id: "other", username: "ben", displayName: "Ben", presence: "offline", genre: "Jungle", role: "DJ", bio: "", groups: [], unread: 2 },
+      ]}
+      conversations={[{ buddyId: "other", messages: [{ id: "msg", sender: "them", text: "Hello", sentAt: "2026-11-01T12:00:00Z" }] }]} dubs={[]} initialBuddyId="friend" chatConnectionStatus="connected" nowPlayingId={null} isPlaying={false}
       onOpenProfile={open} onPlay={vi.fn()} onStartConversation={vi.fn()} onSelectConversation={select} onLoadOlderMessages={vi.fn(async () => null)} onSendMessage={vi.fn(async () => true)}
     />);
-    fireEvent.click(screen.getAllByRole("button", { name: "View Amber's profile" })[0]);
-    fireEvent.click(screen.getAllByRole("button", { name: "Amber" })[0]);
-    expect(open).toHaveBeenCalledTimes(2);
-    expect(open).toHaveBeenCalledWith("amber");
-    fireEvent.click(screen.getByRole("button", { name: "Open conversation with Amber" }));
-    expect(select).toHaveBeenCalledWith("friend");
+    const row = screen.getByRole("button", { name: "Open conversation with Ben" });
+    expect(row).not.toHaveAttribute("aria-current");
+    fireEvent.click(within(row).getByRole("img", { name: "Ben" }));
+    expect(select).toHaveBeenCalledWith("other");
+    expect(row).toHaveAttribute("aria-current", "true");
+    fireEvent.click(within(row).getByText("Ben"));
+    fireEvent.click(within(row).getByText("Hello"));
+    fireEvent.click(within(row).getByText("2"));
+    expect(select).toHaveBeenCalledTimes(4);
+    expect(open).not.toHaveBeenCalled();
+    expect(within(row).queryByRole("button")).not.toBeInTheDocument();
+    fireEvent.click(screen.getAllByRole("button", { name: "View Ben's profile" })[0]);
+    expect(open).toHaveBeenCalledWith("ben");
   });
   it("offers an explicit share again action for dubs already sent to the selected friend", async () => {
     const dub: Dub = {

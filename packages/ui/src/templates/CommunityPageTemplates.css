@@ -539,6 +539,7 @@ button {
   background: none;
   border: 0;
   border-radius: 0.5rem;
+  cursor: pointer;
   display: flex;
   gap: 0.625rem;
   min-width: 0;
@@ -575,18 +576,9 @@ button {
   white-space: nowrap;
 }
 
-.conversation-link__profile,
-.conversation-link__preview {
+.conversation-link__profile {
   min-width: 0;
   text-align: left;
-}
-
-.conversation-link__preview {
-  color: var(--text-secondary);
-  font-size: var(--type-size-micro);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .chat-panel {
