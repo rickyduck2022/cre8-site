@@ -6,6 +6,42 @@ import type { Dub } from "../communityTypes";
 afterEach(cleanup);
 
 describe("MessengerTemplate shared dubs", () => {
+  it("offers only owned dubs and can open the existing upload flow", () => {
+    const ownDub: Dub = {
+      id: "my-dub", title: "My Release", artist: "You", uploader: "you",
+      uploaderDisplayName: "You", uploadedAt: "2026-11-01T12:00:00.000Z", bpm: 174,
+      genre: "Jungle", duration: "03:30", likes: 0, downloads: 0,
+      artwork: "whitelabel", message: "Ready to send",
+    };
+    const foreignDub: Dub = { ...ownDub, id: "foreign", title: "Someone Else's", uploader: "other" };
+    const onCreateAndShareDub = vi.fn();
+    const onSendMessage = vi.fn(async () => true);
+    render(<MessengerTemplate
+      buddies={[{ id: "friend-1", username: "amber", displayName: "Amber", presence: "online", genre: "Jungle", role: "DJ", bio: "", groups: [] }]}
+      conversations={[]}
+      dubs={[ownDub, foreignDub]}
+      shareableDubs={[ownDub]}
+      initialBuddyId="friend-1"
+      chatConnectionStatus="connected"
+      nowPlayingId={null}
+      isPlaying={false}
+      onOpenProfile={vi.fn()}
+      onPlay={vi.fn()}
+      onStartConversation={vi.fn()}
+      onCreateAndShareDub={onCreateAndShareDub}
+      onSelectConversation={vi.fn()}
+      onLoadOlderMessages={vi.fn(async () => null)}
+      onSendMessage={onSendMessage}
+    />);
+    fireEvent.click(screen.getByText("Share one of My Dubs"));
+    expect(screen.getByText("My Release")).toBeInTheDocument();
+    expect(screen.queryByText("Someone Else's")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Share Dub" }));
+    expect(onSendMessage).toHaveBeenCalledWith("friend-1", "Shared a dub: My Release", "my-dub");
+    fireEvent.click(screen.getByRole("button", { name: "Upload & share" }));
+    expect(onCreateAndShareDub).toHaveBeenCalledWith("friend-1");
+  });
+
   it("plays and downloads a shared dub inside its conversation", () => {
     const dub: Dub = {
       id: "dub-1", title: "Jungle Drop", artist: "Amber", uploader: "amber",

@@ -5,6 +5,7 @@ import { ModalFooter } from "../ModalFooter/ModalFooter";
 import { UploadProgress } from "../UploadProgress/UploadProgress";
 import { TagSelector } from "../TagSelector/TagSelector";
 import type { UploadProgressState } from "../notificationTypes";
+import type { Dub } from "../../templates/communityTypes";
 import "../Molecules.css";
 
 export interface DubUploadFormValues {
@@ -13,16 +14,17 @@ export interface DubUploadFormValues {
   tags: string[];
   bpm?: number;
   message: string;
-  audioFile: File;
+  audioFile?: File;
   artworkFile?: File;
 }
 
 export interface DubUploadFormProps {
   artists: Array<{ id: string; name: string }>;
-  onSubmit: (values: DubUploadFormValues) => void | boolean | Promise<void | boolean>;
+  onSubmit: (values: DubUploadFormValues) => unknown | Promise<unknown>;
   onCancel: () => void;
   uploadProgress?: UploadProgressState | null;
   submissionError?: string;
+  initialDub?: Dub;
 }
 
 export function DubUploadForm({
@@ -31,9 +33,11 @@ export function DubUploadForm({
   onSubmit,
   uploadProgress = null,
   submissionError = "",
+  initialDub,
 }: DubUploadFormProps) {
+  const isEditing = Boolean(initialDub);
   const formId = `dub-upload-form-${useId()}`;
-  const [tags, setTags] = useState<string[]>([]);
+  const [tags, setTags] = useState<string[]>(initialDub?.tags ?? [initialDub?.genre ?? ""].filter(Boolean));
   const [fileError, setFileError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -44,7 +48,10 @@ export function DubUploadForm({
     const formData = new FormData(form);
     const audioFile = formData.get("audioFile");
     const artworkFile = formData.get("artworkFile");
-    if (!(audioFile instanceof File) || audioFile.size === 0) {
+    const selectedAudioFile = audioFile instanceof File && audioFile.size > 0
+      ? audioFile
+      : undefined;
+    if (!selectedAudioFile && !initialDub) {
       setFileError("Choose a WAV or audio file to upload.");
       return;
     }
@@ -52,19 +59,19 @@ export function DubUploadForm({
     const bpmValue = String(formData.get("bpm") ?? "").trim();
     setIsSubmitting(true);
     try {
-      const succeeded = await onSubmit({
+      const result = await onSubmit({
         title: String(formData.get("title") ?? ""),
         artistId: String(formData.get("artistId") ?? ""),
         tags,
         bpm: bpmValue ? Number(bpmValue) : undefined,
         message: String(formData.get("message") ?? ""),
-        audioFile,
+        audioFile: selectedAudioFile,
         artworkFile:
           artworkFile instanceof File && artworkFile.size > 0
             ? artworkFile
             : undefined,
       });
-      if (succeeded !== false) {
+      if (result !== false && result !== null) {
         form.reset();
         setTags([]);
         setFileError("");
@@ -80,11 +87,11 @@ export function DubUploadForm({
       <fieldset className="dub-upload-form__fields" disabled={isSubmitting}>
         <label className="dub-upload-form__field">
           <span>Track title</span>
-          <input autoFocus maxLength={100} name="title" required />
+          <input autoFocus defaultValue={initialDub?.title} maxLength={100} name="title" required />
         </label>
         <label className="dub-upload-form__field">
           <span>Artist profile</span>
-          <select name="artistId" required>
+          <select defaultValue={initialDub?.artistId} name="artistId" required>
             {artists.map((artist) => (
               <option key={artist.id} value={artist.id}>
                 {artist.name}
@@ -102,6 +109,7 @@ export function DubUploadForm({
           <label className="dub-upload-form__field dub-upload-form__field--bpm">
             <span>BPM</span>
             <input
+              defaultValue={initialDub?.bpm || ""}
               max="300"
               min="1"
               name="bpm"
@@ -111,12 +119,15 @@ export function DubUploadForm({
           </label>
         </div>
         <label className="dub-upload-form__field">
-          <span>Audio file <small>Up to 100 MB</small></span>
+          <span>
+            {isEditing ? "Replace audio" : "Audio file"}
+            <small>{isEditing ? initialDub?.audioFileName ?? "Optional · up to 100 MB" : "Up to 100 MB"}</small>
+          </span>
           <input
             accept="audio/*,.wav"
             name="audioFile"
             onChange={() => setFileError("")}
-            required
+            required={!isEditing}
             type="file"
           />
         </label>
@@ -126,7 +137,7 @@ export function DubUploadForm({
           </span>
         )}
         <label className="dub-upload-form__field">
-          <span>Track artwork <small>Optional · up to 10 MB</small></span>
+          <span>{isEditing ? "Replace artwork" : "Track artwork"} <small>Optional · up to 10 MB</small></span>
           <input
             accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
             name="artworkFile"
@@ -135,7 +146,7 @@ export function DubUploadForm({
         </label>
         <label className="dub-upload-form__field">
           <span>Message</span>
-          <textarea maxLength={400} name="message" rows={3} />
+          <textarea defaultValue={initialDub?.message} maxLength={400} name="message" rows={3} />
         </label>
       </fieldset>
       {submissionError && (
@@ -150,7 +161,7 @@ export function DubUploadForm({
         Cancel
       </Button>
       <Button disabled={isSubmitting} form={formId} loading={isSubmitting} type="submit">
-        {isSubmitting ? "Sharing dub" : "Share dub"}
+        {isSubmitting ? (isEditing ? "Saving dub" : "Sharing dub") : (isEditing ? "Save changes" : "Share dub")}
       </Button>
     </ModalFooter>
     </>

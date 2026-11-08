@@ -383,6 +383,29 @@ test("starter account has no seeded tracks and retains uploaded community activi
     assert.deepEqual(newDub.tags, ["Jungle", "Rollers"]);
     assert.match(newDub.artworkUrl, new RegExp(`/api/dubs/${newDub.id}/artwork`));
     assert.ok(Number.isFinite(Date.parse(newDub.uploadedAt)));
+    const editedDubResponse = await fetch(`${server.baseUrl}/api/dubs/${newDub.id}`, {
+      method: "PATCH",
+      headers: { cookie, "content-type": "application/json" },
+      body: JSON.stringify({
+        title: "Updated Dub",
+        artistId: "artist-meladee",
+        tags: ["Rollers", "Jungle"],
+        bpm: 132,
+        message: "Updated release notes.",
+      }),
+    });
+    assert.equal(editedDubResponse.status, 200);
+    const editedDub = await editedDubResponse.json();
+    assert.equal(editedDub.title, "Updated Dub");
+    assert.equal(editedDub.bpm, 132);
+    assert.deepEqual(editedDub.tags, ["Rollers", "Jungle"]);
+    assert.equal(editedDub.message, "Updated release notes.");
+    const unauthorizedEdit = await fetch(`${server.baseUrl}/api/dubs/${newDub.id}`, {
+      method: "PATCH",
+      headers: { cookie: await registerAccount(server.baseUrl, "trackeditor"), "content-type": "application/json" },
+      body: JSON.stringify({ title: "Not yours", artistId: "artist-meladee" }),
+    });
+    assert.equal(unauthorizedEdit.status, 404);
     const savedResponse = await fetch(
       `${server.baseUrl}/api/crates/${crate.id}/dubs/${newDub.id}`,
       { method: "PUT", headers: { cookie } },
@@ -450,13 +473,25 @@ test("starter account has no seeded tracks and retains uploaded community activi
     const restored = await fetch(`${server.baseUrl}/api/community`, {
       headers: { cookie: secondCookie },
     }).then((response) => response.json());
-    assert.ok(restored.dubs.some((item) => item.id === newDub.id && item.likes === 2 && item.downloads === 3));
+    assert.ok(restored.dubs.some((item) => item.id === newDub.id && item.title === "Updated Dub" && item.likes === 2 && item.downloads === 3));
     const restoredImage = await fetch(`${server.baseUrl}${newDub.artworkUrl}`, {
       headers: { cookie: secondCookie },
     });
     assert.equal(restoredImage.status, 200);
     assert.ok(restored.crates.some((item) => item.id === crate.id && item.dubIds.includes(newDub.id)));
     assert.ok(restored.conversations[0].messages.some((message) => message.text === "Persistent message"));
+    const storedAfterEdit = JSON.parse(readFileSync(join(server.directory, "community.json"), "utf8"));
+    const artworkStoredPath = join(server.directory, "audio", storedAfterEdit.dubs.find((item) => item.id === newDub.id).storedArtworkName);
+    const deleteResponse = await fetch(`${server.baseUrl}/api/dubs/${newDub.id}`, {
+      method: "DELETE",
+      headers: { cookie: secondCookie },
+    });
+    assert.equal(deleteResponse.status, 200);
+    assert.deepEqual(await deleteResponse.json(), { id: newDub.id });
+    assert.equal(existsSync(artworkStoredPath), false);
+    const afterDelete = await fetch(`${server.baseUrl}/api/community`, { headers: { cookie: secondCookie } }).then((response) => response.json());
+    assert.ok(!afterDelete.dubs.some((item) => item.id === newDub.id));
+    assert.ok(!afterDelete.crates.some((item) => item.dubIds.includes(newDub.id)));
   } finally {
     await server.close();
     rmSync(server.directory, { recursive: true, force: true });

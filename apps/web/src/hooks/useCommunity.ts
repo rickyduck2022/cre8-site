@@ -220,45 +220,18 @@ export function useCommunity() {
     }
   }
 
-  async function addDub(values: DubUploadFormValues): Promise<boolean> {
-    let uploadId: string | undefined;
-    let artworkUploadId: string | undefined;
-    const totalBytes = values.audioFile.size + (values.artworkFile?.size ?? 0);
-    let completedBytes = 0;
+  async function addDub(values: DubUploadFormValues): Promise<Dub | null> {
+    if (!values.audioFile) {
+      setUploadError("Choose an audio file before sharing your dub.");
+      return null;
+    }
+    let temporaryUploadIds: string[] = [];
     setUploadError("");
-    setUploadProgress({
-      phase: "uploading",
-      fileName: values.audioFile.name,
-      progress: 0,
-    });
     try {
-      const onFileProgress = (file: File) => (loaded: number, total: number) => {
-        const fileProgress = total > 0 ? Math.min(1, loaded / total) : 0;
-        const progress = totalBytes > 0
-          ? Math.floor(((completedBytes + file.size * fileProgress) / totalBytes) * 100)
-          : 0;
-        setUploadProgress({ phase: "uploading", fileName: file.name, progress });
-      };
-      const upload = await uploadFile(values.audioFile, "audio", onFileProgress(values.audioFile));
-      uploadId = upload.uploadId;
-      completedBytes += values.audioFile.size;
-      if (values.artworkFile) {
-        setUploadProgress({
-          phase: "uploading",
-          fileName: values.artworkFile.name,
-          progress: totalBytes > 0
-            ? Math.floor((completedBytes / totalBytes) * 100)
-            : 0,
-        });
-        const artworkUpload = await uploadFile(
-          values.artworkFile,
-          "artwork",
-          onFileProgress(values.artworkFile),
-        );
-        artworkUploadId = artworkUpload.uploadId;
-      }
+      const media = await uploadDubMedia(values.audioFile, values.artworkFile);
+      temporaryUploadIds = media.uploadIds;
       setUploadProgress({ phase: "publishing", fileName: "", progress: 100 });
-      await requestApi("/api/dubs", {
+      const dub = await requestApi<Dub>("/api/dubs", {
         method: "POST",
         body: jsonBody({
           title: values.title.trim(),
@@ -266,34 +239,114 @@ export function useCommunity() {
           tags: values.tags,
           bpm: values.bpm,
           message: values.message.trim(),
-          uploadId,
-          artworkUploadId,
+          uploadId: media.audioUploadId,
+          artworkUploadId: media.artworkUploadId,
         }),
       });
+      temporaryUploadIds = [];
       await refreshCommunity();
       notify(`${values.title.trim()} was added to the Dub Feed.`);
-      return true;
+      return dub;
     } catch (requestError) {
       const message = requestError instanceof Error
         ? requestError.message
         : "The dub could not be uploaded.";
       setUploadError(message);
-      if (uploadId) {
-        await requestApi(`/api/uploads/${encodeURIComponent(uploadId)}`, { method: "DELETE" })
-          .catch((cleanupError: unknown) => {
-            notify(cleanupError instanceof Error ? cleanupError.message : "An unfinished upload could not be removed.", "error");
-          });
-      }
-      if (artworkUploadId) {
-        await requestApi(`/api/uploads/${encodeURIComponent(artworkUploadId)}`, { method: "DELETE" })
-          .catch((cleanupError: unknown) => {
-            notify(cleanupError instanceof Error ? cleanupError.message : "Unattached track artwork could not be removed.", "error");
-          });
-      }
+      await cleanupDubUploads(temporaryUploadIds);
       notify(message, "error");
-      return false;
+      return null;
     } finally {
       setUploadProgress(null);
+    }
+  }
+
+  async function uploadDubMedia(audioFile?: File, artworkFile?: File) {
+    const files = [
+      audioFile ? { file: audioFile, type: "audio" as const } : null,
+      artworkFile ? { file: artworkFile, type: "artwork" as const } : null,
+    ].filter((item): item is { file: File; type: "audio" | "artwork" } => Boolean(item));
+    const totalBytes = files.reduce((total, item) => total + item.file.size, 0);
+    let completedBytes = 0;
+    const uploadIds: string[] = [];
+    let audioUploadId: string | undefined;
+    let artworkUploadId: string | undefined;
+
+    try {
+      for (const { file, type } of files) {
+        setUploadProgress({ phase: "uploading", fileName: file.name, progress: 0 });
+        const uploaded = await uploadFile(file, type, (loaded, total) => {
+          const fileProgress = total > 0 ? Math.min(1, loaded / total) : 0;
+          const progress = totalBytes > 0
+            ? Math.floor(((completedBytes + file.size * fileProgress) / totalBytes) * 100)
+            : 0;
+          setUploadProgress({ phase: "uploading", fileName: file.name, progress });
+        });
+        uploadIds.push(uploaded.uploadId);
+        if (type === "audio") audioUploadId = uploaded.uploadId;
+        else artworkUploadId = uploaded.uploadId;
+        completedBytes += file.size;
+      }
+    } catch (uploadError) {
+      await cleanupDubUploads(uploadIds);
+      throw uploadError;
+    }
+    return { audioUploadId, artworkUploadId, uploadIds };
+  }
+
+  async function cleanupDubUploads(uploadIds: string[]) {
+    await Promise.all(uploadIds.map((uploadId) =>
+      requestApi(`/api/uploads/${encodeURIComponent(uploadId)}`, { method: "DELETE" })
+        .catch((cleanupError: unknown) => {
+          notify(cleanupError instanceof Error ? cleanupError.message : "An unfinished upload could not be removed.", "error");
+        }),
+    ));
+  }
+
+  async function updateDub(dubId: string, values: DubUploadFormValues): Promise<Dub | null> {
+    let temporaryUploadIds: string[] = [];
+    setUploadError("");
+    try {
+      const media = await uploadDubMedia(values.audioFile, values.artworkFile);
+      temporaryUploadIds = media.uploadIds;
+      setUploadProgress({ phase: "publishing", fileName: "", progress: 100 });
+      const dub = await requestApi<Dub>(`/api/dubs/${encodeURIComponent(dubId)}`, {
+        method: "PATCH",
+        body: jsonBody({
+          title: values.title.trim(),
+          artistId: values.artistId,
+          tags: values.tags,
+          bpm: values.bpm,
+          message: values.message.trim(),
+          uploadId: media.audioUploadId,
+          artworkUploadId: media.artworkUploadId,
+        }),
+      });
+      temporaryUploadIds = [];
+      if (values.audioFile && playback.state.nowPlayingId === dubId) playback.reset();
+      await refreshCommunity();
+      notify(`${dub.title} was updated.`);
+      return dub;
+    } catch (requestError) {
+      const message = requestError instanceof Error ? requestError.message : "The dub could not be updated.";
+      setUploadError(message);
+      await cleanupDubUploads(temporaryUploadIds);
+      notify(message, "error");
+      return null;
+    } finally {
+      setUploadProgress(null);
+    }
+  }
+
+  async function deleteDub(dubId: string): Promise<boolean> {
+    try {
+      await requestApi(`/api/dubs/${encodeURIComponent(dubId)}`, { method: "DELETE" });
+      if (playback.state.nowPlayingId === dubId) playback.reset();
+      await refreshCommunity();
+      notify("Dub deleted.");
+      return true;
+    } catch (requestError) {
+      notify(requestError instanceof Error ? requestError.message : "The dub could not be deleted.", "error");
+      return false;
     }
   }
 
@@ -489,6 +542,8 @@ export function useCommunity() {
     playNextDub: playback.playNextDub,
     playPreviousDub: playback.playPreviousDub,
     addDub,
+    updateDub,
+    deleteDub,
     addBuddy,
     removeBuddy,
     markConversationRead,

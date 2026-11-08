@@ -7,7 +7,7 @@ import { SearchField } from "../../molecules/SearchField/SearchField";
 import type { Dub } from "../communityTypes";
 import { formatLocalTimestamp, formatRelativeTime } from "../templateFormatters";
 import { TrackArtwork } from "../shared/TrackArtwork";
-import { DubCard } from "./components/DubCard";
+import { DubCard } from "../../organisms/DubCard/DubCard";
 import "../CommunityPageTemplates.css";
 import "./LatestDubsTemplate.css";
 

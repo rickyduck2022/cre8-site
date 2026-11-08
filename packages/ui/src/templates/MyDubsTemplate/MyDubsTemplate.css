@@ -1,0 +1,29 @@
+.my-dubs-template {
+  display: grid;
+  gap: 1.25rem;
+  min-width: 0;
+}
+
+.my-dubs-template__intro-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  justify-content: flex-end;
+}
+
+.my-dubs-template__delete-copy {
+  color: var(--text-secondary);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.my-dubs-template__delete-copy strong {
+  color: var(--text-primary);
+}
+
+@media (max-width: 620px) {
+  .my-dubs-template__intro-actions {
+    justify-content: flex-start;
+  }
+}

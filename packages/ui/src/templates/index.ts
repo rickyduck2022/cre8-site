@@ -5,6 +5,7 @@ export * from "./TabletTemplate/TabletTemplate";
 export * from "./MobileTemplate/MobileTemplate";
 export * from "./LatestDubsTemplate/LatestDubsTemplate";
 export * from "./LibraryTemplate/LibraryTemplate";
+export * from "./MyDubsTemplate/MyDubsTemplate";
 export * from "./BuddyListTemplate/BuddyListTemplate";
 export * from "./MessengerTemplate/MessengerTemplate";
 export * from "./ProfileTemplate/ProfileTemplate";

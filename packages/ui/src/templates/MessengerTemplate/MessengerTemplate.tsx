@@ -24,6 +24,7 @@ export interface MessengerTemplateProps {
   buddies: Buddy[];
   conversations: Conversation[];
   dubs: Dub[];
+  shareableDubs?: Dub[];
   initialBuddyId: string;
   chatConnectionStatus: ChatConnectionStatus;
   nowPlayingId: string | null;
@@ -35,6 +36,7 @@ export interface MessengerTemplateProps {
   onPlay: (dub: Dub) => void;
   onDownload?: (dub: Dub) => void;
   onStartConversation: () => void;
+  onCreateAndShareDub?: (buddyId: string) => void;
   onSelectConversation: (buddyId: string) => void;
   onLoadOlderMessages: (buddyId: string, beforeId: string) => Promise<unknown>;
   onSendMessage: (
@@ -49,6 +51,7 @@ export function MessengerTemplate({
   conversations,
   chatConnectionStatus,
   dubs,
+  shareableDubs = [],
   initialBuddyId,
   nowPlayingId,
   isPlaying,
@@ -59,6 +62,7 @@ export function MessengerTemplate({
   onPlay,
   onDownload = () => undefined,
   onStartConversation,
+  onCreateAndShareDub,
   onSelectConversation,
   onLoadOlderMessages,
   onSendMessage,
@@ -79,7 +83,7 @@ export function MessengerTemplate({
     (conversation) => conversation.buddyId === selectedBuddy?.id,
   );
   const visibleBuddies = buddies.slice(0, visibleBuddyCount);
-  const visibleDubs = dubs.slice(0, visibleDubCount);
+  const visibleDubs = shareableDubs.slice(0, visibleDubCount);
 
   useEffect(() => setLoadingOlder(false), [selectedBuddy?.id]);
 
@@ -278,29 +282,45 @@ export function MessengerTemplate({
             <details className="share-a-dub">
               <summary>
                 <Disc3 aria-hidden="true" />
-                Share a dub
+                Share one of My Dubs
               </summary>
               <InfiniteScroll
                 className="share-a-dub__list"
                 contentClassName="share-a-dub__results"
-                hasMore={visibleDubs.length < dubs.length}
+                hasMore={visibleDubs.length < shareableDubs.length}
                 itemCount={visibleDubs.length}
                 label="Dubs"
                 loadDirection="end"
                 loading={false}
-                onLoadMore={() => setVisibleDubCount((count) => Math.min(count + 20, dubs.length))}
+                onLoadMore={() => setVisibleDubCount((count) => Math.min(count + 20, shareableDubs.length))}
               >
+                {onCreateAndShareDub && (
+                  <div className="share-a-dub__create">
+                    <span>Have a new dub?</span>
+                    <Button onClick={() => onCreateAndShareDub(selectedBuddy.id)} size="small" variant="secondary">
+                      Upload &amp; share
+                    </Button>
+                  </div>
+                )}
                 {visibleDubs.map((dub) => (
-                  <button
-                    key={dub.id}
-                    onClick={() => shareDub(dub)}
-                    type="button"
-                  >
-                    <span>{dub.title}</span>
-                    <span>{dub.artist}</span>
-                    <Link aria-hidden="true" />
-                  </button>
+                  <div className="share-a-dub__entry" key={dub.id}>
+                    <div>
+                      <strong>{dub.title}</strong>
+                      <span>{dub.artist}</span>
+                    </div>
+                    <Button
+                      leadingIcon={<Link aria-hidden="true" />}
+                      onClick={() => shareDub(dub)}
+                      size="small"
+                      variant="tertiary"
+                    >
+                      Share Dub
+                    </Button>
+                  </div>
                 ))}
+                {shareableDubs.length === 0 && (
+                  <p className="share-a-dub__empty">You have not shared a dub yet. Upload one to send it here.</p>
+                )}
               </InfiniteScroll>
             </details>
 

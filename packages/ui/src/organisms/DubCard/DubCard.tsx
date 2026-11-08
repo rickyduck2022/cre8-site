@@ -1,28 +1,20 @@
-import {
-  Check,
-  Download,
-  Heart,
-  MoreActions,
-  Plus,
-} from "@craft/icons";
-import { Avatar } from "../../../atoms/Avatar/Avatar";
-import { Button } from "../../../atoms/Button/Button";
-import { TrackTag } from "../../../atoms/TrackTag/TrackTag";
-import { AudioPlayer } from "../../../organisms/AudioPlayer/AudioPlayer";
-import type { Dub } from "../../communityTypes";
-import {
-  formatLocalTimestamp,
-  formatRelativeTime,
-} from "../../templateFormatters";
-import { TrackArtwork } from "../../shared/TrackArtwork";
+import { Check, Download, Heart, Plus } from "@craft/icons";
+import { Avatar } from "../../atoms/Avatar/Avatar";
+import { Button } from "../../atoms/Button/Button";
+import { TrackTag } from "../../atoms/TrackTag/TrackTag";
+import { AudioPlayer } from "../AudioPlayer/AudioPlayer";
+import type { Dub } from "../../templates/communityTypes";
+import { formatLocalTimestamp, formatRelativeTime } from "../../templates/templateFormatters";
+import { TrackArtwork } from "../../templates/shared/TrackArtwork";
+import "./DubCard.css";
 
-interface DubCardProps {
+export interface DubCardProps {
   dub: Dub;
   crateId?: string;
-  hasLiked: boolean;
-  isPlaying: boolean;
-  isCurrentTrack: boolean;
-  currentTimeSeconds: number;
+  hasLiked?: boolean;
+  isPlaying?: boolean;
+  isCurrentTrack?: boolean;
+  currentTimeSeconds?: number;
   durationSeconds?: number;
   volume?: number;
   shuffle?: boolean;
@@ -33,19 +25,22 @@ interface DubCardProps {
   onShuffleChange?: (enabled: boolean) => void;
   onRepeatChange?: (enabled: boolean) => void;
   onDownload: (dub: Dub) => void;
-  onOpenProfile: (username: string) => void;
+  onOpenProfile?: (username: string) => void;
   onPlay: (dub: Dub) => void;
   onAddToCrate?: (dubId: string) => void;
   onRemoveFromCrate?: (crateId: string, dubId: string) => void;
+  onEdit?: (dub: Dub) => void;
+  onDelete?: (dub: Dub) => void;
+  manageable?: boolean;
 }
 
 export function DubCard({
   dub,
   crateId,
-  hasLiked,
-  isPlaying,
-  isCurrentTrack,
-  currentTimeSeconds,
+  hasLiked = false,
+  isPlaying = false,
+  isCurrentTrack = false,
+  currentTimeSeconds = 0,
   durationSeconds,
   volume,
   shuffle,
@@ -60,33 +55,29 @@ export function DubCard({
   onPlay,
   onAddToCrate,
   onRemoveFromCrate,
+  onEdit,
+  onDelete,
+  manageable = false,
 }: DubCardProps) {
   return (
     <article className="dub-card">
       <div className="dub-card__topline">
         <Avatar name={dub.uploaderDisplayName} size="medium" status="active" />
         <div className="dub-card__author">
-          <button
-            className="text-button dub-card__username"
-            onClick={() => onOpenProfile(dub.uploader)}
-            type="button"
-          >
-            {dub.uploaderDisplayName}
-          </button>
+          {onOpenProfile ? (
+            <button
+              className="text-button dub-card__username"
+              onClick={() => onOpenProfile(dub.uploader)}
+              type="button"
+            >
+              {dub.uploaderDisplayName}
+            </button>
+          ) : (
+            <strong className="dub-card__username">{dub.uploaderDisplayName}</strong>
+          )}
           <span className="dub-card__handle">@{dub.uploader}</span>
         </div>
-        <span className="dub-card__uploaded">
-          {formatRelativeTime(dub.uploadedAt)}
-        </span>
-        <Button
-          aria-label={`More options for ${dub.title}`}
-          className="app-icon-button"
-          leadingIcon={<MoreActions />}
-          size="small"
-          variant="tertiary"
-        >
-          <span className="sr-only">More options</span>
-        </Button>
+        <span className="dub-card__uploaded">{formatRelativeTime(dub.uploadedAt)}</span>
       </div>
 
       <p className="dub-card__message">{dub.message}</p>
@@ -110,7 +101,7 @@ export function DubCard({
               artist: dub.artist,
               artworkContent: <TrackArtwork dub={dub} />,
               duration: dub.duration,
-              onArtistClick: () => onOpenProfile(dub.uploader),
+              onArtistClick: onOpenProfile ? () => onOpenProfile(dub.uploader) : undefined,
               title: dub.title,
             }}
             variant="full"
@@ -133,9 +124,7 @@ export function DubCard({
           <strong>{dub.likes}</strong>
           {hasLiked && <span className="dub-card__you-liked">You downloaded</span>}
         </span>
-        <span className="dub-card__download-count">
-          {dub.downloads.toLocaleString()} downloads
-        </span>
+        <span className="dub-card__download-count">{dub.downloads.toLocaleString()} downloads</span>
         <Button
           className="dub-card__download"
           leadingIcon={hasLiked ? <Check /> : <Download />}
@@ -145,21 +134,22 @@ export function DubCard({
         >
           {hasLiked ? "Download again" : "Download · Like"}
         </Button>
+        {manageable && onEdit && (
+          <Button onClick={() => onEdit(dub)} size="small" variant="secondary">
+            Edit
+          </Button>
+        )}
+        {manageable && onDelete && (
+          <Button onClick={() => onDelete(dub)} size="small" variant="tertiary">
+            Delete
+          </Button>
+        )}
         {crateId ? (
-          <Button
-            onClick={() => onRemoveFromCrate?.(crateId, dub.id)}
-            size="small"
-            variant="tertiary"
-          >
+          <Button onClick={() => onRemoveFromCrate?.(crateId, dub.id)} size="small" variant="tertiary">
             Remove from crate
           </Button>
         ) : onAddToCrate ? (
-          <Button
-            leadingIcon={<Plus />}
-            onClick={() => onAddToCrate(dub.id)}
-            size="small"
-            variant="secondary"
-          >
+          <Button leadingIcon={<Plus />} onClick={() => onAddToCrate(dub.id)} size="small" variant="secondary">
             Add to crate
           </Button>
         ) : null}

@@ -3,18 +3,13 @@ import {
   Heart,
   MessageCircle,
   MoreActions,
-  Pause,
-  Play,
 } from "@craft/icons";
 import { Avatar } from "../../atoms/Avatar/Avatar";
 import { Button } from "../../atoms/Button/Button";
 import { Pagination, usePagination } from "../../molecules/Pagination/Pagination";
+import { DubCard } from "../../organisms/DubCard/DubCard";
 import type { Dub, MemberProfile } from "../communityTypes";
-import {
-  formatLocalTimestamp,
-  formatRelativeTime,
-} from "../templateFormatters";
-import { TrackArtwork } from "../shared/TrackArtwork";
+import { formatRelativeTime } from "../templateFormatters";
 import "../CommunityPageTemplates.css";
 import "./ProfileTemplate.css";
 
@@ -27,6 +22,8 @@ export interface ProfileTemplateProps {
   onEditProfile: () => void;
   onMessage: () => void;
   onPlay: (dub: Dub) => void;
+  onDownload: (dub: Dub) => void;
+  onOpenProfile?: (username: string) => void;
 }
 
 export function ProfileTemplate({
@@ -38,6 +35,8 @@ export function ProfileTemplate({
   onEditProfile,
   onMessage,
   onPlay,
+  onDownload,
+  onOpenProfile,
 }: ProfileTemplateProps) {
   const uploadsPagination = usePagination(uploads, profile.id);
   return (
@@ -113,46 +112,24 @@ export function ProfileTemplate({
         <section className="profile-uploads">
           <div className="section-heading">
             <div>
-              <span className="eyebrow">IN THE CRATES</span>
-              <h2>Uploaded dubs <span>{uploads.length}</span></h2>
+              <span className="eyebrow">{isOwnProfile ? "YOUR MUSIC" : "THEIR MUSIC"}</span>
+              <h2>{isOwnProfile ? "My Dubs" : "Uploaded dubs"} <span>{uploads.length}</span></h2>
             </div>
           </div>
           {uploads.length > 0 ? (
             <>
-              <div className="profile-uploads__list">
+              <div className="profile-uploads__list feed-list">
                 {uploadsPagination.items.map((dub) => (
-                <button
-                  aria-label={`${isPlaying && playingDubId === dub.id ? "Pause" : "Play"} ${dub.title}`}
-                  className="profile-upload"
-                  key={dub.id}
-                  onClick={() => onPlay(dub)}
-                  type="button"
-                >
-                  <TrackArtwork dub={dub} />
-                  <span className="profile-upload__copy">
-                    <strong>{dub.title}</strong>
-                    <span>
-                      {(dub.tags?.length ? dub.tags : [dub.genre]).join(" · ")}
-                      {dub.bpm > 0 ? ` · ${dub.bpm} BPM` : ""} · {dub.duration}
-                    </span>
-                    <time dateTime={dub.uploadedAt}>
-                      {formatLocalTimestamp(dub.uploadedAt)}
-                    </time>
-                  </span>
-                  <span className="profile-upload__likes">
-                    <Heart aria-hidden="true" /> {dub.likes}
-                  </span>
-                  {isOwnProfile && dub.downloaders && (
-                    <span className="profile-upload__supporters" title={dub.downloaders.map((downloader) => `${downloader.displayName} (@${downloader.username})`).join(", ")}>
-                      {dub.downloads} downloads · {dub.downloaders.length
-                        ? dub.downloaders.map((downloader) => `${downloader.displayName} (@${downloader.username})`).join(", ")
-                        : "No downloads yet"}
-                    </span>
-                  )}
-                  <span className="profile-upload__play" aria-hidden="true">
-                    {isPlaying && playingDubId === dub.id ? <Pause /> : <Play />}
-                  </span>
-                </button>
+                  <DubCard
+                    dub={dub}
+                    hasLiked={false}
+                    isPlaying={isPlaying && playingDubId === dub.id}
+                    isCurrentTrack={playingDubId === dub.id}
+                    onDownload={onDownload}
+                    onOpenProfile={onOpenProfile}
+                    onPlay={onPlay}
+                    key={dub.id}
+                  />
                 ))}
               </div>
               <Pagination

@@ -912,6 +912,86 @@ export function createApiServer({
         json(response, 201, publicDub(data, dub, user.id));
         return;
       }
+      if (match && match[1] === "dubs" && !match[3] && request.method === "PATCH") {
+        const dub = data.dubs.find((item) => item.id === match[2] && item.uploaderId === user.id);
+        if (!dub) {
+          json(response, 404, { error: "Dub not found." });
+          return;
+        }
+        const input = await readJson(request);
+        const title = String(input.title ?? "").trim();
+        const artistId = String(input.artistId ?? "");
+        const artist = data.artists.find((item) => item.id === artistId && item.userId === user.id);
+        const audioUpload = input.uploadId
+          ? data.uploads.find((item) => item.id === input.uploadId && item.userId === user.id && item.type === "audio")
+          : undefined;
+        const artworkUpload = input.artworkUploadId
+          ? data.uploads.find((item) => item.id === input.artworkUploadId && item.userId === user.id && item.type === "artwork")
+          : undefined;
+        if (!title || title.length > 100 || !artist || (input.uploadId && !audioUpload) || (input.artworkUploadId && !artworkUpload)) {
+          json(response, 400, { error: "Provide a title, your artist profile, and valid replacement media." });
+          return;
+        }
+
+        const replacedMedia = [];
+        dub.title = title;
+        dub.artist = artist.name;
+        dub.artistId = artist.id;
+        dub.tags = normalizeDubTags(input.tags);
+        dub.genre = dub.tags.join(", ").slice(0, 160) || "Uncategorized";
+        dub.bpm = Number.isInteger(input.bpm) && input.bpm >= 1 && input.bpm <= 300 ? input.bpm : 0;
+        dub.message = String(input.message ?? "").trim().slice(0, 400);
+        if (audioUpload) {
+          if (dub.storedAudioName) replacedMedia.push(dub.storedAudioName);
+          dub.storedAudioName = audioUpload.storedName;
+          dub.audioFileName = audioUpload.audioFileName;
+          dub.audioSource = "upload";
+          dub.audioUrl = `/api/dubs/${dub.id}/audio`;
+        }
+        if (artworkUpload) {
+          if (dub.storedArtworkName) replacedMedia.push(dub.storedArtworkName);
+          dub.storedArtworkName = artworkUpload.storedName;
+          dub.artworkFileName = artworkUpload.audioFileName;
+          dub.artwork = "uploaded-artwork";
+          dub.artworkUrl = `/api/dubs/${dub.id}/artwork`;
+        }
+        data.uploads = data.uploads.filter((item) => item.id !== audioUpload?.id && item.id !== artworkUpload?.id);
+        persist();
+        for (const storedName of replacedMedia) {
+          const oldMediaPath = resolve(mediaDirectory, basename(storedName));
+          if (existsSync(oldMediaPath)) unlinkSync(oldMediaPath);
+        }
+        broadcastCommunity(user.id);
+        json(response, 200, publicDub(data, dub, user.id));
+        return;
+      }
+      if (match && match[1] === "dubs" && !match[3] && request.method === "DELETE") {
+        const dubIndex = data.dubs.findIndex((item) => item.id === match[2] && item.uploaderId === user.id);
+        if (dubIndex === -1) {
+          json(response, 404, { error: "Dub not found." });
+          return;
+        }
+        const [dub] = data.dubs.splice(dubIndex, 1);
+        const affectedUserIds = new Set([user.id]);
+        for (const download of data.downloads.filter((item) => item.dubId === dub.id)) affectedUserIds.add(download.userId);
+        for (const crate of data.crates) {
+          if ((crate.dubIds ?? []).includes(dub.id)) {
+            affectedUserIds.add(crate.userId);
+            crate.dubIds = crate.dubIds.filter((dubId) => dubId !== dub.id);
+          }
+        }
+        data.likes = data.likes.filter((item) => item.dubId !== dub.id);
+        data.downloads = data.downloads.filter((item) => item.dubId !== dub.id);
+        persist();
+        for (const storedName of [dub.storedAudioName, dub.storedArtworkName]) {
+          if (!storedName) continue;
+          const mediaPath = resolve(mediaDirectory, basename(storedName));
+          if (existsSync(mediaPath)) unlinkSync(mediaPath);
+        }
+        for (const affectedUserId of affectedUserIds) broadcastCommunity(affectedUserId);
+        json(response, 200, { id: dub.id });
+        return;
+      }
       if (match && match[1] === "dubs" && request.method === "GET" && match[3] === "artwork") {
         const dub = data.dubs.find((item) => item.id === match[2]);
         if (!dub?.storedArtworkName) {

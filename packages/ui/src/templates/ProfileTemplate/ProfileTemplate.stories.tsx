@@ -44,6 +44,7 @@ const meta = {
     onEditProfile: () => undefined,
     onMessage: () => undefined,
     onPlay: () => undefined,
+    onDownload: () => undefined,
   },
 } satisfies Meta<typeof ProfileTemplate>;
 

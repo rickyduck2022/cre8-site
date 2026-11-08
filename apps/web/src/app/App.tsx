@@ -3,6 +3,7 @@ import {
   Friends,
   FriendsFeed,
   Download,
+  Disc3,
   MessageCircle,
   Users,
 } from "@craft/icons";
@@ -17,6 +18,7 @@ import {
   EditProfileForm,
   LatestDubsTemplate,
   LibraryTemplate,
+  MyDubsTemplate,
   MessengerTemplate,
   Modal,
   Navigation,
@@ -38,6 +40,7 @@ const sectionLabels: Record<CommunitySection, string> = {
   messenger: "Messenger",
   profile: "My Profile",
   library: "My Library",
+  "my-dubs": "My Dubs",
 };
 
 const sectionIcons: Record<CommunitySection, ReactNode> = {
@@ -46,6 +49,7 @@ const sectionIcons: Record<CommunitySection, ReactNode> = {
   messenger: <MessageCircle />,
   profile: <Users />,
   library: <Download />,
+  "my-dubs": <Disc3 />,
 };
 
 const sections = Object.keys(sectionLabels) as CommunitySection[];
@@ -100,6 +104,8 @@ export function App() {
     playNextDub,
     playPreviousDub,
     addDub,
+    updateDub,
+    deleteDub,
     addBuddy,
     removeBuddy,
     markConversationRead,
@@ -117,6 +123,7 @@ export function App() {
   const [memberSearchQuery, setMemberSearchQuery] = useState("");
   const { members: memberSearchResults, isSearching: isSearchingMembers } = useMemberSearch(memberSearchQuery);
   const [isUploadOpen, setIsUploadOpen] = useState(false);
+  const [shareDubTargetId, setShareDubTargetId] = useState<string | null>(null);
   const [isProfileEditOpen, setIsProfileEditOpen] = useState(false);
   const [isStartConversationOpen, setIsStartConversationOpen] = useState(false);
   const [loginUsername, setLoginUsername] = useState("");
@@ -139,6 +146,9 @@ export function App() {
         state.member;
   const isOwnProfile = profile?.username === state.member?.username;
   const profileUploads = state.dubs.filter((dub) => dub.uploader === profile?.username);
+  const myDubs = state.member
+    ? state.dubs.filter((dub) => dub.uploader === state.member?.username)
+    : [];
   const profileBuddy = state.buddies.find((buddy) => buddy.username === profile?.username);
   useEffect(() => {
     function syncSectionWithHash() {
@@ -183,12 +193,19 @@ export function App() {
   }
 
   async function handleShareDub(values: Parameters<typeof addDub>[0]) {
-    const succeeded = await addDub(values);
-    if (succeeded) {
-      setIsUploadOpen(false);
+    const dub = await addDub(values);
+    if (!dub) return false;
+    setIsUploadOpen(false);
+    const targetId = shareDubTargetId;
+    setShareDubTargetId(null);
+    if (targetId) {
+      setChatBuddyId(targetId);
+      navigateTo("messenger");
+      await sendMessage(targetId, `Shared a dub: ${dub.title}`, dub.id);
+    } else {
       navigateTo("dubs");
     }
-    return succeeded;
+    return dub;
   }
 
   async function handleLogin(event: FormEvent<HTMLFormElement>) {
@@ -419,11 +436,38 @@ export function App() {
         {activeSection === "library" && (
           <LibraryTemplate downloads={state.library} onDownload={downloadDub} />
         )}
+        {activeSection === "my-dubs" && (
+          <MyDubsTemplate
+            artists={state.artists}
+            dubs={myDubs}
+            likedDubIds={state.likedDubIds}
+            nowPlayingId={state.nowPlayingId}
+            isPlaying={state.isPlaying}
+            currentTimeSeconds={state.currentTime}
+            durationSeconds={state.duration}
+            volume={state.volume}
+            shuffle={state.shuffle}
+            repeat={state.repeat}
+            playbackError={state.playbackError}
+            onSeek={seekPlayback}
+            onVolumeChange={setVolume}
+            onShuffleChange={setShuffle}
+            onRepeatChange={setRepeat}
+            onDownload={downloadDub}
+            onPlay={togglePlayback}
+            onShareDub={() => setIsUploadOpen(true)}
+            onUpdateDub={updateDub}
+            onDeleteDub={deleteDub}
+            uploadProgress={uploadProgress}
+            uploadError={uploadError}
+          />
+        )}
         {activeSection === "messenger" && (
           <MessengerTemplate
             buddies={state.buddies}
             conversations={state.conversations}
             dubs={state.dubs}
+            shareableDubs={myDubs}
             initialBuddyId={chatBuddyId}
             chatConnectionStatus={chatConnectionStatus}
             nowPlayingId={state.nowPlayingId}
@@ -435,6 +479,10 @@ export function App() {
             onPlay={togglePlayback}
             onDownload={downloadDub}
             onStartConversation={() => setIsStartConversationOpen(true)}
+            onCreateAndShareDub={(buddyId) => {
+              setShareDubTargetId(buddyId);
+              setIsUploadOpen(true);
+            }}
             onSelectConversation={markConversationRead}
             onLoadOlderMessages={loadOlderMessages}
             onSendMessage={sendMessage}
@@ -450,6 +498,8 @@ export function App() {
             onMessage={() => profileBuddy && openChat(profileBuddy.id)}
             onPlay={togglePlayback}
             playingDubId={state.nowPlayingId}
+            onDownload={downloadDub}
+            onOpenProfile={openProfile}
           />
         )}
       </div>
@@ -475,7 +525,10 @@ export function App() {
       <Modal
         isOpen={isUploadOpen}
         onClose={() => {
-          if (!uploadProgress) setIsUploadOpen(false);
+          if (!uploadProgress) {
+            setIsUploadOpen(false);
+            setShareDubTargetId(null);
+          }
         }}
         title="Share a dub"
       >
@@ -484,7 +537,10 @@ export function App() {
           onSubmit={handleShareDub}
           submissionError={uploadError}
           uploadProgress={uploadProgress}
-          onCancel={() => setIsUploadOpen(false)}
+          onCancel={() => {
+            setIsUploadOpen(false);
+            setShareDubTargetId(null);
+          }}
         />
       </Modal>
       <Modal
