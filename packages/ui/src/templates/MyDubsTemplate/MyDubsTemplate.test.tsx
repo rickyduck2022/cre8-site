@@ -39,7 +39,9 @@ describe("MyDubsTemplate", () => {
 
   it("passes edit and delete actions to the shared dub management flow", () => {
     const { onEditDub, onDeleteDub } = renderPage();
+    fireEvent.click(screen.getByRole("button", { name: "Actions for Night Drive" }));
     fireEvent.click(screen.getByRole("button", { name: "Edit Night Drive" }));
+    fireEvent.click(screen.getByRole("button", { name: "Actions for Night Drive" }));
     fireEvent.click(screen.getByRole("button", { name: "Delete Night Drive" }));
     expect(onEditDub).toHaveBeenCalledWith(dub);
     expect(onDeleteDub).toHaveBeenCalledWith(dub);

@@ -631,5 +631,21 @@ export const Undo: IconComponent = (props) => {
   return React.createElement(IconBase, { ...withIconColor(props), children });
 };
 
+export const Pencil: IconComponent = (props) => {
+  const children = React.createElement(
+    "path",
+    { d: "M4 20l4.5-1 10-10a2.1 2.1 0 0 0-3-3l-10 10L4 20zm10-12 3 3", strokeWidth: "1.7", strokeLinecap: "round", strokeLinejoin: "round" },
+  );
+  return React.createElement(IconBase, { ...withIconColor(props), children });
+};
+
+export const Trash: IconComponent = (props) => {
+  const children = React.createElement(
+    "path",
+    { d: "M4 7h16M9 7V4h6v3m3 0-1 13H7L6 7m4 4v5m4-5v5", strokeWidth: "1.7", strokeLinecap: "round", strokeLinejoin: "round" },
+  );
+  return React.createElement(IconBase, { ...withIconColor(props), children });
+};
+
 export { IconBase };
 export type { IconProps };

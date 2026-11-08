@@ -33,7 +33,9 @@ describe("ProfileTemplate ownership controls", () => {
       onEditDub={onEditDub}
       onDeleteDub={onDeleteDub}
     />);
+    fireEvent.click(screen.getByRole("button", { name: "Actions for My Dub" }));
     fireEvent.click(screen.getByRole("button", { name: "Edit My Dub" }));
+    fireEvent.click(screen.getByRole("button", { name: "Actions for My Dub" }));
     fireEvent.click(screen.getByRole("button", { name: "Delete My Dub" }));
     expect(onEditDub).toHaveBeenCalledWith(dub);
     expect(onDeleteDub).toHaveBeenCalledWith(dub);

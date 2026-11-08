@@ -1,4 +1,5 @@
-import { Check, Download, Heart, Plus } from "@craft/icons";
+import { Check, Download, Heart, MoreActions, Plus } from "@craft/icons";
+import { useEffect, useId, useRef, useState } from "react";
 import { Avatar } from "../../atoms/Avatar/Avatar";
 import { Button } from "../../atoms/Button/Button";
 import { TrackTag } from "../../atoms/TrackTag/TrackTag";
@@ -61,6 +62,32 @@ export function DubCard({
   onDelete,
   manageable = false,
 }: DubCardProps) {
+  const [actionsOpen, setActionsOpen] = useState(false);
+  const actionsId = useId();
+  const actionsRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!actionsOpen) return;
+
+    function closeOnOutsideClick(event: PointerEvent) {
+      if (!actionsRef.current?.contains(event.target as Node)) setActionsOpen(false);
+    }
+
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setActionsOpen(false);
+        actionsRef.current?.querySelector("button")?.focus();
+      }
+    }
+
+    document.addEventListener("pointerdown", closeOnOutsideClick);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("pointerdown", closeOnOutsideClick);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [actionsOpen]);
+
   return (
     <article className="dub-card">
       <div className="dub-card__topline">
@@ -142,11 +169,41 @@ export function DubCard({
           {hasLiked ? "Download again" : "Download · Like"}
         </Button>
         {manageable && onEdit && onDelete && (
-          <DubManagementActions
-            onDelete={() => onDelete(dub)}
-            onEdit={() => onEdit(dub)}
-            title={dub.title}
-          />
+          <div
+            className="dub-card__actions"
+            onBlur={(event) => {
+              if (!event.currentTarget.contains(event.relatedTarget)) setActionsOpen(false);
+            }}
+            ref={actionsRef}
+          >
+            <Button
+              aria-controls={actionsOpen ? actionsId : undefined}
+              aria-expanded={actionsOpen}
+              aria-label={`Actions for ${dub.title}`}
+              leadingIcon={<MoreActions />}
+              onClick={() => setActionsOpen((open) => !open)}
+              size="small"
+              variant="secondary"
+            >
+              Actions
+            </Button>
+            {actionsOpen && (
+              <div className="dub-card__actions-popover" id={actionsId}>
+                <DubManagementActions
+                  onDelete={() => {
+                    setActionsOpen(false);
+                    onDelete(dub);
+                  }}
+                  onEdit={() => {
+                    setActionsOpen(false);
+                    onEdit(dub);
+                  }}
+                  showIcons
+                  title={dub.title}
+                />
+              </div>
+            )}
+          </div>
         )}
         {crateId ? (
           <Button onClick={() => onRemoveFromCrate?.(crateId, dub.id)} size="small" variant="tertiary">
