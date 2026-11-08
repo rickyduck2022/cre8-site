@@ -431,6 +431,20 @@ export function useCommunity() {
     }
   }
 
+  async function unsendMessage(buddyId: string, messageId: string): Promise<boolean> {
+    try {
+      applySnapshot(await requestApi<CommunitySnapshot>(
+        `/api/conversations/${encodeURIComponent(buddyId)}/messages/${encodeURIComponent(messageId)}`,
+        { method: "DELETE" },
+      ));
+      notify("Message unsent.");
+      return true;
+    } catch (requestError) {
+      notify(requestError instanceof Error ? requestError.message : "Message could not be unsent.", "error");
+      return false;
+    }
+  }
+
   async function createCrate(name: string): Promise<boolean> {
     try {
       const crate = await requestApi<Crate>("/api/crates", {
@@ -555,6 +569,7 @@ export function useCommunity() {
     markConversationRead,
     loadOlderMessages,
     sendMessage,
+    unsendMessage,
     createCrate,
     renameCrate,
     deleteCrate,

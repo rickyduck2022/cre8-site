@@ -4,6 +4,7 @@ export * from "./CommunityPanel/CommunityPanel";
 export * from "./CrateManager/CrateManager";
 export * from "./DubPost/DubPost";
 export * from "./DubCard/DubCard";
+export * from "./DubSearch/DubSearch";
 export * from "./DubManagementDialogs/DubManagementDialogs";
 export * from "./Feed/Feed";
 export * from "./FriendDiscovery/FriendDiscovery";

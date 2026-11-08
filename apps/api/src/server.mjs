@@ -170,6 +170,7 @@ export function initializeData(dataPath = defaultDataPath, mediaDirectory = defa
   for (const key of ["friendships", "conversations", "likes", "downloads", "crates", "uploads"]) {
     data[key] ??= [];
   }
+  backfillBidirectionalFriendships(data);
   writeFileSync(dataPath, `${JSON.stringify(data, null, 2)}\n`);
   return data;
 }
@@ -506,6 +507,16 @@ function findOrCreateFriendship(data, owner, friend) {
   return friendship;
 }
 
+function backfillBidirectionalFriendships(data) {
+  for (const friendship of [...data.friendships]) {
+    const owner = data.users.find((item) => item.id === friendship.ownerId);
+    const friend = data.users.find((item) => item.id === friendship.friendUserId);
+    if (owner && friend && owner.id !== friend.id) {
+      findOrCreateFriendship(data, friend, owner);
+    }
+  }
+}
+
 function findOrCreateConversation(data, ownerId, buddyId) {
   let conversation = data.conversations.find(
     (item) => item.ownerId === ownerId && item.buddyId === buddyId,
@@ -542,6 +553,38 @@ function createConversationMessage(data, user, buddyId, input) {
   findOrCreateConversation(data, recipient.id, recipientFriendship.id).messages.push(recipientMessage);
   recipientFriendship.unread = (recipientFriendship.unread ?? 0) + 1;
   return { message: senderMessage, recipientId: recipient.id };
+}
+
+function unsendConversationMessage(data, user, buddyId, messageId) {
+  const friendship = data.friendships.find(
+    (item) => item.id === buddyId && item.ownerId === user.id,
+  );
+  if (!friendship) return { error: "Friend not found.", status: 404 };
+  const conversation = data.conversations.find(
+    (item) => item.ownerId === user.id && item.buddyId === buddyId,
+  );
+  const message = conversation?.messages.find((item) => item.id === messageId);
+  if (!message || message.sender !== "you") {
+    return { error: "Message not found.", status: 404 };
+  }
+  if (message.unsent) return { recipientId: friendship.friendUserId };
+
+  message.text = "";
+  message.dubId = undefined;
+  message.unsent = true;
+  const recipientFriendship = data.friendships.find(
+    (item) => item.ownerId === friendship.friendUserId && item.friendUserId === user.id,
+  );
+  const recipientConversation = recipientFriendship && data.conversations.find(
+    (item) => item.ownerId === friendship.friendUserId && item.buddyId === recipientFriendship.id,
+  );
+  const recipientMessage = recipientConversation?.messages.find((item) => item.id === messageId);
+  if (recipientMessage) {
+    recipientMessage.text = "";
+    recipientMessage.dubId = undefined;
+    recipientMessage.unsent = true;
+  }
+  return { recipientId: friendship.friendUserId };
 }
 
 function isAllowedWebSocketOrigin(request) {
@@ -782,7 +825,12 @@ export function createApiServer({
           generatedAt: new Date().toISOString(),
           metrics: {
             members: users.length, tracks: dubs.length,
-            downloads: data.downloads.length, connections: data.friendships.length,
+            downloads: data.downloads.length,
+            connections: new Set(
+              data.friendships.map((friendship) =>
+                JSON.stringify([friendship.ownerId, friendship.friendUserId].sort()),
+              ),
+            ).size,
             uploadsThisWeek: recentDubs.length, membersThisWeek: recentUsers.length,
           },
           users, dubs, topDubs, activity,
@@ -791,6 +839,40 @@ export function createApiServer({
       }
       if (request.method === "GET" && route === "/api/community") {
         json(response, 200, communitySnapshot(data, user));
+        return;
+      }
+      if (request.method === "GET" && route === "/api/dubs/search") {
+        const query = String(url.searchParams.get("q") ?? "").trim().slice(0, 120).toLocaleLowerCase();
+        const tags = url.searchParams.getAll("tag").map((tag) => tag.trim()).filter((tag) => dubTags.has(tag));
+        const fileType = String(url.searchParams.get("fileType") ?? "").trim().toLocaleUpperCase();
+        const rangeValue = (key, maximum) => {
+          const value = url.searchParams.get(key);
+          if (value === null || value === "") return undefined;
+          const number = Number(value);
+          return Number.isFinite(number) && number >= 0 && number <= maximum ? number : NaN;
+        };
+        const minBpm = rangeValue("minBpm", 300);
+        const maxBpm = rangeValue("maxBpm", 300);
+        const minBitrate = rangeValue("minBitrate", 1000);
+        const maxBitrate = rangeValue("maxBitrate", 1000);
+        if ([minBpm, maxBpm, minBitrate, maxBitrate].some(Number.isNaN) || (minBpm !== undefined && maxBpm !== undefined && minBpm > maxBpm) || (minBitrate !== undefined && maxBitrate !== undefined && minBitrate > maxBitrate)) {
+          json(response, 400, { error: "Provide BPM values from 0 to 300 and bitrate values from 0 to 1000, with minimums no greater than maximums." });
+          return;
+        }
+        const filtered = data.dubs.filter((dub) => {
+          const dubTags = dub.tags ?? [];
+          const format = dub.audioFormat ?? audioFormat(dub.audioFileName);
+          const searchable = [dub.title, dub.artist, dub.uploader, dub.uploaderDisplayName, dub.genre, dub.message, format, ...dubTags].filter(Boolean).join(" ").toLocaleLowerCase();
+          if (query && !searchable.includes(query)) return false;
+          if (tags.length && !tags.some((tag) => dubTags.includes(tag))) return false;
+          if (fileType && format?.toLocaleUpperCase() !== fileType) return false;
+          if (minBpm !== undefined && (!Number.isFinite(dub.bpm) || dub.bpm < minBpm)) return false;
+          if (maxBpm !== undefined && (!Number.isFinite(dub.bpm) || dub.bpm > maxBpm)) return false;
+          if (minBitrate !== undefined && (!Number.isFinite(dub.bitrateKbps) || dub.bitrateKbps < minBitrate)) return false;
+          if (maxBitrate !== undefined && (!Number.isFinite(dub.bitrateKbps) || dub.bitrateKbps > maxBitrate)) return false;
+          return true;
+        }).sort((a, b) => Date.parse(b.uploadedAt) - Date.parse(a.uploadedAt));
+        json(response, 200, { dubs: filtered.map((dub) => publicDub(data, dub, user.id)) });
         return;
       }
       const profileMediaMatch = route.match(/^\/api\/profiles\/([^/]+)\/(avatar|banner)$/);
@@ -1085,30 +1167,29 @@ export function createApiServer({
           json(response, 404, { error: "Member not found." });
           return;
         }
-        const existing = data.friendships.find((item) => item.ownerId === user.id && item.friendUserId === friend.id);
-        if (!existing) {
-          data.friendships.push({
-            id: randomUUID(),
-            ownerId: user.id,
-            friendUserId: friend.id,
-            presence: friend.presence,
-            genre: friend.genre,
-            role: friend.role,
-            bio: friend.bio,
-            groups: ["Friends"],
-            unread: 0,
-          });
-          persist();
-          broadcastCommunity(user.id);
-        }
+        findOrCreateFriendship(data, user, friend);
+        findOrCreateFriendship(data, friend, user);
+        persist();
+        broadcastCommunity(user.id);
+        broadcastCommunity(friend.id);
         json(response, 200, communitySnapshot(data, user));
         return;
       }
       if (match && match[1] === "buddies" && request.method === "DELETE" && !match[3]) {
         const friendship = data.friendships.find((item) => item.id === match[2] && item.ownerId === user.id);
-        data.friendships = data.friendships.filter((item) => item !== friendship);
-        data.conversations = data.conversations.filter((item) => item.buddyId !== match[2] || item.ownerId !== user.id);
+        const relationship = friendship && data.friendships.filter(
+          (item) =>
+            (item.ownerId === friendship.ownerId && item.friendUserId === friendship.friendUserId)
+            || (item.ownerId === friendship.friendUserId && item.friendUserId === friendship.ownerId),
+        );
+        const friendshipIds = new Set((relationship ?? []).map((item) => item.id));
+        data.friendships = data.friendships.filter((item) => !friendshipIds.has(item.id));
+        data.conversations = data.conversations.filter((item) => !friendshipIds.has(item.buddyId));
         persist();
+        if (friendship) {
+          broadcastCommunity(user.id);
+          broadcastCommunity(friendship.friendUserId);
+        }
         json(response, 200, communitySnapshot(data, user));
         return;
       }
@@ -1123,6 +1204,18 @@ export function createApiServer({
         broadcastCommunity(user.id);
         broadcastCommunity(result.recipientId);
         json(response, 201, communitySnapshot(data, user));
+        return;
+      }
+      if (match && match[1] === "conversations" && request.method === "DELETE" && match[3] === "messages" && match[4]) {
+        const result = unsendConversationMessage(data, user, match[2], match[4]);
+        if (result.error) {
+          json(response, result.status, { error: result.error });
+          return;
+        }
+        persist();
+        broadcastCommunity(user.id);
+        broadcastCommunity(result.recipientId);
+        json(response, 200, communitySnapshot(data, user));
         return;
       }
       if (match && match[1] === "conversations" && request.method === "POST" && match[3] === "read") {

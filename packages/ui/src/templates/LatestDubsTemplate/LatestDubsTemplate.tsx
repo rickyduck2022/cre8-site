@@ -3,11 +3,11 @@ import { ChevronDown, Search } from "@craft/icons";
 import { Badge } from "../../atoms/Badge/Badge";
 import { FilterTab } from "../../atoms/FilterTab/FilterTab";
 import { Pagination, usePagination } from "../../molecules/Pagination/Pagination";
-import { SearchField } from "../../molecules/SearchField/SearchField";
 import type { Dub } from "../communityTypes";
 import { formatLocalTimestamp, formatRelativeTime } from "../templateFormatters";
 import { TrackArtwork } from "../shared/TrackArtwork";
 import { DubCard } from "../../organisms/DubCard/DubCard";
+import { DubSearch, createEmptyDubSearchFilters, type DubSearchFilters } from "../../organisms/DubSearch/DubSearch";
 import "../CommunityPageTemplates.css";
 import "./LatestDubsTemplate.css";
 
@@ -32,6 +32,11 @@ export interface LatestDubsTemplateProps {
   onRepeatChange?: (enabled: boolean) => void;
   query?: string;
   onQueryChange?: (query: string) => void;
+  filters?: DubSearchFilters;
+  onFiltersChange?: (filters: DubSearchFilters) => void;
+  fileTypes?: string[];
+  isSearching?: boolean;
+  searchError?: string | null;
   onDownload: (dub: Dub) => void;
   onOpenProfile: (username: string) => void;
   onPlay: (dub: Dub) => void;
@@ -63,6 +68,11 @@ export function LatestDubsTemplate({
   onRepeatChange,
   query = "",
   onQueryChange,
+  filters = createEmptyDubSearchFilters(),
+  onFiltersChange,
+  fileTypes,
+  isSearching,
+  searchError,
   onDownload,
   onOpenProfile,
   onPlay,
@@ -82,7 +92,7 @@ export function LatestDubsTemplate({
       .filter(
         (dub) =>
           !needle ||
-          [dub.title, dub.artist, dub.uploader, dub.genre].some((value) =>
+          [dub.title, dub.artist, dub.uploader, dub.genre, ...(dub.tags ?? [])].some((value) =>
             value.toLocaleLowerCase().includes(needle),
           ),
       )
@@ -141,12 +151,7 @@ export function LatestDubsTemplate({
         </label>
       </div>
 
-      <SearchField
-        aria-label="Search tracks, artists, or genres"
-        onChange={(event) => onQueryChange?.(event.target.value)}
-        placeholder="Search tracks, artists, or genres"
-        value={query}
-      />
+      <DubSearch query={query} onQueryChange={(value) => onQueryChange?.(value)} filters={filters} onFiltersChange={(value) => onFiltersChange?.(value)} fileTypes={fileTypes} resultCount={visibleDubs.length} isSearching={isSearching} error={searchError} />
 
       <section aria-label="Community uploads" className="feed-list">
         {pagination.items.map((dub) => (
@@ -177,11 +182,11 @@ export function LatestDubsTemplate({
             onDelete={onDeleteDub}
           />
         ))}
-        {visibleDubs.length === 0 && (
+        {visibleDubs.length === 0 && !isSearching && !searchError && (
           <div className="empty-state">
             <Search aria-hidden="true" />
             <strong>No dubs found</strong>
-            <span>Try another track, artist, or genre.</span>
+            <span>Try another search or adjust the filters.</span>
           </div>
         )}
       </section>

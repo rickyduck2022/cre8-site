@@ -578,6 +578,11 @@
   font-size: var(--font-size-9);
 }
 
+.audio-player--inline .audio-player__metadata {
+  grid-column: 1 / -1;
+  min-width: 0;
+}
+
 .audio-player--mini {
   border-radius: 0.625rem;
   box-shadow: none;

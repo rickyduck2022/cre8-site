@@ -26,6 +26,8 @@ import {
   NotificationViewport,
   ProfileTemplate,
   TrackArtwork,
+  createEmptyDubSearchFilters,
+  type DubSearchFilters,
   type Dub,
   type NotificationMessage,
   type NavigationSection,
@@ -33,6 +35,7 @@ import {
 import { DemoModeNotice } from "../components/DemoModeNotice";
 import { useCommunity } from "../hooks/useCommunity";
 import { useMemberSearch } from "../hooks/useMemberSearch";
+import { useDubSearch } from "../hooks/useDubSearch";
 import type { CommunitySection } from "../types/community";
 import "./App.css";
 
@@ -113,6 +116,7 @@ export function App() {
     markConversationRead,
     loadOlderMessages,
     sendMessage,
+    unsendMessage,
     updateProfile,
     unreadCount,
   } = useCommunity();
@@ -122,6 +126,9 @@ export function App() {
   const [profileUsername, setProfileUsername] = useState("");
   const [chatBuddyId, setChatBuddyId] = useState("evan");
   const [searchQuery, setSearchQuery] = useState("");
+  const [dubSearchFilters, setDubSearchFilters] = useState<DubSearchFilters>(createEmptyDubSearchFilters);
+  const dubSearch = useDubSearch(searchQuery, dubSearchFilters, activeSection === "dubs");
+  const isDubSearchActive = Boolean(searchQuery.trim() || dubSearchFilters.tags.length || dubSearchFilters.fileType || dubSearchFilters.minBpm || dubSearchFilters.maxBpm || dubSearchFilters.minBitrate || dubSearchFilters.maxBitrate);
   const [memberSearchQuery, setMemberSearchQuery] = useState("");
   const { members: memberSearchResults, isSearching: isSearchingMembers } = useMemberSearch(memberSearchQuery);
   const [isUploadOpen, setIsUploadOpen] = useState(false);
@@ -406,7 +413,7 @@ export function App() {
         {activeSection === "dubs" && (
           <>
             <LatestDubsTemplate
-              dubs={state.dubs}
+              dubs={isDubSearchActive ? dubSearch.results ?? [] : state.dubs}
               likedDubIds={state.likedDubIds}
               nowPlayingId={state.nowPlayingId}
               isPlaying={state.isPlaying}
@@ -430,6 +437,11 @@ export function App() {
               onPlay={togglePlayback}
               onQueryChange={setSearchQuery}
               query={searchQuery}
+              filters={dubSearchFilters}
+              onFiltersChange={setDubSearchFilters}
+              fileTypes={[...new Set(state.dubs.map((dub) => dub.audioFormat ?? dub.audioFileName?.split(".").pop()?.toUpperCase()).filter((value): value is string => Boolean(value)))].sort()}
+              isSearching={dubSearch.isSearching}
+              searchError={dubSearch.error}
             />
           </>
         )}
@@ -509,6 +521,7 @@ export function App() {
             onSelectConversation={markConversationRead}
             onLoadOlderMessages={loadOlderMessages}
             onSendMessage={sendMessage}
+            onUnsendMessage={unsendMessage}
           />
         )}
         {activeSection === "profile" && profile && (

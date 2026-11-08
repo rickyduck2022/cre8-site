@@ -623,5 +623,13 @@ export const ChevronRight: IconComponent = (props) => {
   return React.createElement(IconBase, { ...withIconColor(props), children });
 };
 
+export const Undo: IconComponent = (props) => {
+  const children = React.createElement(
+    "path",
+    { d: "M9 14 4 9l5-5M4 9h10a6 6 0 0 1 0 12h-2", strokeWidth: "1.7", strokeLinecap: "round", strokeLinejoin: "round" },
+  );
+  return React.createElement(IconBase, { ...withIconColor(props), children });
+};
+
 export { IconBase };
 export type { IconProps };

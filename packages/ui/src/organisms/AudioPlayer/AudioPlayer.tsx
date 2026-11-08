@@ -15,6 +15,7 @@ export interface AudioPlayerProps {
   track: AudioPlayerTrack;
   variant?: "full" | "compact" | "mini" | "docked" | "inline";
   endAction?: ReactNode;
+  metadata?: ReactNode;
   playing?: boolean;
   currentTimeSeconds?: number;
   durationSeconds?: number;
@@ -52,6 +53,7 @@ export function AudioPlayer({
   currentTimeSeconds = 0,
   durationSeconds,
   endAction,
+  metadata,
   onNext,
   onPlayChange,
   onPrevious,
@@ -154,6 +156,7 @@ export function AudioPlayer({
       {endAction && (
         <div className="audio-player__end-action">{endAction}</div>
       )}
+      {metadata && <div className="audio-player__metadata">{metadata}</div>}
       {playbackError && (
         <span className="audio-player__error" role="status">
           {playbackError}

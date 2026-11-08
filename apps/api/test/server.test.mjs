@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 import WebSocket from "ws";
-import { createApiServer } from "../src/server.mjs";
+import { createApiServer, initializeData } from "../src/server.mjs";
 
 async function startTestServer(directory = mkdtempSync(join(tmpdir(), "cre8-api-")), webDirectory) {
   const server = createApiServer({
@@ -403,6 +403,13 @@ test("starter account has no seeded tracks and retains uploaded community activi
     assert.equal(editedDub.title, "Updated Dub");
     assert.equal(editedDub.bpm, 132);
     assert.deepEqual(editedDub.tags, ["Rollers", "Jungle"]);
+    const filteredDubs = await fetch(`${server.baseUrl}/api/dubs/search?q=updated&tag=Jungle&minBpm=130&maxBpm=140&fileType=WAV&minBitrate=0.1`, { headers: { cookie } });
+    assert.equal(filteredDubs.status, 200);
+    assert.deepEqual((await filteredDubs.json()).dubs.map((dub) => dub.id), [newDub.id]);
+    const invalidDubSearch = await fetch(`${server.baseUrl}/api/dubs/search?minBpm=180&maxBpm=120`, { headers: { cookie } });
+    assert.equal(invalidDubSearch.status, 400);
+    const outOfRangeDubSearch = await fetch(`${server.baseUrl}/api/dubs/search?minBpm=301`, { headers: { cookie } });
+    assert.equal(outOfRangeDubSearch.status, 400);
     assert.equal(editedDub.message, "Updated release notes.");
     const unauthorizedEdit = await fetch(`${server.baseUrl}/api/dubs/${newDub.id}`, {
       method: "PATCH",
@@ -622,6 +629,37 @@ test("schema v2 migration removes only built-in dubs and their activity", async 
   }
 });
 
+test("initializes existing one-way friendships as bidirectional relationships", () => {
+  const directory = mkdtempSync(join(tmpdir(), "cre8-friendship-migration-"));
+  const dataPath = join(directory, "community.json");
+  const mediaDirectory = join(directory, "audio");
+
+  try {
+    const data = initializeData(dataPath, mediaDirectory);
+    const alice = data.users.find((user) => user.username === "meladee");
+    const bob = data.users.find((user) => user.username === "holik");
+    data.friendships.push({
+      id: "legacy-alice-to-bob",
+      ownerId: alice.id,
+      friendUserId: bob.id,
+      presence: bob.presence,
+      genre: bob.genre,
+      role: bob.role,
+      bio: bob.bio,
+      groups: ["Friends"],
+      unread: 0,
+    });
+    writeFileSync(dataPath, `${JSON.stringify(data, null, 2)}\n`);
+
+    const migrated = initializeData(dataPath, mediaDirectory);
+    assert.equal(migrated.friendships.length, 2);
+    assert.ok(migrated.friendships.some((item) => item.ownerId === alice.id && item.friendUserId === bob.id));
+    assert.ok(migrated.friendships.some((item) => item.ownerId === bob.id && item.friendUserId === alice.id));
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
 test("authenticated chat delivers persisted messages to the recipient and closes sockets on logout", async () => {
   const server = await startTestServer();
   const aliceCookie = await registerAccount(server.baseUrl, "alice");
@@ -636,6 +674,11 @@ test("authenticated chat delivers persisted messages to the recipient and closes
     assert.equal((await aliceConnected).type, "connected");
     assert.equal((await bobConnected).type, "connected");
 
+    const bobFriendAdded = waitForMessage(
+      bobSocket,
+      (event) => event.type === "community.snapshot" &&
+        event.snapshot.buddies.some((buddy) => buddy.username === "alice"),
+    );
     const addBuddy = await fetch(`${server.baseUrl}/api/buddies`, {
       method: "POST",
       headers: { cookie: aliceCookie, "content-type": "application/json" },
@@ -644,6 +687,21 @@ test("authenticated chat delivers persisted messages to the recipient and closes
     const aliceSnapshot = await addBuddy.json();
     const friendship = aliceSnapshot.buddies.find((buddy) => buddy.username === "bobby");
     assert.ok(friendship);
+    assert.ok((await bobFriendAdded).snapshot.buddies.some((buddy) => buddy.username === "alice"));
+
+    const duplicateAdd = await fetch(`${server.baseUrl}/api/buddies`, {
+      method: "POST",
+      headers: { cookie: bobCookie, "content-type": "application/json" },
+      body: JSON.stringify({ username: "alice" }),
+    });
+    assert.equal((await duplicateAdd.json()).buddies.filter((buddy) => buddy.username === "alice").length, 1);
+    const aliceAfterDuplicateAdd = await fetch(`${server.baseUrl}/api/community`, {
+      headers: { cookie: aliceCookie },
+    }).then((response) => response.json());
+    assert.equal(
+      aliceAfterDuplicateAdd.buddies.filter((buddy) => buddy.username === "bobby").length,
+      1,
+    );
 
     const messageEvent = waitForMessage(
       bobSocket,
@@ -680,6 +738,18 @@ test("authenticated chat delivers persisted messages to the recipient and closes
     );
     assert.equal(markRead.status, 200);
     assert.equal((await markRead.json()).buddies[0].unread, undefined);
+
+    const removeFriend = await fetch(`${server.baseUrl}/api/buddies/${friendship.id}`, {
+      method: "DELETE",
+      headers: { cookie: aliceCookie },
+    });
+    assert.equal(removeFriend.status, 200);
+    assert.deepEqual((await removeFriend.json()).buddies, []);
+    const bobbyAfterRemoval = await fetch(`${server.baseUrl}/api/community`, {
+      headers: { cookie: bobCookie },
+    }).then((response) => response.json());
+    assert.deepEqual(bobbyAfterRemoval.buddies, []);
+    assert.deepEqual(bobbyAfterRemoval.conversations, []);
 
     const logoutClosed = waitForClose(aliceSocket);
     const logout = await fetch(`${server.baseUrl}/api/logout`, {

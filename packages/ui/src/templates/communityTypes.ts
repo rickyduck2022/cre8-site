@@ -67,6 +67,7 @@ export interface ChatMessage {
   text: string;
   sentAt: string;
   dubId?: string;
+  unsent?: boolean;
 }
 
 export interface Conversation {

@@ -42,14 +42,15 @@ describe("MessengerTemplate shared dubs", () => {
     fireEvent.click(trigger);
     expect(screen.getByText("My Release")).toBeInTheDocument();
     expect(screen.queryByText("Someone Else's")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Edit My Release" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Delete My Release" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Edit My Release" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Delete My Release" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Share Dub" })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Upload & share" }));
     expect(onCreateAndShareDub).toHaveBeenCalledWith("friend-1");
     expect(trigger).toHaveAttribute("aria-expanded", "false");
 
     fireEvent.click(trigger);
-    fireEvent.click(screen.getByRole("button", { name: "Share Dub" }));
+    fireEvent.click(screen.getByRole("button", { name: "Share My Release with Amber" }));
     expect(onSendMessage).toHaveBeenCalledWith("friend-1", "Shared a dub: My Release", "my-dub");
     expect(trigger).toHaveAttribute("aria-expanded", "false");
 
