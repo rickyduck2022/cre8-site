@@ -69,6 +69,8 @@ export function DubCard({
   onShareWithFriend,
   manageable = false,
 }: DubCardProps) {
+  const distributionLabel = dub.distribution === "private" ? "Private" : dub.distribution === "alist" ? "A-List" : "Worldwide";
+
   return (
     <article className="dub-card">
       <div className="dub-card__topline">
@@ -120,15 +122,24 @@ export function DubCard({
             variant="full"
           />
           <div className="dub-card__metadata">
-            {(dub.tags?.length ? dub.tags : [dub.genre]).map((tag) => (
-              <TrackTag key={tag} variant="audio">{tag}</TrackTag>
-            ))}
-            {dub.bpm > 0 && <TrackTag>{dub.bpm} BPM</TrackTag>}
-            <TrackFileMetadata
-              audioFileName={dub.audioFileName}
-              bitrateKbps={dub.bitrateKbps}
-              fileType={dub.audioFormat}
-            />
+            <div className="dub-card__metadata-tags">
+              {(dub.tags?.length ? dub.tags : [dub.genre]).map((tag) => (
+                <TrackTag key={tag} variant="audio">{tag}</TrackTag>
+              ))}
+              {dub.bpm > 0 && <TrackTag>{dub.bpm} BPM</TrackTag>}
+              <TrackFileMetadata
+                audioFileName={dub.audioFileName}
+                bitrateKbps={dub.bitrateKbps}
+                fileType={dub.audioFormat}
+              />
+            </div>
+            <TrackTag
+              aria-label={`Distribution: ${distributionLabel}`}
+              className="dub-card__distribution"
+              variant="accent"
+            >
+              {distributionLabel}
+            </TrackTag>
           </div>
           <time className="dub-card__timestamp" dateTime={dub.uploadedAt}>
             Uploaded: {formatLocalTimestamp(dub.uploadedAt)}

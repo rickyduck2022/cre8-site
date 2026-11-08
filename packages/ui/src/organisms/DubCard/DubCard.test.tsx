@@ -13,6 +13,23 @@ const dub: Dub = {
 };
 
 describe("DubCard actions", () => {
+  it.each([
+    ["worldwide", "Worldwide"],
+    ["private", "Private"],
+    ["alist", "A-List"],
+    [undefined, "Worldwide"],
+  ] as const)("shows %s distribution distinctly from track metadata", (distribution, label) => {
+    render(<DubCard dub={{ ...dub, distribution, tags: ["Jungle", "Rollers"], audioFormat: "WAV" }} onDownload={vi.fn()} onPlay={vi.fn()} />);
+    const tag = screen.getByLabelText(`Distribution: ${label}`);
+    expect(tag).toHaveTextContent(label);
+    expect(tag).toHaveClass("track-tag--accent", "dub-card__distribution");
+    const metadata = tag.parentElement!;
+    expect(metadata).toHaveClass("dub-card__metadata");
+    expect(metadata.querySelector(".dub-card__metadata-tags")).toHaveTextContent("Jungle");
+    expect(metadata.querySelector(".dub-card__metadata-tags")).toHaveTextContent("WAV");
+    expect(tag.closest(".dub-card__metadata-tags")).toBeNull();
+  });
+
   it("shows the uploader's profile picture and falls back to initials", () => {
     const { rerender } = render(<DubCard dub={{ ...dub, uploaderAvatarUrl: "/avatar.png?v=1" }} onDownload={vi.fn()} onPlay={vi.fn()} />);
     const avatar = screen.getByRole("img", { name: "Amber" });
