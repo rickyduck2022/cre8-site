@@ -28,6 +28,9 @@
   opacity: 0.65;
 }
 
+.dub-upload-form__private-friends { display: grid; gap: 0.625rem; min-width: 0; }
+.dub-upload-form__private-friends > p { color: var(--text-secondary); font-size: var(--font-size-11); line-height: 1.5; margin: 0; }
+
 .dub-upload-form__field {
   color: var(--text-secondary);
   display: grid;

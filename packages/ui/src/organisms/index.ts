@@ -17,3 +17,4 @@ export * from "./NotificationCenter/NotificationCenter";
 export * from "./NotificationViewport/NotificationViewport";
 export * from "./OnlineFriends/OnlineFriends";
 export * from "./ShareDubDialog/ShareDubDialog";
+export * from "./ShareDubDialog/shareDubToFriends";

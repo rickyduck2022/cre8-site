@@ -48,8 +48,12 @@ dubs migrate to Worldwide. The distribution cannot be changed after upload.
 Unversioned data is not automatically reset; startup stops without changing it
 so it can be migrated safely.
 
-Members can share accessible Worldwide dubs with friends from dub cards and
-the library; delivery happens in Messenger, with an optional message. A-List
+Members can select multiple friends when sharing accessible dubs from dub cards
+and the library; delivery happens in individual Messenger conversations, with
+an optional message. Private uploads can also be sent to selected friends as
+part of the upload, or kept private for later sharing. If a delivery fails after
+upload, the upload remains saved and failed recipients can be retried without
+uploading again. A-List
 dubs can only be sent to approved A-List members. Private dubs are visible to
 their uploader and friends explicitly shared with in Messenger. Only the uploader can share a private dub or revoke a grant from
 My Dubs. Revocation prevents subsequent API access, but cannot recall files

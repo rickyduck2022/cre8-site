@@ -1,6 +1,12 @@
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { DubUploadForm } from "./DubUploadForm";
+import type { Buddy } from "../../templates/communityTypes";
+
+const buddies: Buddy[] = [
+  { id: "friend-1", username: "meladee", displayName: "Meladee", presence: "online", genre: "Jungle", role: "DJ", bio: "", groups: [] },
+  { id: "friend-2", username: "holik", displayName: "Holik", presence: "offline", genre: "Jungle", role: "DJ", bio: "", groups: [] },
+];
 
 afterEach(() => {
   cleanup();
@@ -30,12 +36,33 @@ describe("DubUploadForm", () => {
           ? field.value : null;
       }
     });
-    const { container } = render(<DubUploadForm artists={[{ id: "artist-1", name: "Artist" }]} onCancel={vi.fn()} onSubmit={onSubmit} />);
+    const { container } = render(<DubUploadForm artists={[{ id: "artist-1", name: "Artist" }]} buddies={buddies} initialBuddyIds={["friend-1"]} onCancel={vi.fn()} onSubmit={onSubmit} />);
     fireEvent.change(screen.getByLabelText("Track title"), { target: { value: "Secret dub" } });
     fireEvent.change(screen.getByRole("combobox", { name: "Distribution" }), { target: { value: "private" } });
+    expect(screen.getByRole("checkbox", { name: /Meladee/ })).toBeChecked();
+    fireEvent.click(screen.getByRole("checkbox", { name: /Holik/ }));
+    expect(screen.getByText("2 friends selected")).toBeVisible();
     fireEvent.submit(container.querySelector("form")!);
     await act(async () => {});
-    expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ title: "Secret dub", distribution: "private" }));
+    expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ title: "Secret dub", distribution: "private", buddyIds: ["friend-1", "friend-2"] }));
+  });
+
+  it("only offers friends for private uploads and preserves private selection when changing distribution", () => {
+    render(<DubUploadForm artists={[{ id: "artist-1", name: "Artist" }]} buddies={buddies} onCancel={vi.fn()} onSubmit={vi.fn()} />);
+    expect(screen.queryByRole("searchbox", { name: "Search friends" })).not.toBeInTheDocument();
+    fireEvent.change(screen.getByRole("combobox", { name: "Distribution" }), { target: { value: "private" } });
+    fireEvent.click(screen.getByRole("checkbox", { name: /Meladee/ }));
+    fireEvent.change(screen.getByRole("combobox", { name: "Distribution" }), { target: { value: "worldwide" } });
+    expect(screen.queryByRole("searchbox", { name: "Search friends" })).not.toBeInTheDocument();
+    fireEvent.change(screen.getByRole("combobox", { name: "Distribution" }), { target: { value: "private" } });
+    expect(screen.getByRole("checkbox", { name: /Meladee/ })).toBeChecked();
+  });
+
+  it("explains that a private upload can be shared later if there are no friends", () => {
+    render(<DubUploadForm artists={[{ id: "artist-1", name: "Artist" }]} onCancel={vi.fn()} onSubmit={vi.fn()} />);
+    fireEvent.change(screen.getByRole("combobox", { name: "Distribution" }), { target: { value: "private" } });
+    expect(screen.getByText(/No friends yet/)).toBeVisible();
+    expect(screen.getByRole("button", { name: "Share dub" })).toBeEnabled();
   });
 
   it("keeps the form open and disabled while sharing, then resets on success", async () => {

@@ -4,8 +4,9 @@ import { Button } from "../../atoms/Button/Button";
 import { ModalFooter } from "../ModalFooter/ModalFooter";
 import { UploadProgress } from "../UploadProgress/UploadProgress";
 import { TagSelector } from "../TagSelector/TagSelector";
+import { FriendPicker } from "../FriendPicker/FriendPicker";
 import type { UploadProgressState } from "../notificationTypes";
-import type { Dub } from "../../templates/communityTypes";
+import type { Buddy, Dub } from "../../templates/communityTypes";
 import "../Molecules.css";
 
 export interface DubUploadFormValues {
@@ -17,6 +18,7 @@ export interface DubUploadFormValues {
   audioFile?: File;
   artworkFile?: File;
   distribution?: "worldwide" | "private" | "alist";
+  buddyIds?: string[];
 }
 
 export interface DubUploadFormProps {
@@ -27,6 +29,8 @@ export interface DubUploadFormProps {
   submissionError?: string;
   initialDub?: Dub;
   aListApproved?: boolean;
+  buddies?: Buddy[];
+  initialBuddyIds?: string[];
 }
 
 export function DubUploadForm({
@@ -37,12 +41,16 @@ export function DubUploadForm({
   submissionError = "",
   initialDub,
   aListApproved = false,
+  buddies = [],
+  initialBuddyIds = [],
 }: DubUploadFormProps) {
   const isEditing = Boolean(initialDub);
   const formId = `dub-upload-form-${useId()}`;
   const [tags, setTags] = useState<string[]>(initialDub?.tags ?? [initialDub?.genre ?? ""].filter(Boolean));
   const [fileError, setFileError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [distribution, setDistribution] = useState<"worldwide" | "private" | "alist">("worldwide");
+  const [buddyIds, setBuddyIds] = useState<string[]>(initialBuddyIds);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -68,7 +76,8 @@ export function DubUploadForm({
         tags,
         bpm: bpmValue ? Number(bpmValue) : undefined,
         message: String(formData.get("message") ?? ""),
-        distribution: isEditing ? initialDub?.distribution : (formData.get("distribution") === "private" ? "private" : formData.get("distribution") === "alist" ? "alist" : "worldwide"),
+        distribution: isEditing ? initialDub?.distribution : distribution,
+        buddyIds: !isEditing && distribution === "private" ? buddyIds.filter((id) => buddies.some((buddy) => buddy.id === id)) : undefined,
         audioFile: selectedAudioFile,
         artworkFile:
           artworkFile instanceof File && artworkFile.size > 0
@@ -78,6 +87,8 @@ export function DubUploadForm({
       if (result !== false && result !== null) {
         form.reset();
         setTags([]);
+        setDistribution("worldwide");
+        setBuddyIds([]);
         setFileError("");
       }
     } finally {
@@ -106,13 +117,22 @@ export function DubUploadForm({
         {!isEditing && (
           <label className="dub-upload-form__field">
             <span>Distribution</span>
-            <select aria-label="Distribution" aria-describedby={!aListApproved ? `${formId}-alist-help` : undefined} defaultValue="worldwide" name="distribution">
+            <select aria-label="Distribution" aria-describedby={!aListApproved ? `${formId}-alist-help` : undefined} value={distribution} onChange={(event) => {
+              const value = event.currentTarget.value;
+              if (value === "worldwide" || value === "private" || value === "alist") setDistribution(value);
+            }} name="distribution">
               <option value="worldwide">Worldwide - visible to all members</option>
               <option value="private">Private - share with selected friends</option>
               <option value="alist" disabled={!aListApproved}>A-List - approved members only</option>
             </select>
             {!aListApproved && <small id={`${formId}-alist-help`}>A-List approval is required for exclusive uploads.</small>}
           </label>
+        )}
+        {!isEditing && distribution === "private" && (
+          <div className="dub-upload-form__private-friends">
+            <p>Optional: send this private dub to friends in Messenger when it uploads. Manage access in My Dubs; unsending does not revoke access or recall downloaded files.</p>
+            <FriendPicker buddies={buddies} selectedIds={buddyIds} onChange={setBuddyIds} />
+          </div>
         )}
         {isEditing && <p>Distribution: {initialDub?.distribution === "alist" ? "A-List" : initialDub?.distribution === "private" ? "Private" : "Worldwide"} (cannot be changed after upload)</p>}
         <div className="dub-upload-form__row">

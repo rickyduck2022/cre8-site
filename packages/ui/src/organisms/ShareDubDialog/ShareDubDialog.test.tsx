@@ -29,7 +29,7 @@ describe("ShareDubDialog", () => {
     expect(screen.getByRole("button", { name: "Send dub" })).toBeDisabled();
     fireEvent.change(screen.getByRole("searchbox", { name: "Search friends" }), { target: { value: "HOLIK" } });
     expect(screen.queryByText("Meladee")).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("radio", { name: /Holik/ }));
+    fireEvent.click(screen.getByRole("checkbox", { name: /Holik/ }));
     fireEvent.change(screen.getByLabelText(/Add a message/), { target: { value: "Have a listen" } });
     fireEvent.click(screen.getByRole("button", { name: "Send dub" }));
     await screen.findByText("Sent to Holik");
@@ -44,16 +44,54 @@ describe("ShareDubDialog", () => {
       .mockImplementationOnce(() => new Promise<boolean>((resolve) => { resolveSend = resolve; }))
       .mockResolvedValueOnce(true);
     render(<ShareDubDialog dub={dub} buddies={buddies} onClose={vi.fn()} onFindFriends={vi.fn()} onOpenChat={vi.fn()} onSendMessage={send} />);
-    fireEvent.click(screen.getByRole("radio", { name: /Meladee/ }));
+    fireEvent.click(screen.getByRole("checkbox", { name: /Meladee/ }));
     fireEvent.click(screen.getByRole("button", { name: "Send dub" }));
     expect(screen.getByRole("button", { name: "Send dub" })).toBeDisabled();
     expect(send).toHaveBeenCalledTimes(1);
     resolveSend(false);
     await screen.findByRole("alert");
-    expect(screen.getByRole("radio", { name: /Meladee/ })).toBeChecked();
-    fireEvent.click(screen.getByRole("button", { name: "Send dub" }));
+    expect(screen.getByRole("checkbox", { name: /Meladee/ })).toBeChecked();
+    fireEvent.click(screen.getByRole("button", { name: "Retry selected" }));
     await waitFor(() => expect(screen.getByText("Sent to Meladee")).toBeVisible());
     expect(send).toHaveBeenLastCalledWith("friend-1", "Shared a dub: Night Drive", "dub-1");
+  });
+
+  it("sends to multiple friends and retries only failed recipients", async () => {
+    const send = vi.fn().mockResolvedValueOnce(true).mockResolvedValueOnce(false).mockResolvedValueOnce(true);
+    render(<ShareDubDialog dub={dub} buddies={buddies} onClose={vi.fn()} onFindFriends={vi.fn()} onOpenChat={vi.fn()} onSendMessage={send} />);
+    fireEvent.click(screen.getByRole("checkbox", { name: /Meladee/ }));
+    fireEvent.change(screen.getByRole("searchbox", { name: "Search friends" }), { target: { value: "holik" } });
+    fireEvent.click(screen.getByRole("checkbox", { name: /Holik/ }));
+    expect(screen.getByText("2 friends selected")).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Send dub" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Could not send to Holik");
+    expect(screen.getByText("Already sent to Meladee.")).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Retry selected" }));
+    await screen.findByText("Sent to Meladee, Holik");
+    expect(send.mock.calls.map((call) => call[0])).toEqual(["friend-1", "friend-2", "friend-2"]);
+  });
+
+  it("allows retrying failed upload deliveries without resending successful ones", async () => {
+    const send = vi.fn(async () => true);
+    render(<ShareDubDialog dub={dub} buddies={buddies} initialBuddyIds={["friend-2"]} initiallySentIds={["friend-1"]} initialFailure onClose={vi.fn()} onFindFriends={vi.fn()} onOpenChat={vi.fn()} onSendMessage={send} />);
+    expect(screen.getByRole("checkbox", { name: /Meladee/ })).toBeDisabled();
+    expect(screen.getByRole("checkbox", { name: /Holik/ })).toBeChecked();
+    fireEvent.click(screen.getByRole("button", { name: "Retry selected" }));
+    await screen.findByText("Sent to Meladee, Holik");
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(send).toHaveBeenCalledWith("friend-2", "Shared a dub: Night Drive", "dub-1");
+  });
+
+  it("does not report all deliveries complete when a failed friend is deselected", async () => {
+    const send = vi.fn(async () => true);
+    render(<ShareDubDialog dub={dub} buddies={buddies} initialBuddyIds={["friend-2"]} initialFailure onClose={vi.fn()} onFindFriends={vi.fn()} onOpenChat={vi.fn()} onSendMessage={send} />);
+    fireEvent.click(screen.getByRole("checkbox", { name: /Holik/ }));
+    fireEvent.click(screen.getByRole("checkbox", { name: /Meladee/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Retry selected" }));
+    await screen.findByText("Already sent to Meladee.");
+    expect(screen.getByRole("alert")).toHaveTextContent("Could not send to Holik");
+    expect(screen.getByRole("checkbox", { name: /Holik/ })).toBeChecked();
+    expect(screen.queryByText("Sent to Meladee")).not.toBeInTheDocument();
   });
 
   it("offers a route to find friends and restricts private forwarding", () => {

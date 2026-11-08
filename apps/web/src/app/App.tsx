@@ -26,6 +26,7 @@ import {
   NotificationViewport,
   ProfileTemplate,
   ShareDubDialog,
+  shareDubToFriends,
   TrackArtwork,
   createEmptyDubSearchFilters,
   type DubSearchFilters,
@@ -141,10 +142,11 @@ export function App() {
   const [memberSearchQuery, setMemberSearchQuery] = useState("");
   const { members: memberSearchResults, isSearching: isSearchingMembers } = useMemberSearch(memberSearchQuery);
   const [isUploadOpen, setIsUploadOpen] = useState(false);
+  const [isUploadSubmitting, setIsUploadSubmitting] = useState(false);
   const [editingDub, setEditingDub] = useState<Dub | null>(null);
   const [deletingDub, setDeletingDub] = useState<Dub | null>(null);
   const [shareDubTargetId, setShareDubTargetId] = useState<string | null>(null);
-  const [sharingDub, setSharingDub] = useState<Dub | null>(null);
+  const [sharingDub, setSharingDub] = useState<{ dub: Dub; failedIds?: string[]; sentIds?: string[] } | null>(null);
   const [isProfileEditOpen, setIsProfileEditOpen] = useState(false);
   const [isStartConversationOpen, setIsStartConversationOpen] = useState(false);
   const [loginUsername, setLoginUsername] = useState("");
@@ -224,19 +226,34 @@ export function App() {
   }
 
   async function handleShareDub(values: Parameters<typeof addDub>[0]) {
-    const dub = await addDub(values);
-    if (!dub) return false;
-    setIsUploadOpen(false);
-    const targetId = shareDubTargetId;
-    setShareDubTargetId(null);
-    if (targetId) {
-      setChatBuddyId(targetId);
-      navigateTo("messenger");
-      await sendMessage(targetId, `Shared a dub: ${dub.title}`, dub.id);
-    } else {
-      navigateTo(dub.distribution === "private" ? "my-dubs" : dub.distribution === "alist" ? "alist" : "dubs");
+    setIsUploadSubmitting(true);
+    try {
+      const dub = await addDub(values);
+      if (!dub) return false;
+      const targetIds = dub.distribution === "private"
+        ? values.buddyIds ?? []
+        : shareDubTargetId ? [shareDubTargetId] : [];
+      const result = await shareDubToFriends(targetIds, dub.id, `Shared a dub: ${dub.title}`, sendMessage);
+      setIsUploadOpen(false);
+      setShareDubTargetId(null);
+      if (result.failed.length) {
+        notify(`${dub.title} was uploaded, but could not be sent to every selected friend. Retry without uploading again.`, "error");
+        setSharingDub({ dub, failedIds: result.failed, sentIds: result.sent });
+        navigateTo("my-dubs");
+      } else if (targetIds.length === 1) {
+        openChat(targetIds[0]);
+      } else {
+        if (targetIds.length > 1) notify(`${dub.title} was sent to ${targetIds.length} friends in Messenger.`);
+        navigateTo(dub.distribution === "private" ? "my-dubs" : dub.distribution === "alist" ? "alist" : "dubs");
+      }
+      return dub;
+    } finally {
+      setIsUploadSubmitting(false);
     }
-    return dub;
+  }
+
+  function beginSharingDub(dub: Dub) {
+    setSharingDub({ dub });
   }
 
   async function handleLogin(event: FormEvent<HTMLFormElement>) {
@@ -452,7 +469,7 @@ export function App() {
               currentUsername={state.member.username}
               onEditDub={beginDubEdit}
               onDeleteDub={beginDubDelete}
-              onShareWithFriend={setSharingDub}
+              onShareWithFriend={beginSharingDub}
               showIntro={false}
               feedName={activeSection === "alist" ? "A-List" : "Dub Feed"}
               onOpenProfile={openProfile}
@@ -502,7 +519,7 @@ export function App() {
             currentUsername={state.member.username}
             onEditDub={beginDubEdit}
             onDeleteDub={beginDubDelete}
-            onShareWithFriend={setSharingDub}
+            onShareWithFriend={beginSharingDub}
           />
         )}
         {activeSection === "my-dubs" && (
@@ -530,7 +547,7 @@ export function App() {
             onEditDub={beginDubEdit}
             onDeleteDub={beginDubDelete}
             onRevokeGrant={revokeDubGrant}
-            onShareWithFriend={setSharingDub}
+            onShareWithFriend={beginSharingDub}
           />
         )}
         {activeSection === "messenger" && (
@@ -598,7 +615,7 @@ export function App() {
             onEditDub={beginDubEdit}
             onDeleteDub={beginDubDelete}
             currentUsername={state.member.username}
-            onShareWithFriend={setSharingDub}
+            onShareWithFriend={beginSharingDub}
           />
         )}
       </div>
@@ -624,8 +641,11 @@ export function App() {
       {sharingDub && (
         <ShareDubDialog
           buddies={state.buddies}
-          dub={sharingDub}
-          key={sharingDub.id}
+          dub={sharingDub.dub}
+          key={sharingDub.dub.id}
+          initialBuddyIds={sharingDub.failedIds}
+          initiallySentIds={sharingDub.sentIds}
+          initialFailure={Boolean(sharingDub.failedIds?.length)}
           onClose={() => setSharingDub(null)}
           onFindFriends={() => {
             setSharingDub(null);
@@ -641,16 +661,18 @@ export function App() {
       <Modal
         isOpen={isUploadOpen}
         onClose={() => {
-          if (!uploadProgress) {
+          if (!uploadProgress && !isUploadSubmitting) {
             setIsUploadOpen(false);
             setShareDubTargetId(null);
           }
         }}
         title="Share a dub"
       >
-        <DubUploadForm
+        {isUploadOpen && <DubUploadForm
           artists={state.artists}
           aListApproved={state.member.aListApproved}
+          buddies={state.buddies}
+          initialBuddyIds={shareDubTargetId ? [shareDubTargetId] : []}
           onSubmit={handleShareDub}
           submissionError={uploadError}
           uploadProgress={uploadProgress}
@@ -658,7 +680,7 @@ export function App() {
             setIsUploadOpen(false);
             setShareDubTargetId(null);
           }}
-        />
+        />}
       </Modal>
       <Modal
         isOpen={isProfileEditOpen}

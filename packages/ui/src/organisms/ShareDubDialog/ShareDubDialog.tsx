@@ -1,11 +1,11 @@
 import { useId, useState, type FormEvent } from "react";
 import { MessageCircle } from "@craft/icons";
-import { Avatar } from "../../atoms/Avatar/Avatar";
 import { Button } from "../../atoms/Button/Button";
-import { SearchField } from "../../molecules/SearchField/SearchField";
+import { FriendPicker } from "../../molecules/FriendPicker/FriendPicker";
 import { ModalFooter } from "../../molecules/ModalFooter/ModalFooter";
 import { Modal } from "../Modal/Modal";
 import type { Buddy, Dub } from "../../templates/communityTypes";
+import { shareDubToFriends } from "./shareDubToFriends";
 import "./ShareDubDialog.css";
 
 export function canShareDub(dub: Dub, username: string): boolean {
@@ -19,48 +19,51 @@ export interface ShareDubDialogProps {
   onFindFriends: () => void;
   onOpenChat: (buddyId: string) => void;
   onSendMessage: (buddyId: string, text: string, dubId: string) => boolean | Promise<boolean>;
+  initialBuddyIds?: string[];
+  initiallySentIds?: string[];
+  initialFailure?: boolean;
 }
 
-export function ShareDubDialog({ dub, buddies, onClose, onFindFriends, onOpenChat, onSendMessage }: ShareDubDialogProps) {
+export function ShareDubDialog({ dub, buddies, onClose, onFindFriends, onOpenChat, onSendMessage, initialBuddyIds = [], initiallySentIds = [], initialFailure = false }: ShareDubDialogProps) {
   const formId = useId();
-  const [query, setQuery] = useState("");
-  const [buddyId, setBuddyId] = useState("");
+  const [buddyIds, setBuddyIds] = useState<string[]>(initialBuddyIds);
   const [message, setMessage] = useState("");
   const [pending, setPending] = useState(false);
-  const [failed, setFailed] = useState(false);
-  const [sentTo, setSentTo] = useState<Buddy | null>(null);
-  const selectedBuddy = buddies.find((buddy) => buddy.id === buddyId);
-  const needle = query.trim().toLocaleLowerCase();
-  const filteredBuddies = buddies.filter((buddy) =>
-    [buddy.displayName, buddy.username].some((value) => value.toLocaleLowerCase().includes(needle)),
-  );
+  const [failed, setFailed] = useState(initialFailure);
+  const [failedIds, setFailedIds] = useState<string[]>(initialFailure ? initialBuddyIds : []);
+  const [sentIds, setSentIds] = useState<string[]>(initiallySentIds);
+  const [complete, setComplete] = useState(false);
+  const selectedIds = buddyIds.filter((id) => buddies.some((buddy) => buddy.id === id) && !sentIds.includes(id));
+  const sentTo = buddies.filter((buddy) => sentIds.includes(buddy.id));
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!selectedBuddy || pending) return;
+    if (!selectedIds.length || pending) return;
     setPending(true);
     setFailed(false);
     try {
-      if (await onSendMessage(selectedBuddy.id, message.trim() || `Shared a dub: ${dub.title}`, dub.id)) {
-        setSentTo(selectedBuddy);
-      } else {
-        setFailed(true);
-      }
+      const result = await shareDubToFriends(selectedIds, dub.id, message.trim() || `Shared a dub: ${dub.title}`, onSendMessage);
+      const outstanding = [...new Set([...failedIds.filter((id) => !result.sent.includes(id)), ...result.failed])];
+      setSentIds((current) => [...current, ...result.sent]);
+      setBuddyIds(outstanding);
+      setFailed(outstanding.length > 0);
+      setFailedIds(outstanding);
+      setComplete(outstanding.length === 0);
     } finally {
       setPending(false);
     }
   }
 
   return (
-    <Modal isOpen onClose={() => !pending && onClose()} title="Share with a friend">
-      {sentTo ? (
+    <Modal isOpen onClose={() => !pending && onClose()} title="Share with friends">
+      {complete ? (
         <div className="share-dub-dialog__success" role="status">
           <MessageCircle aria-hidden="true" />
-          <strong>Sent to {sentTo.displayName}</strong>
-          <p>{dub.title} is in your conversation.</p>
+          <strong>Sent to {sentTo.map((buddy) => buddy.displayName).join(", ")}</strong>
+          <p>{dub.title} is in {sentTo.length === 1 ? "your conversation" : "your conversations"}.</p>
           <ModalFooter>
             <Button onClick={onClose} variant="secondary">Done</Button>
-            <Button onClick={() => onOpenChat(sentTo.id)}>Open conversation</Button>
+            {sentTo.length === 1 && <Button onClick={() => onOpenChat(sentTo[0].id)}>Open conversation</Button>}
           </ModalFooter>
         </div>
       ) : (
@@ -72,34 +75,23 @@ export function ShareDubDialog({ dub, buddies, onClose, onFindFriends, onOpenCha
           </div>
           <p className="share-dub-dialog__hint">
             {dub.distribution === "private"
-              ? "Sending grants your friend private access. Unsend does not revoke it; manage access in My Dubs. Downloaded files cannot be recalled."
+              ? "Sending grants your friends private access. Unsend does not revoke it; manage access in My Dubs. Downloaded files cannot be recalled."
               : dub.distribution === "alist"
                 ? "Only approved A-List members can open this dub."
-                : "Your friend will receive this dub in Messenger."}
+                : "Your friends will receive this dub in Messenger."}
           </p>
           {buddies.length ? (
             <>
-              <SearchField aria-label="Search friends" onChange={(event) => setQuery(event.currentTarget.value)} placeholder="Search friends" value={query} />
-              <fieldset className="share-dub-dialog__friends">
-                <legend>Choose a friend</legend>
-                {filteredBuddies.map((buddy) => (
-                  <label className="share-dub-dialog__friend" key={buddy.id}>
-                    <input checked={buddyId === buddy.id} name="friend" onChange={() => setBuddyId(buddy.id)} type="radio" value={buddy.id} />
-                    <span aria-hidden="true"><Avatar name={buddy.displayName} size="small" src={buddy.avatarUrl} /></span>
-                    <span><strong>{buddy.displayName}</strong><small>@{buddy.username}</small></span>
-                  </label>
-                ))}
-                {!filteredBuddies.length && <p className="share-dub-dialog__hint">No friends match your search.</p>}
-              </fieldset>
-              {selectedBuddy && <p className="share-dub-dialog__hint">Sending to {selectedBuddy.displayName} (@{selectedBuddy.username})</p>}
+              <FriendPicker buddies={buddies} disabled={pending} disabledIds={sentIds} selectedIds={buddyIds} onChange={setBuddyIds} />
               <label className="share-dub-dialog__message">
                 <span>Add a message <small>(optional)</small></span>
-                <textarea maxLength={2000} onChange={(event) => setMessage(event.currentTarget.value)} placeholder="Say something about this dub..." rows={2} value={message} />
+                <textarea disabled={pending} maxLength={2000} onChange={(event) => setMessage(event.currentTarget.value)} placeholder="Say something about this dub..." rows={2} value={message} />
               </label>
-              {failed && <p className="share-dub-dialog__error" role="alert">Could not send this dub. Check the notification and try again.</p>}
+              {sentTo.length > 0 && <p className="share-dub-dialog__hint" role="status">Already sent to {sentTo.map((buddy) => buddy.displayName).join(", ")}.</p>}
+              {failed && <p className="share-dub-dialog__error" role="alert">Could not send to {buddies.filter((buddy) => failedIds.includes(buddy.id)).map((buddy) => buddy.displayName).join(", ") || "some friends"}. Check the notification and retry selected friends.</p>}
               <ModalFooter>
                 <Button disabled={pending} onClick={onClose} variant="secondary">Cancel</Button>
-                <Button disabled={!selectedBuddy || pending} form={formId} loading={pending} type="submit">Send dub</Button>
+                <Button disabled={!selectedIds.length || pending} form={formId} loading={pending} type="submit">{failed ? "Retry selected" : "Send dub"}</Button>
               </ModalFooter>
             </>
           ) : (

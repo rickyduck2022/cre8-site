@@ -1,4 +1,5 @@
 export * from "./SearchField/SearchField";
+export * from "./FriendPicker/FriendPicker";
 export * from "./DubUploadForm/DubUploadForm";
 export * from "./NotificationToast/NotificationToast";
 export * from "./UploadProgress/UploadProgress";
