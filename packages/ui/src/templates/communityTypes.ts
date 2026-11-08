@@ -39,6 +39,7 @@ export interface Buddy {
   bio: string;
   groups: string[];
   unread?: number;
+  aListApproved?: boolean;
 }
 
 export interface MemberSearchResult {
@@ -48,6 +49,7 @@ export interface MemberSearchResult {
   displayName: string;
   genre: string;
   avatarUrl?: string;
+  aListApproved?: boolean;
 }
 
 export interface Dub {
@@ -55,6 +57,8 @@ export interface Dub {
   title: string;
   artist: string;
   artistId?: string;
+  artistAListApproved?: boolean;
+  uploaderAListApproved?: boolean;
   uploader: string;
   uploaderDisplayName: string;
   uploaderAvatarUrl?: string;

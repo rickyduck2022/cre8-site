@@ -7,6 +7,19 @@ afterEach(cleanup);
 const track = { title: "Night Drive", artist: "Amber" };
 
 describe("AudioPlayer playback indicator", () => {
+  it("updates its distribution surface as the track changes", () => {
+    const { rerender } = render(<AudioPlayer track={track} distribution="alist" playing />);
+    const player = screen.getByRole("region", { name: "Audio player: Night Drive" });
+    expect(player).toHaveClass("audio-player--alist");
+    rerender(<AudioPlayer track={track} distribution="private" playing={false} />);
+    expect(player).toHaveClass("audio-player--private");
+    expect(player).not.toHaveClass("audio-player--alist");
+    rerender(<AudioPlayer track={track} distribution="worldwide" />);
+    expect(player).not.toHaveClass("audio-player--private", "audio-player--alist");
+    rerender(<AudioPlayer track={track} />);
+    expect(player).not.toHaveClass("audio-player--private", "audio-player--alist");
+  });
+
   it("only shows the indicator while the controlled player is playing", () => {
     const { rerender } = render(<AudioPlayer track={track} playing={false} />);
     expect(screen.queryByRole("status", { name: "Now playing" })).not.toBeInTheDocument();

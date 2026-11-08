@@ -35,6 +35,18 @@
   --focus-ring: var(--color-cyan-400);
   --link-default: var(--color-blue-500);
 
+  /* Light surfaces for highlighted A-List cards */
+  --surface-inverse: #F2F3F5;
+  --surface-inverse-raised: #FFFFFF;
+  --surface-inverse-control: #E1E5EA;
+  --border-inverse: #AEB6C1;
+  --text-inverse: #171A20;
+  --text-inverse-secondary: #4B5563;
+  --audio-inverse-active: #006C7A;
+  --audio-inverse-inactive: #8995A3;
+  --action-inverse-hover: #954500;
+  --status-inverse-error: #A51D2D;
+
   /* Font names are optional local fonts; no external font request is required. */
   --font-interface: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-mono: 'IBM Plex Mono', ui-monospace, 'Cascadia Code', 'Consolas', monospace;

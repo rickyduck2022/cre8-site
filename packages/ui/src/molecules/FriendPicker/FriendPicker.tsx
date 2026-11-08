@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Avatar } from "../../atoms/Avatar/Avatar";
+import { AListBadge } from "../../atoms/AListBadge/AListBadge";
 import { Button } from "../../atoms/Button/Button";
 import { SearchField } from "../SearchField/SearchField";
 import type { Buddy } from "../../templates/communityTypes";
@@ -44,7 +45,7 @@ export function FriendPicker({ buddies, selectedIds, onChange, disabled = false,
                       type="checkbox"
                     />
                     <span aria-hidden="true"><Avatar name={buddy.displayName} size="small" src={buddy.avatarUrl} /></span>
-                    <span><strong>{buddy.displayName}</strong><small>@{buddy.username}{sent ? " · Sent" : alreadyShared ? " · Shared" : ""}</small></span>
+                    <span><strong>{buddy.displayName}{buddy.aListApproved && <AListBadge />}</strong><small>@{buddy.username}{sent ? " · Sent" : alreadyShared ? " · Shared" : ""}</small></span>
                   </label>
                   {alreadyShared && !sent && (
                     <Button

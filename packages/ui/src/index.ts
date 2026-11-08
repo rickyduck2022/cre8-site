@@ -3,6 +3,7 @@ import "./foundations/Scrollbar.css";
 
 export * from "./atoms/Button";
 export * from "./atoms/Action/Action";
+export * from "./atoms/AListBadge/AListBadge";
 export * from "./atoms/Avatar/Avatar";
 export * from "./atoms/Badge/Badge";
 export * from "./atoms/FilterTab/FilterTab";

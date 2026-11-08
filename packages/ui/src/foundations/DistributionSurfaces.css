@@ -1,0 +1,23 @@
+.dub-card--private,
+.audio-player--private {
+  --surface-raised: var(--color-background);
+}
+
+.dub-card.dub-card--alist,
+.organism-card.audio-player--alist {
+  --surface-canvas: var(--surface-inverse);
+  --surface-raised: var(--surface-inverse-raised);
+  --surface-control: var(--surface-inverse-control);
+  --border-default: var(--border-inverse);
+  --text-primary: var(--text-inverse);
+  --text-secondary: var(--text-inverse-secondary);
+  --audio-active: var(--audio-inverse-active);
+  --audio-inactive: var(--audio-inverse-inactive);
+  --action-primary: var(--action-inverse-hover);
+  --action-primary-hover: var(--action-inverse-hover);
+  --alist-badge-background: var(--color-orange-500);
+  --focus-ring: var(--audio-inverse-active);
+  --status-error: var(--status-inverse-error);
+  background: var(--surface-canvas);
+  color: var(--text-primary);
+}

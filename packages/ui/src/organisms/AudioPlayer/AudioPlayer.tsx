@@ -4,7 +4,9 @@ import type { NowPlayingProps } from "../../molecules/NowPlaying/NowPlaying";
 import { NowPlaying } from "../../molecules/NowPlaying/NowPlaying";
 import { TransportControls } from "../../molecules/TransportControls/TransportControls";
 import { Waveform } from "../../molecules/Waveform/Waveform";
+import type { Dub } from "../../templates/communityTypes";
 import "../Organisms.css";
+import "../../foundations/DistributionSurfaces.css";
 
 export interface AudioPlayerTrack extends NowPlayingProps {
   duration?: string;
@@ -14,6 +16,7 @@ export interface AudioPlayerTrack extends NowPlayingProps {
 export interface AudioPlayerProps {
   track: AudioPlayerTrack;
   variant?: "full" | "compact" | "mini" | "docked" | "inline";
+  distribution?: Dub["distribution"];
   endAction?: ReactNode;
   metadata?: ReactNode;
   playing?: boolean;
@@ -53,6 +56,7 @@ export function AudioPlayer({
   className,
   currentTimeSeconds = 0,
   durationSeconds,
+  distribution,
   endAction,
   metadata,
   onNext,
@@ -99,6 +103,8 @@ export function AudioPlayer({
         "organism-card",
         "audio-player",
         `audio-player--${variant}`,
+        distribution === "alist" && "audio-player--alist",
+        distribution === "private" && "audio-player--private",
         className,
       ]
         .filter(Boolean)
@@ -106,6 +112,7 @@ export function AudioPlayer({
     >
       <NowPlaying
         artist={track.artist}
+        artistAListApproved={track.artistAListApproved}
         artwork={track.artwork}
         artworkContent={track.artworkContent}
         isPlaying={currentPlaying}

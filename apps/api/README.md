@@ -63,10 +63,17 @@ require server-side A-List approval. Members can submit applications under
 A-List Submission; administrators configured through `ADMIN_USERNAMES` can
 review and approve, reject, request information or revoke access in the admin
 app. Decisions, previous submission versions and notifications are persisted.
+Social profile URLs, events or brands, supporting artists and record labels are
+optional. Supplied social URLs must use HTTP or HTTPS.
 Follower counts are self-reported and unverified; no social API integration
-is used. The Worldwide feed and its search exclude both other
-tiers. The API checks access independently for media, search, snapshots,
+is used. The Dub Feed shows A-List dubs first for approved members, followed by
+Worldwide dubs; private dubs are excluded. Search follows the same access
+rules, while the API's default Worldwide-only search remains available.
+The API checks access independently for media, search, snapshots,
 messages, playback, crates, library and admin overview.
+Artist approval indicators reflect the linked account's current A-List status,
+independently of a dub's distribution; approval and revocation update connected
+community snapshots.
 
 Share history is tracked per sender, friend, dub and current version, independently
 of paginated messages. A friend already sent that version is marked Shared and

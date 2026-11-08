@@ -13,6 +13,29 @@ const dub: Dub = {
 };
 
 describe("DubCard actions", () => {
+  it("uses the inverted card only for A-List distribution and badges approval independently", () => {
+    const { rerender, container } = render(<DubCard dub={{ ...dub, distribution: "alist" }} onDownload={vi.fn()} onPlay={vi.fn()} />);
+    expect(container.querySelector("article")).toHaveClass("dub-card--alist");
+    expect(screen.queryByRole("img", { name: "A-List approved" })).not.toBeInTheDocument();
+
+    rerender(<DubCard dub={{ ...dub, distribution: "worldwide", artistAListApproved: true, uploaderAListApproved: true }} onDownload={vi.fn()} onPlay={vi.fn()} />);
+    expect(container.querySelector("article")).not.toHaveClass("dub-card--alist");
+    expect(screen.getAllByRole("img", { name: "A-List approved" })).toHaveLength(2);
+    rerender(<DubCard dub={{ ...dub, distribution: "private", artistAListApproved: false, uploaderAListApproved: false }} onDownload={vi.fn()} onPlay={vi.fn()} />);
+    expect(screen.queryByRole("img", { name: "A-List approved" })).not.toBeInTheDocument();
+  });
+
+  it("uses the darker card treatment only for private dubs", () => {
+    const { container, rerender } = render(<DubCard dub={{ ...dub, distribution: "private" }} onDownload={vi.fn()} onPlay={vi.fn()} />);
+    expect(container.querySelector("article")).toHaveClass("dub-card--private");
+    expect(container.querySelector("article")).not.toHaveClass("dub-card--alist");
+    rerender(<DubCard dub={{ ...dub, distribution: "worldwide" }} onDownload={vi.fn()} onPlay={vi.fn()} />);
+    expect(container.querySelector("article")).not.toHaveClass("dub-card--private");
+    rerender(<DubCard dub={{ ...dub, distribution: "alist" }} onDownload={vi.fn()} onPlay={vi.fn()} />);
+    expect(container.querySelector("article")).toHaveClass("dub-card--alist");
+    expect(container.querySelector("article")).not.toHaveClass("dub-card--private");
+  });
+
   it.each([
     ["worldwide", "Worldwide"],
     ["private", "Private"],

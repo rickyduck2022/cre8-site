@@ -1,5 +1,6 @@
 import { UserPlus } from "@craft/icons";
 import { Avatar } from "../../atoms/Avatar/Avatar";
+import { AListBadge } from "../../atoms/AListBadge/AListBadge";
 import { Button } from "../../atoms/Button/Button";
 import { SearchField } from "../../molecules/SearchField/SearchField";
 import type { MemberSearchResult } from "../../templates/communityTypes";
@@ -37,7 +38,7 @@ export function FriendLookup({ isSearching = false, onAdd, onQueryChange, query,
                   src={member.avatarUrl}
                 />
                 <span className="friend-lookup__result-copy">
-                  <strong>{member.displayName}</strong>
+                  <strong>{member.displayName}{member.aListApproved && <AListBadge />}</strong>
                   <small>@{member.username} · ID: {member.id}{member.artistId ? ` · Artist: ${member.artistId}` : ""}</small>
                 </span>
                 <Button

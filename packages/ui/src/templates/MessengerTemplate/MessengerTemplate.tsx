@@ -10,6 +10,7 @@ import {
   Upload,
 } from "@craft/icons";
 import { Avatar } from "../../atoms/Avatar/Avatar";
+import { AListBadge } from "../../atoms/AListBadge/AListBadge";
 import { Badge } from "../../atoms/Badge/Badge";
 import { Button } from "../../atoms/Button/Button";
 import { ChatComposer } from "../../molecules/ChatComposer/ChatComposer";
@@ -256,7 +257,7 @@ export function MessengerTemplate({
                     <PresenceIndicator presence={buddy.presence} />
                   </span>
                   <span className="conversation-link__copy">
-                    <strong>{buddy.displayName}</strong>
+                    <strong>{buddy.displayName}{buddy.aListApproved && <AListBadge />}</strong>
                     <span>{latest?.unsent ? "This message was unsent." : latest?.text ?? "Start a conversation"}</span>
                   </span>
                   {buddy.unread && <Badge>{buddy.unread}</Badge>}
@@ -271,7 +272,7 @@ export function MessengerTemplate({
             <header className="chat-panel__header">
               <Avatar name={selectedBuddy.displayName} size="small" src={selectedBuddy.avatarUrl} />
               <div>
-                <strong>{selectedBuddy.displayName}</strong>
+                <strong>{selectedBuddy.displayName}{selectedBuddy.aListApproved && <AListBadge />}</strong>
                 <span>
                   <PresenceIndicator presence={selectedBuddy.presence} />
                   {selectedBuddy.presence}
@@ -384,6 +385,7 @@ export function MessengerTemplate({
                               playing={nowPlayingId === sharedDub.id && isPlaying}
                               track={{
                                 artist: sharedDub.artist,
+                                artistAListApproved: sharedDub.artistAListApproved,
                                 artworkContent: <TrackArtwork dub={sharedDub} />,
                                 duration: sharedDub.duration,
                                 title: sharedDub.title,
@@ -463,7 +465,7 @@ export function MessengerTemplate({
                       <div className="share-a-dub__entry share-a-dub__entry--shared" key={dub.id}>
                         <div>
                           <strong>{dub.title}</strong>
-                          <span>{dub.artist} · Shared</span>
+                          <span>{dub.artist}{dub.artistAListApproved && <AListBadge />} · Shared</span>
                         </div>
                         <Button
                           aria-label={`Share ${dub.title} again with ${selectedBuddy.displayName}`}
@@ -484,7 +486,7 @@ export function MessengerTemplate({
                       >
                         <div>
                           <strong>{dub.title}</strong>
-                          <span>{dub.artist}</span>
+                          <span>{dub.artist}{dub.artistAListApproved && <AListBadge />}</span>
                         </div>
                         <Link aria-hidden="true" />
                       </button>

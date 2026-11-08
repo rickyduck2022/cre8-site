@@ -1,5 +1,6 @@
 import { Download, Disc3, MessageCircle } from "@craft/icons";
 import { Button } from "../../atoms/Button/Button";
+import { AListBadge } from "../../atoms/AListBadge/AListBadge";
 import { Badge } from "../../atoms/Badge/Badge";
 import { TrackTag } from "../../atoms/TrackTag/TrackTag";
 import { DubActionsMenu } from "../../molecules/DubActionsMenu/DubActionsMenu";
@@ -33,7 +34,7 @@ export function LibraryTemplate({ downloads, onDownload, currentUsername, onEdit
             <li key={`${dub.id}-${downloadedAt}-${index}`}>
               <TrackArtwork dub={dub} />
               <div className="library-list__details">
-                <strong>{dub.title}</strong><span>{dub.artist}</span>
+                <strong>{dub.title}</strong><span>{dub.artist}{dub.artistAListApproved && <AListBadge />}</span>
                 <div>
                   {(dub.tags?.length ? dub.tags : [dub.genre]).map((tag) => <TrackTag key={tag}>{tag}</TrackTag>)}
                   <TrackFileMetadata

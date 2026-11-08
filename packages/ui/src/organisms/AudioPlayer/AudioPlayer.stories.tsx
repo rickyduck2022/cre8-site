@@ -21,6 +21,14 @@ type Story = StoryObj<typeof meta>;
 
 export const Full: Story = {};
 
+export const AList: Story = {
+  args: { distribution: "alist" },
+};
+
+export const Private: Story = {
+  args: { distribution: "private" },
+};
+
 export const Compact: Story = {
   args: { variant: "compact" },
 };

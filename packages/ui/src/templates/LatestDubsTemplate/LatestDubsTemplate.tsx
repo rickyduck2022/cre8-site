@@ -48,6 +48,8 @@ export interface LatestDubsTemplateProps {
   brandingImageAlt?: string;
   feedName?: string;
   showIntro?: boolean;
+  prioritizeAList?: boolean;
+  queryAlreadyFiltered?: boolean;
   currentUsername?: string;
   onEditDub?: (dub: Dub) => void;
   onDeleteDub?: (dub: Dub) => void;
@@ -90,6 +92,8 @@ export function LatestDubsTemplate({
   brandingImageAlt = "Cre8 DnB branding",
   feedName = "Dub Feed",
   showIntro = true,
+  prioritizeAList = false,
+  queryAlreadyFiltered = false,
   currentUsername,
   onEditDub,
   onDeleteDub,
@@ -104,17 +108,18 @@ export function LatestDubsTemplate({
     return [...dubs]
       .filter(
         (dub) =>
-          !needle ||
+          queryAlreadyFiltered || !needle ||
           [dub.title, dub.artist, dub.uploader, dub.genre, ...(dub.tags ?? [])].some((value) =>
             value.toLocaleLowerCase().includes(needle),
           ),
       )
       .sort((a, b) =>
-        order === "newest"
+        (prioritizeAList ? Number(b.distribution === "alist") - Number(a.distribution === "alist") : 0) ||
+        (order === "newest"
           ? Date.parse(b.uploadedAt) - Date.parse(a.uploadedAt)
-          : b.likes - a.likes,
+          : b.likes - a.likes),
       );
-  }, [dubs, order, query]);
+  }, [dubs, order, query, prioritizeAList, queryAlreadyFiltered]);
   const pagination = usePagination(visibleDubs, `${query}|${order}|${crateId ?? ""}`);
 
   return (
@@ -168,6 +173,9 @@ export function LatestDubsTemplate({
         </label>
       </div>
 
+      {prioritizeAList && dubs.some((dub) => dub.distribution === "alist") && (
+        <p className="latest-dubs-template__priority">A-List dubs appear first. Sort order applies within each distribution.</p>
+      )}
       <DubSearch query={query} onQueryChange={(value) => onQueryChange?.(value)} filters={filters} onFiltersChange={(value) => onFiltersChange?.(value)} fileTypes={fileTypes} resultCount={visibleDubs.length} isSearching={isSearching} error={searchError} />
 
       <section aria-label="Community uploads" className="feed-list">

@@ -48,13 +48,32 @@ describe("A-List application workflow", () => {
     expect(screen.getByRole("button", { name: "Resubmit application" })).toBeVisible();
   });
 
+  it("submits without optional social URLs, events, supporters or labels", async () => {
+    const onSubmit = vi.fn().mockResolvedValue(true);
+    render(<AListApplication artistName="Artist" application={null} onSubmit={onSubmit} />);
+    for (const name of ["events or brands", "supporting artists", "record labels"]) {
+      expect(screen.getByRole("group", { name: `Up to three ${name} (optional)` })).toBeVisible();
+    }
+    expect(screen.getByRole("group", { name: "Social media (optional)" })).toBeVisible();
+    for (const provider of ["Instagram", "TikTok", "Facebook", "SoundCloud"]) {
+      expect(screen.getByLabelText(`${provider} profile URL`)).not.toBeRequired();
+    }
+    fireEvent.click(screen.getByRole("checkbox", { name: "DJ" }));
+    fireEvent.change(screen.getByLabelText("How long have you been DJing?"), { target: { value: "10 years" } });
+    fireEvent.click(screen.getByRole("button", { name: "Submit application" }));
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({
+      events: ["", "", ""], supporters: ["", "", ""], labels: ["", "", ""],
+      social: {
+        instagram: { url: "", followers: null }, tiktok: { url: "", followers: null },
+        facebook: { url: "", followers: null }, soundcloud: { url: "", followers: null },
+      },
+    })));
+  });
+
   it("announces a missing role without submitting and preserves the entered fields", async () => {
     const onSubmit = vi.fn().mockResolvedValue(true);
     render(<AListApplication artistName="Artist" application={null} onSubmit={onSubmit} />);
     fireEvent.change(screen.getByLabelText("How long have you been DJing?"), { target: { value: "10 years" } });
-    for (const provider of ["Instagram", "TikTok", "Facebook"]) {
-      fireEvent.change(screen.getByLabelText(`${provider} profile URL`), { target: { value: `https://example.com/${provider}` } });
-    }
     fireEvent.click(screen.getByRole("button", { name: "Submit application" }));
     expect(screen.getByRole("alert")).toHaveTextContent("Select at least one role.");
     expect(screen.getByRole("group", { name: "Roles (select all that apply)" })).toHaveAccessibleDescription("Select at least one role.");

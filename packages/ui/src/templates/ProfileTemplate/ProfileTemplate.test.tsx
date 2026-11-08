@@ -17,6 +17,17 @@ const dub: Dub = {
 };
 
 describe("ProfileTemplate ownership controls", () => {
+  it("shows approval beside the profile name only while approved", () => {
+    const props = {
+      uploads: [], isOwnProfile: true, playingDubId: null, isPlaying: false,
+      onEditProfile: vi.fn(), onMessage: vi.fn(), onPlay: vi.fn(), onDownload: vi.fn(),
+    };
+    const { rerender } = render(<ProfileTemplate {...props} profile={{ ...profile, aListApproved: true }} />);
+    expect(screen.getByRole("heading", { name: /Amber/ })).toContainElement(screen.getByRole("img", { name: "A-List approved" }));
+    rerender(<ProfileTemplate {...props} profile={{ ...profile, aListApproved: false }} />);
+    expect(screen.queryByRole("img", { name: "A-List approved" })).not.toBeInTheDocument();
+  });
+
   it("shows dub management actions on the signed-in user's profile", () => {
     const onEditDub = vi.fn();
     const onDeleteDub = vi.fn();

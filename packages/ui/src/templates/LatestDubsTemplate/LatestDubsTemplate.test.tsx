@@ -13,6 +13,44 @@ const dub: Dub = {
 };
 
 describe("LatestDubsTemplate ownership controls", () => {
+  it("prioritizes A-List dubs before pagination while sorting within each tier", () => {
+    const dubs: Dub[] = [
+      { ...dub, id: "public", title: "Public", distribution: "worldwide", uploadedAt: "2026-11-08T12:00:00Z", likes: 100 },
+      { ...dub, id: "a1", title: "A1", distribution: "alist", uploadedAt: "2026-11-01T12:00:00Z", likes: 2 },
+      { ...dub, id: "a2", title: "A2", distribution: "alist", uploadedAt: "2026-11-02T12:00:00Z", likes: 1 },
+      ...[3, 4, 5, 6].map((n): Dub => ({ ...dub, id: `a${n}`, title: `A${n}`, distribution: "alist", uploadedAt: `2026-10-${20 + n}T12:00:00Z`, likes: 0 })),
+    ];
+    const { rerender } = render(<LatestDubsTemplate
+      dubs={dubs} prioritizeAList likedDubIds={new Set()} nowPlayingId={null} isPlaying={false}
+      onDownload={vi.fn()} onOpenProfile={vi.fn()} onPlay={vi.fn()}
+    />);
+    const titles = () => within(screen.getByRole("region", { name: "Community uploads" }))
+      .getAllByRole("region", { name: /^Audio player:/ }).map((region) => region.getAttribute("aria-label"));
+    expect(titles()).toEqual(["Audio player: A2", "Audio player: A1", "Audio player: A6", "Audio player: A5", "Audio player: A4"]);
+    expect(screen.getByText(/A-List dubs appear first/)).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Next Dubs page" }));
+    expect(titles()).toEqual(["Audio player: A3", "Audio player: Public"]);
+    fireEvent.click(screen.getByRole("tab", { name: "Most liked" }));
+    expect(titles().slice(0, 2)).toEqual(["Audio player: A1", "Audio player: A2"]);
+    fireEvent.click(screen.getByRole("button", { name: "Next Dubs page" }));
+    expect(titles().at(-1)).toBe("Audio player: Public");
+    rerender(<LatestDubsTemplate
+      dubs={dubs} likedDubIds={new Set()} nowPlayingId={null} isPlaying={false}
+      onDownload={vi.fn()} onOpenProfile={vi.fn()} onPlay={vi.fn()}
+    />);
+    fireEvent.click(screen.getByRole("button", { name: "Previous Dubs page" }));
+    expect(titles()[0]).toBe("Audio player: Public");
+  });
+
+  it("does not discard matches already filtered by the server", () => {
+    render(<LatestDubsTemplate
+      dubs={[{ ...dub, distribution: "alist", message: "rare description" }]} query="rare description" queryAlreadyFiltered prioritizeAList
+      likedDubIds={new Set()} nowPlayingId={null} isPlaying={false}
+      onDownload={vi.fn()} onOpenProfile={vi.fn()} onPlay={vi.fn()}
+    />);
+    expect(screen.getByRole("region", { name: "Audio player: My Dub" })).toBeVisible();
+  });
+
   it("shares a feed dub through the friend-sharing action", () => {
     const onShareWithFriend = vi.fn();
     render(<LatestDubsTemplate

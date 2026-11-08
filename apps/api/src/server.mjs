@@ -368,6 +368,7 @@ function validateApplication(input) {
     return value.trim();
   };
   const list = (value, label) => {
+    if (value === undefined || value === null) value = [];
     if (!Array.isArray(value) || value.length > 3) throw Object.assign(new Error(`Provide up to three ${label}.`), { status: 400 });
     return value.map((item) => text(item, label, 120)).filter(Boolean);
   };
@@ -378,7 +379,7 @@ function validateApplication(input) {
   for (const provider of aListProviders) {
     const entry = input.social?.[provider] ?? {};
     if (typeof entry !== "object" || Array.isArray(entry)) throw Object.assign(new Error(`Provide valid ${provider} details.`), { status: 400 });
-    const url = text(entry.url, `${provider} URL`, 300, provider !== "soundcloud");
+    const url = text(entry.url, `${provider} URL`, 300);
     if (url) {
       let parsed;
       try { parsed = new URL(url); } catch { throw Object.assign(new Error(`Provide a valid ${provider} URL.`), { status: 400 }); }
@@ -428,9 +429,12 @@ function publicDub(data, dub, currentUserId) {
   } = dub;
   const uploader = data.users.find((item) => item.id === dub.uploaderId);
   const artist = data.artists.find((item) => item.id === dub.artistId);
+  const artistUser = data.users.find((item) => item.id === artist?.userId);
   const result = {
     ...publicFields,
     artist: artist?.name ?? publicFields.artist,
+    artistAListApproved: artistUser?.aListApproved === true,
+    uploaderAListApproved: uploader?.aListApproved === true,
     uploader: uploader?.username ?? publicFields.uploader,
     uploaderDisplayName: uploader?.displayName ?? publicFields.uploaderDisplayName,
     uploaderAvatarUrl: uploader?.avatarUrl,
@@ -507,6 +511,7 @@ function communitySnapshot(data, user) {
       role: buddyUser?.role ?? friendship.role,
       bio: buddyUser?.bio ?? friendship.bio,
       avatarUrl: buddyUser?.avatarUrl,
+      aListApproved: buddyUser?.aListApproved === true,
       bannerUrl: buddyUser?.bannerUrl,
       links: buddyUser?.links ?? [],
       groups: friendship.groups,
@@ -544,7 +549,7 @@ function communitySnapshot(data, user) {
     likedDubIds: data.likes.filter((like) => like.userId === user.id && canAccessDub(data, data.dubs.find((dub) => dub.id === like.dubId), user)).map((like) => like.dubId),
     suggestedMembers: data.users
       .filter((other) => other.id !== user.id && !friendUserIds.has(other.id))
-      .map(({ id, username, displayName, genre, avatarUrl }) => ({ id, username, displayName, genre, avatarUrl })),
+      .map(({ id, username, displayName, genre, avatarUrl, aListApproved }) => ({ id, username, displayName, genre, avatarUrl, aListApproved: aListApproved === true })),
     crates: publicCrates(data, user.id),
     library: data.downloads
       .filter((download) => download.userId === user.id)
@@ -1000,7 +1005,7 @@ export function createApiServer({
         applicant.aListApproved = false;
         data.notifications.push({ id: randomUUID(), userId: applicant.id, message: `Your A-List access has been revoked. You can apply again.${note ? ` ${note}` : ""}`, type: "info", createdAt: now, read: false });
         persist();
-        broadcastCommunity(applicant.id);
+        for (const connectedUserId of socketsByUser.keys()) broadcastCommunity(connectedUserId);
         json(response, 200, { status: "revoked" });
         return;
       }
@@ -1038,7 +1043,7 @@ export function createApiServer({
         };
         data.notifications.push({ id: randomUUID(), userId: applicant.id, message: `${messages[action]}${note ? ` ${note}` : ""}`, type: "info", createdAt: now, read: false });
         persist();
-        broadcastCommunity(applicant.id);
+        for (const connectedUserId of socketsByUser.keys()) broadcastCommunity(connectedUserId);
         json(response, 200, { status: application.status });
         return;
       }
@@ -1094,7 +1099,7 @@ export function createApiServer({
       }
       if (request.method === "GET" && route === "/api/dubs/search") {
         const distribution = url.searchParams.get("distribution") ?? "worldwide";
-        if (!["worldwide", "alist"].includes(distribution)) {
+        if (!["worldwide", "alist", "feed"].includes(distribution)) {
           json(response, 400, { error: "Choose a valid feed." });
           return;
         }
@@ -1120,7 +1125,7 @@ export function createApiServer({
           return;
         }
         const filtered = data.dubs.filter((dub) => {
-          if (dub.distribution !== distribution || !canAccessDub(data, dub, user)) return false;
+          if ((distribution === "feed" ? !["worldwide", "alist"].includes(dub.distribution) : dub.distribution !== distribution) || !canAccessDub(data, dub, user)) return false;
           const dubTags = dub.tags ?? [];
           const format = dub.audioFormat ?? audioFormat(dub.audioFileName);
           const searchable = [dub.title, dub.artist, dub.uploader, dub.uploaderDisplayName, dub.genre, dub.message, format, ...dubTags].filter(Boolean).join(" ").toLocaleLowerCase();
@@ -1172,6 +1177,7 @@ export function createApiServer({
             displayName: candidate.displayName,
             genre: candidate.genre,
             avatarUrl: candidate.avatarUrl,
+            aListApproved: candidate.aListApproved === true,
           }));
         json(response, 200, { members });
         return;

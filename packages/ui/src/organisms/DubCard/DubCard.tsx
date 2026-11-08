@@ -1,5 +1,6 @@
 import { Check, Download, Heart, MessageCircle, Plus } from "@craft/icons";
 import { Avatar } from "../../atoms/Avatar/Avatar";
+import { AListBadge } from "../../atoms/AListBadge/AListBadge";
 import { Button } from "../../atoms/Button/Button";
 import { TrackTag } from "../../atoms/TrackTag/TrackTag";
 import { DubActionsMenu } from "../../molecules/DubActionsMenu/DubActionsMenu";
@@ -8,6 +9,7 @@ import { AudioPlayer } from "../AudioPlayer/AudioPlayer";
 import type { Dub } from "../../templates/communityTypes";
 import { formatLocalTimestamp, formatRelativeTime } from "../../templates/templateFormatters";
 import { TrackArtwork } from "../../templates/shared/TrackArtwork";
+import "../../foundations/DistributionSurfaces.css";
 import "./DubCard.css";
 
 export interface DubCardProps {
@@ -72,7 +74,7 @@ export function DubCard({
   const distributionLabel = dub.distribution === "private" ? "Private" : dub.distribution === "alist" ? "A-List" : "Worldwide";
 
   return (
-    <article className="dub-card">
+    <article className={`dub-card${dub.distribution === "alist" ? " dub-card--alist" : dub.distribution === "private" ? " dub-card--private" : ""}`}>
       <div className="dub-card__topline">
         <Avatar name={dub.uploaderDisplayName} size="medium" src={dub.uploaderAvatarUrl} status="active" />
         <div className="dub-card__author">
@@ -82,10 +84,10 @@ export function DubCard({
               onClick={() => onOpenProfile(dub.uploader)}
               type="button"
             >
-              {dub.uploaderDisplayName}
+              {dub.uploaderDisplayName}{dub.uploaderAListApproved && <AListBadge />}
             </button>
           ) : (
-            <strong className="dub-card__username">{dub.uploaderDisplayName}</strong>
+            <strong className="dub-card__username">{dub.uploaderDisplayName}{dub.uploaderAListApproved && <AListBadge />}</strong>
           )}
           <span className="dub-card__handle">@{dub.uploader}</span>
         </div>
@@ -114,6 +116,7 @@ export function DubCard({
             onRepeatChange={onRepeatChange}
             track={{
               artist: dub.artist,
+              artistAListApproved: dub.artistAListApproved,
               artworkContent: <TrackArtwork dub={dub} />,
               duration: dub.duration,
               onArtistClick: onOpenProfile ? () => onOpenProfile(dub.uploader) : undefined,

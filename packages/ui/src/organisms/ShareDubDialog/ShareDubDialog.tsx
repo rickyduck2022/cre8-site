@@ -1,5 +1,6 @@
 import { useId, useState, type FormEvent } from "react";
 import { MessageCircle } from "@craft/icons";
+import { AListBadge } from "../../atoms/AListBadge/AListBadge";
 import { Button } from "../../atoms/Button/Button";
 import { FriendPicker } from "../../molecules/FriendPicker/FriendPicker";
 import { ModalFooter } from "../../molecules/ModalFooter/ModalFooter";
@@ -71,7 +72,7 @@ export function ShareDubDialog({ dub, buddies, onClose, onFindFriends, onOpenCha
           <div className="share-dub-dialog__track">
             <span>SHARING</span>
             <strong>{dub.title}</strong>
-            <span>{dub.artist}</span>
+            <span>{dub.artist}{dub.artistAListApproved && <AListBadge />}</span>
           </div>
           <p className="share-dub-dialog__hint">
             {dub.distribution === "private"

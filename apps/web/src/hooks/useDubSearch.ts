@@ -16,7 +16,7 @@ export function useDubSearch(
   query: string,
   filters: DubSearchFilters,
   enabled = true,
-  distribution: "worldwide" | "alist" = "worldwide",
+  distribution: "worldwide" | "alist" | "feed" = "worldwide",
 ): DubSearchState {
   const [state, setState] = useState<DubSearchState>({
     results: null,

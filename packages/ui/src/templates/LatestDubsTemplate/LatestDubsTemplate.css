@@ -37,3 +37,9 @@
     justify-self: start;
   }
 }
+.latest-dubs-template__priority {
+  color: var(--text-secondary);
+  font-size: var(--type-size-compact);
+  line-height: var(--type-leading-body);
+  margin: 0;
+}

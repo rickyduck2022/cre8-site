@@ -1,11 +1,13 @@
 import type { ReactNode } from "react";
 import { AudioLines } from "@craft/icons";
 import { Badge } from "../../atoms/Badge/Badge";
+import { AListBadge } from "../../atoms/AListBadge/AListBadge";
 import "../Molecules.css";
 
 export interface NowPlayingProps {
   title: string;
   artist: string;
+  artistAListApproved?: boolean;
   artwork?: string;
   artworkContent?: ReactNode;
   onArtistClick?: () => void;
@@ -16,6 +18,7 @@ export interface NowPlayingProps {
 
 export function NowPlaying({
   artist,
+  artistAListApproved,
   artworkContent,
   artwork,
   className,
@@ -54,10 +57,10 @@ export function NowPlaying({
             onClick={onArtistClick}
             type="button"
           >
-            {artist}
+            {artist}{artistAListApproved && <AListBadge />}
           </button>
         ) : (
-          <span className="now-playing__artist">{artist}</span>
+          <span className="now-playing__artist">{artist}{artistAListApproved && <AListBadge />}</span>
         )}
       </span>
       {isPlaying && <Badge dot variant="audio" role="status" aria-label="Now playing" />}

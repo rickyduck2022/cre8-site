@@ -5,6 +5,7 @@ import {
   MoreActions,
 } from "@craft/icons";
 import { Avatar } from "../../atoms/Avatar/Avatar";
+import { AListBadge } from "../../atoms/AListBadge/AListBadge";
 import { Button } from "../../atoms/Button/Button";
 import { Pagination, usePagination } from "../../molecules/Pagination/Pagination";
 import { DubCard } from "../../organisms/DubCard/DubCard";
@@ -90,7 +91,7 @@ export function ProfileTemplate({
           />
           <div className="profile-hero__identity">
             <span className="eyebrow">{isOwnProfile ? "YOUR PROFILE" : "MEMBER PROFILE"}</span>
-            <h1>{profile.displayName}</h1>
+            <h1>{profile.displayName}{profile.aListApproved && <AListBadge />}</h1>
             <p>@{profile.username} <span>·</span> {profile.role}</p>
           </div>
           {isOwnProfile ? (

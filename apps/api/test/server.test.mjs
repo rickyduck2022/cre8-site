@@ -735,6 +735,7 @@ test("A-List applications, decisions, notifications and access persist across se
   const dataPath = join(directory, "community.json");
   const data = initializeData(dataPath, join(directory, "audio"));
   data.users.find((user) => user.username === "holik").aListApproved = true;
+  data.dubs.push({ id: "artist-approval-test", title: "Public artist test", distribution: "worldwide", uploaderId: "user-meladee", artistId: "artist-meladee", uploadedAt: "2026-01-01T00:00:00Z" });
   data.dubs.push({ id: "exclusive", distribution: "alist", uploaderId: "user-holik", title: "Exclusive", uploadedAt: "2026-01-01T00:00:00Z", storedAudioName: "exclusive.wav", audioSource: "upload" });
   mkdirSync(join(directory, "audio"), { recursive: true });
   writeFileSync(join(directory, "audio", "exclusive.wav"), "audio");
@@ -743,6 +744,7 @@ test("A-List applications, decisions, notifications and access persist across se
   process.env.ADMIN_USERNAMES = "holik";
   let server = await startTestServer(directory);
   let socket;
+  let observerSocket;
   const login = async (username) => {
     const response = await fetch(`${server.baseUrl}/api/login`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ username, password: username }) });
     assert.equal(response.status, 200);
@@ -762,12 +764,14 @@ test("A-List applications, decisions, notifications and access persist across se
   try {
     let applicant = await login("meladee");
     let admin = await login("holik");
+    assert.equal((await snapshot(admin)).dubs.find((dub) => dub.id === "artist-approval-test").artistAListApproved, false);
     assert.equal((await (await call(admin, "/api/admin/overview")).json()).administrator.username, "holik");
     assert.equal((await call(applicant, "/api/admin/alist/members")).status, 403);
     assert.equal((await call(applicant, "/api/admin/alist/applications")).status, 403);
     assert.equal((await call(applicant, "/api/admin/alist/applications/fake/decision", "POST", { action: "approve" })).status, 403);
     assert.equal((await call(applicant, "/api/alist/application", "POST", { ...fields, roles: [] })).status, 400);
     assert.equal((await call(applicant, "/api/alist/application", "POST", { ...fields, social: { ...fields.social, instagram: { url: "javascript:alert(1)" } } })).status, 400);
+    assert.equal((await call(applicant, "/api/alist/application", "POST", { ...fields, events: ["1", "2", "3", "4"] })).status, 400);
     const submitted = await call(applicant, "/api/alist/application", "POST", fields);
     assert.equal(submitted.status, 201);
     const application = await submitted.json();
@@ -785,14 +789,26 @@ test("A-List applications, decisions, notifications and access persist across se
     assert.equal(state.notifications[0].read, false);
     assert.equal((await call(applicant, "/api/notifications/read", "POST")).status, 200);
     assert.equal((await snapshot(applicant)).notifications[0].read, true);
-    assert.equal((await call(applicant, "/api/alist/application", "POST", { ...fields, events: ["New event"] })).status, 201);
+    const minimalFields = { artistName: "Meladee", roles: ["DJ"], djExperience: "10 years" };
+    assert.equal((await call(applicant, "/api/alist/application", "POST", minimalFields)).status, 201);
     state = await snapshot(applicant);
     assert.equal(state.aListApplication.versions.length, 2);
     assert.equal(state.aListApplication.status, "pending");
+    const minimal = state.aListApplication.versions[1].fields;
+    assert.deepEqual(minimal.events, []);
+    assert.deepEqual(minimal.supporters, []);
+    assert.deepEqual(minimal.labels, []);
+    for (const provider of ["instagram", "tiktok", "facebook", "soundcloud"]) {
+      assert.deepEqual(minimal.social[provider], { url: "", followers: null });
+    }
     socket = openChat(server.baseUrl, applicant);
     await waitForOpen(socket);
+    observerSocket = openChat(server.baseUrl, admin);
+    await waitForOpen(observerSocket);
+    const observerApprovedEvent = waitForMessage(observerSocket, (event) => event.type === "community.snapshot" && event.snapshot.dubs.some((dub) => dub.id === "artist-approval-test" && dub.artistAListApproved && dub.uploaderAListApproved));
     const approvedEvent = waitForMessage(socket, (event) => event.type === "community.snapshot" && event.snapshot.member.aListApproved);
     assert.equal((await call(admin, decisionPath, "POST", { action: "approve", note: "Welcome!" })).status, 200);
+    await observerApprovedEvent;
     const approved = (await approvedEvent).snapshot;
     assert.ok(approved.dubs.some((dub) => dub.id === "exclusive"));
     assert.equal((await call(applicant, "/api/dubs/exclusive/audio")).status, 200);
@@ -801,7 +817,9 @@ test("A-List applications, decisions, notifications and access persist across se
     assert.equal((await call(applicant, "/api/dubs", "POST", { title: "Approved dub", artistId: approved.artists[0].id, distribution: "alist", uploadId })).status, 201);
     assert.equal((await call(admin, decisionPath, "POST", { action: "approve" })).status, 409);
     const revokedEvent = waitForMessage(socket, (event) => event.type === "community.snapshot" && !event.snapshot.member.aListApproved);
+    const observerRevokedEvent = waitForMessage(observerSocket, (event) => event.type === "community.snapshot" && event.snapshot.dubs.some((dub) => dub.id === "artist-approval-test" && !dub.artistAListApproved && !dub.uploaderAListApproved));
     assert.equal((await call(admin, decisionPath, "POST", { action: "revoke", note: "Access revoked." })).status, 200);
+    await observerRevokedEvent;
     const revoked = (await revokedEvent).snapshot;
     assert.equal(revoked.dubs.some((dub) => dub.id === "exclusive"), false);
     assert.equal((await call(applicant, "/api/dubs/exclusive/audio")).status, 404);
@@ -811,6 +829,7 @@ test("A-List applications, decisions, notifications and access persist across se
     assert.equal((await call(admin, decisionPath, "POST", { action: "approve" })).status, 409);
     assert.equal((await call(admin, `/api/admin/alist/applications/${reapplication.id}/decision`, "POST", { action: "reject" })).status, 200);
     socket.close(); await waitForClose(socket); socket = undefined;
+    observerSocket.close(); await waitForClose(observerSocket); observerSocket = undefined;
     await server.close();
     server = await startTestServer(directory);
     applicant = await login("meladee");
@@ -837,6 +856,7 @@ test("A-List applications, decisions, notifications and access persist across se
     assert.equal((await call(applicant, "/api/alist/application", "POST", fields)).status, 201);
   } finally {
     if (socket) socket.terminate();
+    if (observerSocket) observerSocket.terminate();
     await server.close();
     if (oldAdmins === undefined) delete process.env.ADMIN_USERNAMES; else process.env.ADMIN_USERNAMES = oldAdmins;
     rmSync(directory, { recursive: true, force: true });
@@ -946,6 +966,8 @@ test("distribution permissions protect discovery, media, messaging and revocatio
     const outsider = await registerAccount(server.baseUrl, "outsider");
     const ownerProfile = await snapshot(owner);
     const approvedProfile = await snapshot(approved);
+    assert.equal(ownerProfile.suggestedMembers.find((member) => member.username === "holik").aListApproved, true);
+    assert.equal((await (await request(owner, "/api/members?q=holik")).json()).members[0].aListApproved, true);
     const makeDub = async (cookie, artistId, distribution, title) => {
       const uploadId = await upload(cookie, "audio", `${title}.wav`);
       const artworkUploadId = await upload(cookie, "artwork", `${title}.png`);
@@ -971,6 +993,13 @@ test("distribution permissions protect discovery, media, messaging and revocatio
     assert.equal((await request(approved, `/api/dubs/${exclusiveDub.id}/audio`, "GET", undefined, { range: "bytes=0-2" })).status, 206);
     assert.equal((await request(approved, "/api/dubs/search?distribution=alist")).status, 200);
     assert.deepEqual((await (await request(approved, "/api/dubs/search")).json()).dubs.map((dub) => dub.id), [publicDub.id]);
+    const feedIds = async (cookie, query = "") => (await (await request(cookie, `/api/dubs/search?distribution=feed${query}`)).json()).dubs.map((dub) => dub.id);
+    assert.deepEqual(new Set(await feedIds(approved)), new Set([publicDub.id, exclusiveDub.id]));
+    assert.deepEqual(await feedIds(owner), [publicDub.id]);
+    assert.deepEqual(await feedIds(outsider), [publicDub.id]);
+    assert.deepEqual(await feedIds(approved, "&q=Exclusive"), [exclusiveDub.id]);
+    assert.deepEqual(await feedIds(owner, "&q=Exclusive"), []);
+    assert.deepEqual(await feedIds(approved, "&q=Secret"), []);
     assert.equal((await snapshot(outsider)).dubs.some((dub) => dub.id === privateDub.id), false);
     assert.equal((await request(outsider, `/api/dubs/${privateDub.id}/audio`)).status, 404);
     assert.equal((await request(outsider, `/api/dubs/${privateDub.id}/artwork`)).status, 404);
@@ -984,6 +1013,7 @@ test("distribution permissions protect discovery, media, messaging and revocatio
     const ownerBuddy = (await snapshot(owner)).buddies.find((buddy) => buddy.username === "outsider");
     const outsiderBuddy = (await snapshot(outsider)).buddies.find((buddy) => buddy.username === "holik");
     const approvedBuddy = (await snapshot(approved)).buddies.find((buddy) => buddy.username === "outsider");
+    assert.equal((await snapshot(outsider)).buddies.find((buddy) => buddy.username === "holik").aListApproved, true);
     const deniedShare = await request(approved, `/api/conversations/${approvedBuddy.id}/messages`, "POST", { text: "Exclusive", dubId: exclusiveDub.id });
     assert.equal(deniedShare.status, 404);
     assert.match((await deniedShare.json()).error, /approved A-List members/);

@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { MessageCircle, UserPlus, Users } from "@craft/icons";
 import { Avatar } from "../../atoms/Avatar/Avatar";
+import { AListBadge } from "../../atoms/AListBadge/AListBadge";
 import { Badge } from "../../atoms/Badge/Badge";
 import { Button } from "../../atoms/Button/Button";
 import { Pagination, usePagination } from "../../molecules/Pagination/Pagination";
@@ -16,6 +17,7 @@ export interface BuddySuggestion {
   displayName: string;
   genre: string;
   avatarUrl?: string;
+  aListApproved?: boolean;
 }
 
 export interface BuddyListTemplateProps {
@@ -165,7 +167,7 @@ export function BuddyListTemplate({
               onClick={() => onSelectProfile(buddy.username)}
               type="button"
             >
-              <strong>{buddy.displayName}</strong>
+              <strong>{buddy.displayName}{buddy.aListApproved && <AListBadge />}</strong>
               <span>@{buddy.username} · {buddy.genre}</span>
             </button>
             <Badge
@@ -225,7 +227,7 @@ export function BuddyListTemplate({
               <article className="suggestion-card" key={suggestion.username}>
                 <Avatar name={suggestion.displayName} size="medium" src={suggestion.avatarUrl} />
                 <div>
-                  <strong>{suggestion.displayName}</strong>
+                  <strong>{suggestion.displayName}{suggestion.aListApproved && <AListBadge />}</strong>
                   <span>@{suggestion.username} · {suggestion.genre}</span>
                 </div>
                 <Button

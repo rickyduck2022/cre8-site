@@ -67,6 +67,12 @@ const sectionIcons: Record<CommunitySection, ReactNode> = {
 const sections = Object.keys(sectionLabels) as CommunitySection[];
 const cre8LogoSrc = "/cre8-main-logo.png";
 
+function isFeedDub(dub: Dub, aListFeed: boolean, approved: boolean): boolean {
+  return aListFeed
+    ? dub.distribution === "alist" && approved
+    : dub.distribution === "worldwide" || (dub.distribution === "alist" && approved);
+}
+
 function getSectionFromHash(hash: string): CommunitySection {
   const section = hash.replace(/^#/, "") as CommunitySection;
   return sections.includes(section) ? section : "dubs";
@@ -137,7 +143,7 @@ export function App() {
   const [chatBuddyId, setChatBuddyId] = useState("evan");
   const [searchQuery, setSearchQuery] = useState("");
   const [dubSearchFilters, setDubSearchFilters] = useState<DubSearchFilters>(createEmptyDubSearchFilters);
-  const dubSearch = useDubSearch(searchQuery, dubSearchFilters, activeSection === "dubs" || (activeSection === "alist" && state.member?.aListApproved === true), activeSection === "alist" ? "alist" : "worldwide");
+  const dubSearch = useDubSearch(searchQuery, dubSearchFilters, activeSection === "dubs" || (activeSection === "alist" && state.member?.aListApproved === true), activeSection === "alist" ? "alist" : "feed");
   const isDubSearchActive = Boolean(searchQuery.trim() || dubSearchFilters.tags.length || dubSearchFilters.fileType || dubSearchFilters.minBpm || dubSearchFilters.maxBpm || dubSearchFilters.minBitrate || dubSearchFilters.maxBitrate);
   const [memberSearchQuery, setMemberSearchQuery] = useState("");
   const { members: memberSearchResults, isSearching: isSearchingMembers } = useMemberSearch(memberSearchQuery);
@@ -424,6 +430,7 @@ export function App() {
         previewTrack ? (
           <AudioPlayer
             className="app-player"
+            distribution={previewTrack.distribution}
             onPlayChange={(playing) => {
               if (playing !== state.isPlaying) togglePlayback(previewTrack);
             }}
@@ -446,6 +453,7 @@ export function App() {
             track={{
               title: previewTrack.title,
               artist: previewTrack.artist,
+              artistAListApproved: previewTrack.artistAListApproved,
               artworkContent: <TrackArtwork dub={previewTrack} />,
               duration: previewTrack.duration,
             }}
@@ -461,8 +469,10 @@ export function App() {
             <LatestDubsTemplate
               dubs={isDubSearchActive ? (dubSearch.results ?? []).map((dub) => {
                 const current = dubsById.get(dub.id);
-                return current && current.distribution === (activeSection === "alist" ? "alist" : "worldwide") ? current : null;
-              }).filter((dub): dub is Dub => dub !== null) : state.dubs.filter((dub) => dub.distribution === (activeSection === "alist" ? "alist" : "worldwide"))}
+                return current && isFeedDub(current, activeSection === "alist", state.member?.aListApproved === true) ? current : null;
+              }).filter((dub): dub is Dub => dub !== null) : state.dubs.filter((dub) => isFeedDub(dub, activeSection === "alist", state.member?.aListApproved === true))}
+              prioritizeAList={activeSection === "dubs"}
+              queryAlreadyFiltered={isDubSearchActive}
               likedDubIds={state.likedDubIds}
               nowPlayingId={state.nowPlayingId}
               isPlaying={state.isPlaying}
@@ -492,7 +502,7 @@ export function App() {
               query={searchQuery}
               filters={dubSearchFilters}
               onFiltersChange={setDubSearchFilters}
-              fileTypes={[...new Set(state.dubs.filter((dub) => dub.distribution === (activeSection === "alist" ? "alist" : "worldwide")).map((dub) => dub.audioFormat ?? dub.audioFileName?.split(".").pop()?.toUpperCase()).filter((value): value is string => Boolean(value)))].sort()}
+              fileTypes={[...new Set(state.dubs.filter((dub) => isFeedDub(dub, activeSection === "alist", state.member?.aListApproved === true)).map((dub) => dub.audioFormat ?? dub.audioFileName?.split(".").pop()?.toUpperCase()).filter((value): value is string => Boolean(value)))].sort()}
               isSearching={dubSearch.isSearching}
               searchError={dubSearch.error}
             />
