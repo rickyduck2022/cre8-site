@@ -977,6 +977,12 @@ button {
   display: grid;
   gap: 1rem;
   grid-template-columns: minmax(15rem, 0.7fr) minmax(0, 1.3fr);
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.profile-about,
+.profile-activity {
+  align-self: start;
 }
 
 .panel {
@@ -1278,6 +1284,7 @@ button {
 
   .profile-layout {
     grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto;
   }
 
   .profile-uploads,
