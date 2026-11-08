@@ -43,6 +43,32 @@ afterEach(() => {
 });
 
 describe("useAudioPlayback", () => {
+  it("keeps adjacent playback within the current tier and stops when access is revoked", () => {
+    const tracks: Dub[] = [
+      { ...dubs[0], distribution: "worldwide" },
+      { ...dubs[1], distribution: "private" },
+      { ...dubs[2], distribution: "worldwide" },
+    ];
+    const notify = vi.fn();
+    const { result, rerender } = renderHook(
+      ({ available }: { available: Dub[] }) => useAudioPlayback(available, notify, "user", null, vi.fn().mockResolvedValue(undefined)),
+      { initialProps: { available: tracks } },
+    );
+    act(() => result.current.togglePlayback(tracks[0]));
+    act(() => result.current.playNextDub());
+    expect(FakeAudio.latest.src).toBe("/audio/three");
+    act(() => result.current.togglePlayback(tracks[1]));
+    act(() => result.current.playNextDub());
+    expect(FakeAudio.latest.src).toBe("/audio/two");
+    rerender({ available: [tracks[0], tracks[2]] });
+    expect(FakeAudio.latest.paused).toBe(true);
+    expect(FakeAudio.latest.src).toBe("");
+    expect(result.current.state.nowPlayingId).toBeNull();
+    expect(notify).toHaveBeenCalledWith("Playback stopped because this dub is no longer available.", "error");
+    act(() => result.current.togglePlayback(tracks[1]));
+    expect(FakeAudio.latest.src).toBe("");
+  });
+
   it("restores a saved track paused and seeks after metadata loads", () => {
     const save = vi.fn().mockResolvedValue(undefined);
     const { result } = renderHook(() => useAudioPlayback(dubs, vi.fn(), "user", { dubId: "two", positionSeconds: 42 }, save));

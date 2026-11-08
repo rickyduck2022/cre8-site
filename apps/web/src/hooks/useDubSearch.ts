@@ -16,6 +16,7 @@ export function useDubSearch(
   query: string,
   filters: DubSearchFilters,
   enabled = true,
+  distribution: "worldwide" | "alist" = "worldwide",
 ): DubSearchState {
   const [state, setState] = useState<DubSearchState>({
     results: null,
@@ -76,6 +77,7 @@ export function useDubSearch(
     setState({ results: null, isSearching: true, error: null });
     const timer = window.setTimeout(async () => {
       const params = new URLSearchParams();
+      params.set("distribution", distribution);
       if (criteria.query) params.set("q", criteria.query);
       criteria.tags.forEach((tag) => params.append("tag", tag));
       if (criteria.fileType) params.set("fileType", criteria.fileType);
@@ -112,7 +114,7 @@ export function useDubSearch(
       window.clearTimeout(timer);
       controller.abort();
     };
-  }, [enabled, searchKey]);
+  }, [enabled, searchKey, distribution]);
 
   return state;
 }

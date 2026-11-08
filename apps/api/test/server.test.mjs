@@ -75,6 +75,7 @@ test("playback positions are authenticated, validated, isolated and persisted", 
   const data = initializeData(dataPath, join(directory, "audio"));
   data.dubs.push({
     id: "track-one", title: "Track", artist: "Meladee", artistId: "artist-meladee",
+    distribution: "worldwide",
     uploaderId: "user-meladee", uploadedAt: "2026-01-01T00:00:00Z",
     bitrateKbps: 192.7,
   });
@@ -177,6 +178,7 @@ test("profile pictures reach members, dubs, friends and connected clients", asyn
   const data = initializeData(dataPath, join(directory, "audio"));
   data.dubs.push({
     id: "avatar-dub", title: "Test Dub", artist: "Meladee", artistId: "artist-meladee",
+    distribution: "worldwide",
     uploaderId: "user-meladee", uploadedAt: "2026-01-01T00:00:00Z",
   });
   writeFileSync(dataPath, JSON.stringify(data));
@@ -633,7 +635,7 @@ test("starter account has no seeded tracks and retains uploaded community activi
   }
 });
 
-test("legacy demo database is reset once to the two requested artists and no tracks", async () => {
+test("unversioned legacy data is not deleted during startup", () => {
   const directory = mkdtempSync(join(tmpdir(), "cre8-reset-"));
   const dataPath = join(directory, "community.json");
   const mediaDirectory = join(directory, "audio");
@@ -655,38 +657,163 @@ test("legacy demo database is reset once to the two requested artists and no tra
     downloads: [{ id: "old-download" }],
     crates: [{ id: "old-crate" }],
   }));
-  let server = await startTestServer(directory);
-
   try {
-    const cleanData = JSON.parse(readFileSync(dataPath, "utf8"));
-    assert.deepEqual(cleanData.users.map((user) => user.username).sort(), ["holik", "meladee"]);
-    assert.deepEqual(cleanData.artists.map((artist) => artist.id).sort(), ["artist-holik", "artist-meladee"]);
-    assert.deepEqual(cleanData.dubs, []);
-    for (const name of staleMediaNames) assert.equal(existsSync(join(mediaDirectory, name)), false);
-
-    for (const [username, password] of [["meladee", "meladee"], ["holik", "holik"]]) {
-      const login = await fetch(`${server.baseUrl}/api/login`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ username, password }),
-      });
-      assert.equal(login.status, 200);
-      const cookie = login.headers.get("set-cookie").split(";")[0];
-      const snapshot = await fetch(`${server.baseUrl}/api/community`, {
-        headers: { cookie },
-      }).then((response) => response.json());
-      assert.equal(snapshot.member.username, username);
-      assert.equal(snapshot.artists.length, 1);
-    }
-
-    const registration = await registerAccount(server.baseUrl, "newartist");
-    assert.ok(registration);
-    await server.close();
-    server = await startTestServer(directory);
-    const persistedData = JSON.parse(readFileSync(dataPath, "utf8"));
-    assert.ok(persistedData.users.some((user) => user.username === "newartist"));
-    assert.deepEqual(persistedData.dubs, []);
+    assert.throws(() => initializeData(dataPath, mediaDirectory), /requires manual migration/);
+    const retainedData = JSON.parse(readFileSync(dataPath, "utf8"));
+    assert.equal(retainedData.dubs[0].id, "old-dub");
+    for (const name of staleMediaNames) assert.equal(existsSync(join(mediaDirectory, name)), true);
   } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("schema v3 migration preserves records and defaults existing dubs to Worldwide", () => {
+  const directory = mkdtempSync(join(tmpdir(), "cre8-v3-migration-"));
+  const dataPath = join(directory, "community.json");
+  const mediaDirectory = join(directory, "audio");
+  try {
+    const data = initializeData(dataPath, mediaDirectory);
+    data.schemaVersion = 3;
+    delete data.dubGrants;
+    data.dubs.push({ id: "legacy", uploaderId: "user-meladee", storedAudioName: "legacy.wav" });
+    data.downloads.push({ dubId: "legacy", userId: "user-holik" });
+    mkdirSync(mediaDirectory, { recursive: true });
+    writeFileSync(join(mediaDirectory, "legacy.wav"), "audio");
+    writeFileSync(dataPath, JSON.stringify(data));
+    const migrated = initializeData(dataPath, mediaDirectory);
+    assert.equal(migrated.schemaVersion, 4);
+    assert.equal(migrated.dubs[0].distribution, "worldwide");
+    assert.deepEqual(migrated.downloads, data.downloads);
+    assert.equal(readFileSync(join(mediaDirectory, "legacy.wav"), "utf8"), "audio");
+    assert.deepEqual(migrated.dubGrants, []);
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("distribution permissions protect discovery, media, messaging and revocation", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "cre8-distribution-"));
+  const dataPath = join(directory, "community.json");
+  const data = initializeData(dataPath, join(directory, "audio"));
+  data.users.find((user) => user.username === "holik").aListApproved = true;
+  writeFileSync(dataPath, JSON.stringify(data));
+  let server = await startTestServer(directory);
+  let socket;
+  const login = async (username) => {
+    const response = await fetch(`${server.baseUrl}/api/login`, {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ username, password: username }),
+    });
+    assert.equal(response.status, 200);
+    return response.headers.get("set-cookie").split(";")[0];
+  };
+  const request = (cookie, path, method = "GET", body, extraHeaders = {}) => fetch(`${server.baseUrl}${path}`, {
+    method, headers: { cookie, ...(body ? { "content-type": "application/json" } : {}), ...extraHeaders },
+    ...(body ? { body: JSON.stringify(body) } : {}),
+  });
+  const snapshot = async (cookie) => (await request(cookie, "/api/community")).json();
+  const upload = async (cookie, type, filename) => {
+    const response = await fetch(`${server.baseUrl}/api/uploads?type=${type}`, {
+      method: "POST", headers: { cookie, "x-file-name": filename, "content-type": "application/octet-stream" },
+      body: Buffer.from("test media bytes"),
+    });
+    assert.equal(response.status, 201);
+    return (await response.json()).uploadId;
+  };
+  try {
+    const owner = await login("meladee");
+    let approved = await login("holik");
+    const outsider = await registerAccount(server.baseUrl, "outsider");
+    const ownerProfile = await snapshot(owner);
+    const approvedProfile = await snapshot(approved);
+    const makeDub = async (cookie, artistId, distribution, title) => {
+      const uploadId = await upload(cookie, "audio", `${title}.wav`);
+      const artworkUploadId = await upload(cookie, "artwork", `${title}.png`);
+      const response = await request(cookie, "/api/dubs", "POST", { title, artistId, uploadId, artworkUploadId, distribution });
+      assert.equal(response.status, 201);
+      return response.json();
+    };
+    const privateDub = await makeDub(owner, ownerProfile.artists[0].id, "private", "Secret");
+    const publicDub = await makeDub(owner, ownerProfile.artists[0].id, "worldwide", "Public");
+    const exclusiveDub = await makeDub(approved, approvedProfile.artists[0].id, "alist", "Exclusive");
+    assert.equal((await request(owner, "/api/dubs", "POST", { distribution: "alist" })).status, 403);
+    assert.equal((await request(owner, "/api/dubs", "POST", { distribution: "invalid" })).status, 400);
+    assert.equal((await request(owner, `/api/dubs/${privateDub.id}`, "PATCH", { distribution: "worldwide" })).status, 400);
+    assert.equal((await request(owner, "/api/profile", "PATCH", { aListApproved: true })).status, 200);
+    assert.equal((await snapshot(owner)).member.aListApproved, false);
+    for (const cookie of [owner, outsider]) {
+      const community = await snapshot(cookie);
+      assert.equal(community.dubs.some((dub) => dub.id === exclusiveDub.id), false);
+      assert.equal((await request(cookie, `/api/dubs/${exclusiveDub.id}/audio`, "GET", undefined, { range: "bytes=0-2" })).status, 404);
+      assert.equal((await request(cookie, `/api/dubs/${exclusiveDub.id}/artwork`)).status, 404);
+      assert.equal((await request(cookie, "/api/dubs/search?distribution=alist")).status, 403);
+    }
+    assert.equal((await request(approved, `/api/dubs/${exclusiveDub.id}/audio`, "GET", undefined, { range: "bytes=0-2" })).status, 206);
+    assert.equal((await request(approved, "/api/dubs/search?distribution=alist")).status, 200);
+    assert.deepEqual((await (await request(approved, "/api/dubs/search")).json()).dubs.map((dub) => dub.id), [publicDub.id]);
+    assert.equal((await snapshot(outsider)).dubs.some((dub) => dub.id === privateDub.id), false);
+    assert.equal((await request(outsider, `/api/dubs/${privateDub.id}/audio`)).status, 404);
+    assert.equal((await request(outsider, `/api/dubs/${privateDub.id}/artwork`)).status, 404);
+    assert.equal((await request(outsider, `/api/dubs/${privateDub.id}/download`, "POST")).status, 404);
+    assert.equal((await request(outsider, "/api/playback", "PUT", { dubId: privateDub.id, positionSeconds: 1 })).status, 404);
+    const crate = await (await request(outsider, "/api/crates", "POST", { name: "Test" })).json();
+    assert.equal((await request(outsider, `/api/crates/${crate.id}/dubs/${privateDub.id}`, "PUT")).status, 404);
+
+    await request(owner, "/api/buddies", "POST", { username: "outsider" });
+    await request(outsider, "/api/buddies", "POST", { username: "holik" });
+    const ownerBuddy = (await snapshot(owner)).buddies.find((buddy) => buddy.username === "outsider");
+    const outsiderBuddy = (await snapshot(outsider)).buddies.find((buddy) => buddy.username === "holik");
+    const approvedBuddy = (await snapshot(approved)).buddies.find((buddy) => buddy.username === "outsider");
+    assert.equal((await request(approved, `/api/conversations/${approvedBuddy.id}/messages`, "POST", { text: "Exclusive", dubId: exclusiveDub.id })).status, 404);
+    socket = openChat(server.baseUrl, outsider);
+    await waitForOpen(socket);
+    const grantedEvent = waitForMessage(socket, (event) => event.type === "community.snapshot" && event.snapshot.dubs.some((dub) => dub.id === privateDub.id));
+    assert.equal((await request(owner, `/api/conversations/${ownerBuddy.id}/messages`, "POST", { text: "Shared a dub: Secret", dubId: privateDub.id })).status, 201);
+    await grantedEvent;
+    assert.equal((await request(outsider, `/api/dubs/${privateDub.id}/audio`, "GET", undefined, { range: "bytes=0-2" })).status, 206);
+    assert.equal((await request(outsider, `/api/dubs/${privateDub.id}/artwork`)).status, 200);
+    assert.equal((await (await request(outsider, "/api/dubs/search?q=Secret")).json()).dubs.length, 0);
+    assert.equal((await request(outsider, `/api/dubs/${privateDub.id}/download`, "POST")).status, 200);
+    assert.equal((await request(outsider, "/api/playback", "PUT", { dubId: privateDub.id, positionSeconds: 1 })).status, 200);
+    assert.equal((await request(outsider, `/api/crates/${crate.id}/dubs/${privateDub.id}`, "PUT")).status, 200);
+    assert.equal((await request(outsider, `/api/conversations/${outsiderBuddy.id}/messages`, "POST", { text: "Forward", dubId: privateDub.id })).status, 404);
+    assert.equal((await request(owner, `/api/conversations/${ownerBuddy.id}/messages`, "POST", { text: "Shared again", dubId: privateDub.id })).status, 201);
+    const recipientId = (await snapshot(outsider)).member.id;
+    assert.equal((await request(outsider, `/api/dubs/${privateDub.id}/grants/${recipientId}`, "DELETE")).status, 404);
+    const grants = (await snapshot(owner)).dubs.find((dub) => dub.id === privateDub.id).grants;
+    assert.equal(grants.length, 1);
+    assert.equal(grants[0].id, recipientId);
+    const revokedEvent = waitForMessage(socket, (event) => event.type === "community.snapshot" && !event.snapshot.dubs.some((dub) => dub.id === privateDub.id));
+    assert.equal((await request(owner, `/api/dubs/${privateDub.id}/grants/${recipientId}`, "DELETE")).status, 200);
+    const revoked = (await revokedEvent).snapshot;
+    assert.equal(revoked.lastPlayback, null);
+    assert.equal(revoked.library.some((item) => item.dub.id === privateDub.id), false);
+    assert.equal(revoked.crates[0].dubIds.includes(privateDub.id), false);
+    assert.equal(revoked.conversations.find((conversation) => conversation.buddyId === (revoked.buddies.find((buddy) => buddy.username === "meladee")).id).messages[0].text, "This dub is no longer available.");
+    assert.equal((await request(outsider, `/api/dubs/${privateDub.id}/audio`)).status, 404);
+    const ownerBuddyFromOutsider = revoked.buddies.find((buddy) => buddy.username === "meladee");
+    const history = await (await request(outsider, `/api/conversations/${ownerBuddyFromOutsider.id}/messages`)).json();
+    assert.equal(history.messages[0].dubId, undefined);
+    assert.equal(history.messages[0].text, "This dub is no longer available.");
+    socket.close();
+    await waitForClose(socket);
+    socket = undefined;
+    await server.close();
+    const persisted = JSON.parse(readFileSync(dataPath, "utf8"));
+    persisted.users.find((user) => user.username === "holik").aListApproved = false;
+    writeFileSync(dataPath, JSON.stringify(persisted));
+    server = await startTestServer(directory);
+    approved = await login("holik");
+    assert.equal((await snapshot(approved)).dubs.some((dub) => dub.id === exclusiveDub.id), false);
+    assert.equal((await request(approved, `/api/dubs/${exclusiveDub.id}/audio`)).status, 404);
+    const outsiderLogin = await fetch(`${server.baseUrl}/api/login`, {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ username: "outsider", password: "long-enough-password" }),
+    });
+    const newOutsider = outsiderLogin.headers.get("set-cookie").split(";")[0];
+    assert.equal((await request(newOutsider, `/api/dubs/${privateDub.id}/audio`)).status, 404);
+  } finally {
+    if (socket) socket.terminate();
     await server.close();
     rmSync(directory, { recursive: true, force: true });
   }
@@ -735,7 +862,8 @@ test("schema v2 migration removes only built-in dubs and their activity", async 
 
   try {
     const migrated = JSON.parse(readFileSync(dataPath, "utf8"));
-    assert.equal(migrated.schemaVersion, 3);
+    assert.equal(migrated.schemaVersion, 4);
+    assert.equal(migrated.dubs[0].distribution, "worldwide");
     assert.deepEqual(migrated.dubs.map((dub) => dub.id), ["uploaded-dub"]);
     assert.deepEqual(migrated.likes.map((like) => like.dubId), ["uploaded-dub"]);
     assert.deepEqual(migrated.downloads, []);
@@ -745,7 +873,7 @@ test("schema v2 migration removes only built-in dubs and their activity", async 
     await server.close();
     server = await startTestServer(directory);
     const persisted = JSON.parse(readFileSync(dataPath, "utf8"));
-    assert.equal(persisted.schemaVersion, 3);
+    assert.equal(persisted.schemaVersion, 4);
     assert.deepEqual(persisted.dubs.map((dub) => dub.id), ["uploaded-dub"]);
   } finally {
     await server.close();

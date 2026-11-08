@@ -65,6 +65,10 @@ export function useAudioPlayback(
   function startTrack(dub: Dub, positionSeconds = 0, autoplay = true, progress: number | null = null) {
     const audio = audioRef.current;
     if (!audio) { onErrorRef.current("Audio playback is not ready yet. Please try again.", "error"); return; }
+    if (!dubsRef.current.some((item) => item.id === dub.id)) {
+      onErrorRef.current("This dub is no longer available.", "error");
+      return;
+    }
     if (!dub.audioUrl) {
       const message = `The audio file for ${dub.title} is unavailable.`;
       setPlayback((current) => ({ ...current, playbackError: message }));
@@ -93,12 +97,13 @@ export function useAudioPlayback(
   }
 
   function playAdjacentDub(direction: -1 | 1) {
-    const playable = dubsRef.current.filter((dub) => dub.audioUrl);
+    const currentId = audioRef.current?.dataset.dubId;
+    const currentDistribution = dubsRef.current.find((dub) => dub.id === currentId)?.distribution ?? "worldwide";
+    const playable = dubsRef.current.filter((dub) => dub.audioUrl && (dub.distribution ?? "worldwide") === currentDistribution);
     if (!playable.length) {
       onErrorRef.current("There are no playable audio files available.", "error");
       return;
     }
-    const currentId = audioRef.current?.dataset.dubId;
     const currentIndex = playable.findIndex((dub) => dub.id === currentId);
     let target: Dub | undefined;
     if (stateRef.current.shuffle && direction === -1) {
@@ -187,6 +192,14 @@ export function useAudioPlayback(
     const audio = audioRef.current;
     if (audio) { audio.volume = playback.volume; audio.loop = playback.repeat; }
   }, [playback.repeat, playback.volume]);
+
+  useEffect(() => {
+    const currentId = audioRef.current?.dataset.dubId;
+    if (userId && currentId && !dubs.some((dub) => dub.id === currentId)) {
+      reset();
+      onErrorRef.current("Playback stopped because this dub is no longer available.", "error");
+    }
+  }, [dubs, userId]);
 
   function togglePlayback(dub: Dub) {
     const audio = audioRef.current;

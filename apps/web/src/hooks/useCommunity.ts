@@ -141,7 +141,14 @@ export function useCommunity() {
         const existing = current.conversations.find((item) => item.buddyId === conversation.buddyId);
         return {
           ...conversation,
-          messages: mergeMessages(existing?.messages ?? [], conversation.messages),
+          messages: mergeMessages(
+            (existing?.messages ?? []).map((message) =>
+              message.dubId && !snapshot.dubs.some((dub) => dub.id === message.dubId)
+                ? { ...message, dubId: undefined, text: "This dub is no longer available." }
+                : message,
+            ),
+            conversation.messages,
+          ),
         };
       }),
       likedDubIds: new Set(snapshot.likedDubIds),
@@ -247,6 +254,7 @@ export function useCommunity() {
           tags: values.tags,
           bpm: values.bpm,
           message: values.message.trim(),
+          distribution: values.distribution ?? "worldwide",
           uploadId: media.audioUploadId,
           artworkUploadId: media.artworkUploadId,
           durationSeconds: media.durationSeconds,
@@ -254,7 +262,7 @@ export function useCommunity() {
       });
       temporaryUploadIds = [];
       await refreshCommunity();
-      notify(`${values.title.trim()} was added to the Dub Feed.`);
+      notify(`${values.title.trim()} was uploaded${dub.distribution === "private" ? " privately" : dub.distribution === "alist" ? " to A-List" : " to the Dub Feed"}.`);
       return dub;
     } catch (requestError) {
       const message = requestError instanceof Error
@@ -363,6 +371,19 @@ export function useCommunity() {
     }
   }
 
+  async function revokeDubGrant(dubId: string, userId: string) {
+    try {
+      const snapshot = await requestApi<CommunitySnapshot>(
+        `/api/dubs/${encodeURIComponent(dubId)}/grants/${encodeURIComponent(userId)}`,
+        { method: "DELETE" },
+      );
+      applySnapshot(snapshot);
+      notify("Private dub access revoked. Previously downloaded files cannot be recalled.");
+    } catch (requestError) {
+      notify(requestError instanceof Error ? requestError.message : "Access could not be revoked.", "error");
+    }
+  }
+
   async function addBuddy(username: string): Promise<string | null> {
     try {
       const snapshot = await requestApi<CommunitySnapshot>("/api/buddies", {
@@ -412,7 +433,14 @@ export function useCommunity() {
           conversation.buddyId === buddyId
             ? {
                 ...conversation,
-                messages: mergeMessages(page.messages, conversation.messages),
+                messages: mergeMessages(
+                  page.messages.map((message) =>
+                    message.dubId && !current.dubs.some((dub) => dub.id === message.dubId)
+                      ? { ...message, dubId: undefined, text: "This dub is no longer available." }
+                      : message,
+                  ),
+                  conversation.messages,
+                ),
                 hasMoreMessages: page.hasMoreMessages,
               }
             : conversation,
@@ -572,6 +600,7 @@ export function useCommunity() {
     addDub,
     updateDub,
     deleteDub,
+    revokeDubGrant,
     addBuddy,
     removeBuddy,
     markConversationRead,

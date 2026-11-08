@@ -41,6 +41,7 @@ import "./App.css";
 
 const sectionLabels: Record<CommunitySection, string> = {
   dubs: "Dub Feed",
+  alist: "A-List",
   buddies: "Friend List",
   messenger: "Messenger",
   profile: "My Profile",
@@ -50,6 +51,7 @@ const sectionLabels: Record<CommunitySection, string> = {
 
 const sectionIcons: Record<CommunitySection, ReactNode> = {
   dubs: <FriendsFeed />,
+  alist: <Disc3 />,
   buddies: <Friends />,
   messenger: <MessageCircle />,
   profile: <Users />,
@@ -65,11 +67,11 @@ function getSectionFromHash(hash: string): CommunitySection {
   return sections.includes(section) ? section : "dubs";
 }
 
-function createNavigationSections(unreadCount: number): NavigationSection[] {
+function createNavigationSections(unreadCount: number, aListApproved: boolean): NavigationSection[] {
   return [
     {
       label: "Your space",
-      items: sections.map((section) => ({
+      items: sections.filter((section) => section !== "alist" || aListApproved).map((section) => ({
         label: sectionLabels[section],
         icon: sectionIcons[section],
         href: `#${section}`,
@@ -112,6 +114,7 @@ export function App() {
     addDub,
     updateDub,
     deleteDub,
+    revokeDubGrant,
     addBuddy,
     removeBuddy,
     markConversationRead,
@@ -128,7 +131,7 @@ export function App() {
   const [chatBuddyId, setChatBuddyId] = useState("evan");
   const [searchQuery, setSearchQuery] = useState("");
   const [dubSearchFilters, setDubSearchFilters] = useState<DubSearchFilters>(createEmptyDubSearchFilters);
-  const dubSearch = useDubSearch(searchQuery, dubSearchFilters, activeSection === "dubs");
+  const dubSearch = useDubSearch(searchQuery, dubSearchFilters, activeSection === "dubs" || (activeSection === "alist" && state.member?.aListApproved === true), activeSection === "alist" ? "alist" : "worldwide");
   const isDubSearchActive = Boolean(searchQuery.trim() || dubSearchFilters.tags.length || dubSearchFilters.fileType || dubSearchFilters.minBpm || dubSearchFilters.maxBpm || dubSearchFilters.minBitrate || dubSearchFilters.maxBitrate);
   const [memberSearchQuery, setMemberSearchQuery] = useState("");
   const { members: memberSearchResults, isSearching: isSearchingMembers } = useMemberSearch(memberSearchQuery);
@@ -146,11 +149,11 @@ export function App() {
   const [registrationPending, setRegistrationPending] = useState(false);
 
   const navigationSections = useMemo(
-    () => createNavigationSections(unreadCount),
-    [unreadCount],
+    () => createNavigationSections(unreadCount, state.member?.aListApproved === true),
+    [unreadCount, state.member?.aListApproved],
   );
   const nowPlaying = state.dubs.find((dub) => dub.id === state.nowPlayingId) ?? null;
-  const previewTrack = nowPlaying ?? state.dubs[0];
+  const previewTrack = nowPlaying ?? state.dubs.find((dub) => dub.distribution === "worldwide");
   const dubsById = new Map(state.dubs.map((dub) => [dub.id, dub]));
   const suggestedByUsername = new Map(state.suggestedMembers.map((member) => [member.username, member]));
   const profile =
@@ -159,7 +162,7 @@ export function App() {
       : state.buddies.find((buddy) => buddy.username === profileUsername) ??
         state.member;
   const isOwnProfile = profile?.username === state.member?.username;
-  const profileUploads = state.dubs.filter((dub) => dub.uploader === profile?.username);
+  const profileUploads = state.dubs.filter((dub) => dub.uploader === profile?.username && dub.distribution === "worldwide");
   const myDubs = state.member
     ? state.dubs.filter((dub) => dub.uploader === state.member?.username)
     : [];
@@ -225,7 +228,7 @@ export function App() {
       navigateTo("messenger");
       await sendMessage(targetId, `Shared a dub: ${dub.title}`, dub.id);
     } else {
-      navigateTo("dubs");
+      navigateTo(dub.distribution === "private" ? "my-dubs" : dub.distribution === "alist" ? "alist" : "dubs");
     }
     return dub;
   }
@@ -416,13 +419,13 @@ export function App() {
     >
       <div className="app-content">
         <DemoModeNotice />
-        {activeSection === "dubs" && (
+        {(activeSection === "dubs" || (activeSection === "alist" && state.member.aListApproved)) && (
           <>
             <LatestDubsTemplate
               dubs={isDubSearchActive ? (dubSearch.results ?? []).map((dub) => {
                 const current = dubsById.get(dub.id);
-                return current ? { ...dub, uploaderAvatarUrl: current.uploaderAvatarUrl } : dub;
-              }) : state.dubs}
+                return current && current.distribution === (activeSection === "alist" ? "alist" : "worldwide") ? current : null;
+              }).filter((dub): dub is Dub => dub !== null) : state.dubs.filter((dub) => dub.distribution === (activeSection === "alist" ? "alist" : "worldwide"))}
               likedDubIds={state.likedDubIds}
               nowPlayingId={state.nowPlayingId}
               isPlaying={state.isPlaying}
@@ -444,18 +447,20 @@ export function App() {
               onEditDub={beginDubEdit}
               onDeleteDub={beginDubDelete}
               showIntro={false}
+              feedName={activeSection === "alist" ? "A-List" : "Dub Feed"}
               onOpenProfile={openProfile}
               onPlay={togglePlayback}
               onQueryChange={setSearchQuery}
               query={searchQuery}
               filters={dubSearchFilters}
               onFiltersChange={setDubSearchFilters}
-              fileTypes={[...new Set(state.dubs.map((dub) => dub.audioFormat ?? dub.audioFileName?.split(".").pop()?.toUpperCase()).filter((value): value is string => Boolean(value)))].sort()}
+              fileTypes={[...new Set(state.dubs.filter((dub) => dub.distribution === (activeSection === "alist" ? "alist" : "worldwide")).map((dub) => dub.audioFormat ?? dub.audioFileName?.split(".").pop()?.toUpperCase()).filter((value): value is string => Boolean(value)))].sort()}
               isSearching={dubSearch.isSearching}
               searchError={dubSearch.error}
             />
           </>
         )}
+        {activeSection === "alist" && !state.member.aListApproved && <p>A-List approval is required to view this feed.</p>}
         {activeSection === "buddies" && (
           <BuddyListTemplate
             buddies={state.buddies}
@@ -509,6 +514,7 @@ export function App() {
             onShareDub={() => setIsUploadOpen(true)}
             onEditDub={beginDubEdit}
             onDeleteDub={beginDubDelete}
+            onRevokeGrant={revokeDubGrant}
           />
         )}
         {activeSection === "messenger" && (
@@ -579,7 +585,7 @@ export function App() {
         )}
       </div>
       <nav className="mobile-tabs" aria-label="Main sections">
-        {sections.map((section) => (
+        {sections.filter((section) => section !== "alist" || state.member?.aListApproved).map((section) => (
           <button
             aria-current={activeSection === section ? "page" : undefined}
             className={activeSection === section ? "is-active" : ""}
@@ -609,6 +615,7 @@ export function App() {
       >
         <DubUploadForm
           artists={state.artists}
+          aListApproved={state.member.aListApproved}
           onSubmit={handleShareDub}
           submissionError={uploadError}
           uploadProgress={uploadProgress}

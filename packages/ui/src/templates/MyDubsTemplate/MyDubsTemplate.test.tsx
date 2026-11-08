@@ -30,6 +30,26 @@ function renderPage() {
 }
 
 describe("MyDubsTemplate", () => {
+  it("lets owners revoke private access from a named recipient", () => {
+    const onRevokeGrant = vi.fn();
+    render(<MyDubsTemplate
+      dubs={[{ ...dub, distribution: "private", grants: [{ id: "friend", username: "meladee", displayName: "Meladee" }] }]}
+      likedDubIds={new Set()}
+      nowPlayingId={null}
+      isPlaying={false}
+      onDownload={vi.fn()}
+      onPlay={vi.fn()}
+      onShareDub={vi.fn()}
+      onEditDub={vi.fn()}
+      onDeleteDub={vi.fn()}
+      onRevokeGrant={onRevokeGrant}
+    />);
+    fireEvent.click(screen.getByText("Statistics for Night Drive"));
+    expect(screen.getByText("Distribution: Private")).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Revoke access" }));
+    expect(onRevokeGrant).toHaveBeenCalledWith("dub-1", "friend");
+  });
+
   it("shows owner statistics with separate download and unique supporter counts", () => {
     render(<MyDubsTemplate
       dubs={[{ ...dub, downloads: 3, likes: 1, downloaders: [{ username: "meladee", displayName: "Meladee", downloadedAt: "2026-11-01T12:00:00Z" }] }]}

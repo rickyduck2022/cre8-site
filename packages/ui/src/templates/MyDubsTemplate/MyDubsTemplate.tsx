@@ -32,6 +32,7 @@ export interface MyDubsTemplateProps {
   onShareDub: () => void;
   onEditDub: (dub: Dub) => void;
   onDeleteDub: (dub: Dub) => void;
+  onRevokeGrant?: (dubId: string, userId: string) => void;
 }
 
 export function MyDubsTemplate({
@@ -57,6 +58,7 @@ export function MyDubsTemplate({
   onShareDub,
   onEditDub,
   onDeleteDub,
+  onRevokeGrant,
 }: MyDubsTemplateProps) {
   const [query, setQuery] = useState("");
   const filteredDubs = useMemo(() => {
@@ -118,6 +120,9 @@ export function MyDubsTemplate({
               onDelete={onDeleteDub}
               manageable
             />
+            <p className="my-dubs-template__distribution">
+              Distribution: {dub.distribution === "private" ? "Private" : dub.distribution === "alist" ? "A-List" : "Worldwide"}
+            </p>
             <details className="my-dubs-template__statistics">
               <summary>Statistics for {dub.title}</summary>
               <p>Manual download requests: {dub.downloads.toLocaleString()}</p>
@@ -132,6 +137,22 @@ export function MyDubsTemplate({
                   ))}
                 </ul>
               ) : <p>No supporters yet.</p>}
+              {dub.distribution === "private" && (
+                <div>
+                  <p>Share this dub with a friend in Messenger to grant access.</p>
+                  <p>Revoking access cannot remove files already downloaded.</p>
+                  {dub.grants?.length ? (
+                    <ul aria-label={`Private access to ${dub.title}`}>
+                      {dub.grants.map((grant) => (
+                        <li key={grant.id}>
+                          {grant.displayName} (@{grant.username}){" "}
+                          {onRevokeGrant && <Button size="small" variant="secondary" onClick={() => onRevokeGrant(dub.id, grant.id)}>Revoke access</Button>}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : <p>No friends currently have access.</p>}
+                </div>
+              )}
             </details>
           </div>
         ))}

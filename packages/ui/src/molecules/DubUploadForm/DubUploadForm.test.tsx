@@ -8,6 +8,36 @@ afterEach(() => {
 });
 
 describe("DubUploadForm", () => {
+  it("allows private and worldwide uploads but reserves A-List for approved members", () => {
+    const props = { artists: [{ id: "artist-1", name: "Artist" }], onCancel: vi.fn(), onSubmit: vi.fn() };
+    const { rerender } = render(<DubUploadForm {...props} />);
+    expect(screen.getByRole("combobox", { name: "Distribution" })).toHaveValue("worldwide");
+    expect(screen.getByRole("option", { name: /Private/ })).toBeEnabled();
+    expect(screen.getByRole("option", { name: /A-List/ })).toBeDisabled();
+    rerender(<DubUploadForm {...props} aListApproved />);
+    expect(screen.getByRole("option", { name: /A-List/ })).toBeEnabled();
+  });
+
+  it("submits the selected private distribution", async () => {
+    const onSubmit = vi.fn().mockResolvedValue(false);
+    const file = new File(["audio"], "secret.wav", { type: "audio/wav" });
+    vi.stubGlobal("FormData", class {
+      constructor(private form: HTMLFormElement) {}
+      get(name: string) {
+        if (name === "audioFile") return file;
+        const field = this.form.elements.namedItem(name);
+        return field instanceof HTMLInputElement || field instanceof HTMLSelectElement || field instanceof HTMLTextAreaElement
+          ? field.value : null;
+      }
+    });
+    const { container } = render(<DubUploadForm artists={[{ id: "artist-1", name: "Artist" }]} onCancel={vi.fn()} onSubmit={onSubmit} />);
+    fireEvent.change(screen.getByLabelText("Track title"), { target: { value: "Secret dub" } });
+    fireEvent.change(screen.getByRole("combobox", { name: "Distribution" }), { target: { value: "private" } });
+    fireEvent.submit(container.querySelector("form")!);
+    await act(async () => {});
+    expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ title: "Secret dub", distribution: "private" }));
+  });
+
   it("keeps the form open and disabled while sharing, then resets on success", async () => {
     let finishSubmission: (result: boolean) => void = () => undefined;
     const file = new File(["audio"], "track.wav", { type: "audio/wav" });

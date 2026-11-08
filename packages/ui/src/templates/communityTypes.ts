@@ -52,6 +52,8 @@ export interface Dub {
   artworkUrl?: string;
   likedByCurrentUser?: boolean;
   downloaders?: Array<{ username: string; displayName: string; downloadedAt: string }>;
+  distribution?: "worldwide" | "private" | "alist";
+  grants?: Array<{ id: string; username: string; displayName: string }>;
 }
 
 export interface LibraryDownload {
@@ -97,4 +99,5 @@ export interface MemberProfile {
   avatarUrl?: string;
   bannerUrl?: string;
   links?: Array<{ label: string; url: string }>;
+  aListApproved?: boolean;
 }

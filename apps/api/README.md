@@ -43,6 +43,21 @@ Each successful download request is counted before the file transfer starts;
 repeated requests from one member count as one supporter. The list of
 supporters is included in a dub's response only for its uploader.
 
+Uploads select Worldwide, Private, or A-List distribution. Existing schema 3
+dubs migrate to Worldwide. The distribution cannot be changed after upload.
+Unversioned data is not automatically reset; startup stops without changing it
+so it can be migrated safely.
+
+Private dubs are visible to their uploader and friends explicitly shared with
+in Messenger. Only the uploader can share a private dub or revoke a grant from
+My Dubs. Revocation prevents subsequent API access, but cannot recall files
+already downloaded or bytes already transferred. A-List access and uploads
+require the server-side `aListApproved` user flag; the application and admin
+approval workflow is not implemented yet, so there is no in-app way to grant
+or revoke that status. The Worldwide feed and its search exclude both other
+tiers. The API checks access independently for media, search, snapshots,
+messages, playback, crates, library and admin overview.
+
 Conversation snapshots include the most recent 30 messages per conversation.
 The authenticated `GET /api/conversations/:buddyId/messages` endpoint returns
 the newest page; pass `?before=<message-id>` to fetch the page immediately

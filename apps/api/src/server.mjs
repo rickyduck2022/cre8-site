@@ -15,7 +15,7 @@ const defaultAdminDirectory = resolve(process.env.ADMIN_DIST_DIRECTORY ?? resolv
 const maxAudioUploadBytes = 100 * 1024 * 1024;
 const maxArtworkUploadBytes = 10 * 1024 * 1024;
 const sessionLifetimeSeconds = 60 * 60 * 24 * 7;
-const dataSchemaVersion = 3;
+const dataSchemaVersion = 4;
 const conversationPageSize = 30;
 const dubTags = new Set(["Jump Up", "Rollers", "Dancefloor", "Jungle", "Liquid", "Neurofunk", "Vocal", "Deep", "Minimal", "Techstep", "Atmospheric", "Old School"]);
 function normalizeDubTags(tags) {
@@ -107,21 +107,8 @@ function createSeedState() {
     downloads: [],
     crates: [],
     uploads: [],
+    dubGrants: [],
   };
-}
-
-function removeStoredMedia(data, mediaDirectory) {
-  const mediaRoot = resolve(mediaDirectory);
-  const storedNames = [
-    ...data.dubs.flatMap((dub) => [dub.storedAudioName, dub.storedArtworkName]),
-    ...data.uploads.map((upload) => upload.storedName),
-    ...data.users.flatMap((user) => [user.avatarStoredName, user.bannerStoredName]),
-  ].filter((name) => typeof name === "string" && name.length > 0);
-
-  for (const storedName of new Set(storedNames)) {
-    const storedPath = resolve(mediaRoot, basename(storedName));
-    if (storedPath !== mediaRoot && existsSync(storedPath)) unlinkSync(storedPath);
-  }
 }
 
 export function initializeData(dataPath = defaultDataPath, mediaDirectory = defaultMediaDirectory) {
@@ -133,10 +120,7 @@ export function initializeData(dataPath = defaultDataPath, mediaDirectory = defa
   }
   const data = JSON.parse(readFileSync(dataPath, "utf8"));
   if (data.schemaVersion === undefined) {
-    removeStoredMedia(data, mediaDirectory);
-    const freshData = createSeedState();
-    writeFileSync(dataPath, `${JSON.stringify(freshData, null, 2)}\n`);
-    return freshData;
+    throw new Error("Unversioned community data requires manual migration; existing data and media have not been changed.");
   }
   if (data.schemaVersion === 2) {
     data.dubs = data.dubs.filter((dub) => !removedSeedDubIds.has(dub.id));
@@ -147,7 +131,12 @@ export function initializeData(dataPath = defaultDataPath, mediaDirectory = defa
       ...crate,
       dubIds: (crate.dubIds ?? []).filter((dubId) => remainingDubIds.has(dubId)),
     }));
-    data.schemaVersion = dataSchemaVersion;
+    data.schemaVersion = 3;
+  }
+  if (data.schemaVersion === 3) {
+    data.dubs = data.dubs.map((dub) => ({ ...dub, distribution: "worldwide" }));
+    data.dubGrants = [];
+    data.schemaVersion = 4;
   }
   if (data.schemaVersion !== dataSchemaVersion) {
     throw new Error(`Unsupported community data schema version: ${data.schemaVersion}.`);
@@ -168,7 +157,7 @@ export function initializeData(dataPath = defaultDataPath, mediaDirectory = defa
   for (const dub of data.dubs) {
     dub.audioUrl ??= `/api/dubs/${dub.id}/audio`;
   }
-  for (const key of ["friendships", "conversations", "likes", "downloads", "crates", "uploads"]) {
+  for (const key of ["friendships", "conversations", "likes", "downloads", "crates", "uploads", "dubGrants"]) {
     data[key] ??= [];
   }
   backfillBidirectionalFriendships(data);
@@ -344,6 +333,22 @@ function serveWebRequest(request, response, route, webDirectory) {
   return true;
 }
 
+function canAccessDub(data, dub, user) {
+  if (!dub || !user) return false;
+  if (dub.distribution === "worldwide") return true;
+  if (dub.distribution === "alist") return user.aListApproved === true;
+  if (dub.distribution === "private") {
+    return dub.uploaderId === user.id
+      || data.dubGrants.some((grant) => grant.dubId === dub.id && grant.userId === user.id);
+  }
+  return false;
+}
+
+function visibleMessage(data, user, message) {
+  if (!message.dubId || canAccessDub(data, data.dubs.find((dub) => dub.id === message.dubId), user)) return message;
+  return { ...message, dubId: undefined, text: "This dub is no longer available." };
+}
+
 function publicDub(data, dub, currentUserId) {
   const {
     storedAudioName,
@@ -374,6 +379,13 @@ function publicDub(data, dub, currentUserId) {
       });
     }
     result.downloaders = [...downloaderByUser.values()];
+    if (dub.distribution === "private") {
+      result.grants = data.dubGrants
+        .filter((grant) => grant.dubId === dub.id)
+        .map((grant) => data.users.find((item) => item.id === grant.userId))
+        .filter(Boolean)
+        .map(({ id, username, displayName }) => ({ id, username, displayName }));
+    }
   }
   return result;
 }
@@ -383,14 +395,15 @@ function crateNameKey(name) {
 }
 
 function publicCrates(data, userId) {
+  const user = data.users.find((item) => item.id === userId);
   const grouped = new Map();
   for (const crate of data.crates.filter((item) => item.userId === userId)) {
     const key = crateNameKey(crate.name);
     const existing = grouped.get(key);
     if (existing) {
-      existing.dubIds = [...new Set([...existing.dubIds, ...(crate.dubIds ?? [])])];
+      existing.dubIds = [...new Set([...existing.dubIds, ...(crate.dubIds ?? []).filter((id) => canAccessDub(data, data.dubs.find((dub) => dub.id === id), user))])];
     } else {
-      grouped.set(key, { id: crate.id, name: crate.name, dubIds: [...(crate.dubIds ?? [])] });
+      grouped.set(key, { id: crate.id, name: crate.name, dubIds: (crate.dubIds ?? []).filter((id) => canAccessDub(data, data.dubs.find((dub) => dub.id === id), user)) });
     }
   }
   return [...grouped.values()];
@@ -404,7 +417,7 @@ function communitySnapshot(data, user) {
     .filter((conversation) => conversation.ownerId === user.id)
     .map(({ buddyId, messages }) => ({
       buddyId,
-      messages: messages.slice(-conversationPageSize),
+      messages: messages.slice(-conversationPageSize).map((message) => visibleMessage(data, user, message)),
       hasMoreMessages: messages.length > conversationPageSize,
     }));
   const buddies = friendships.map((friendship) => {
@@ -428,7 +441,7 @@ function communitySnapshot(data, user) {
     };
   });
   return {
-    lastPlayback: user.lastPlayback && data.dubs.some((dub) => dub.id === user.lastPlayback.dubId)
+    lastPlayback: user.lastPlayback && canAccessDub(data, data.dubs.find((dub) => dub.id === user.lastPlayback.dubId), user)
       ? user.lastPlayback : null,
     member: {
       id: user.id,
@@ -442,22 +455,23 @@ function communitySnapshot(data, user) {
       avatarUrl: user.avatarUrl,
       bannerUrl: user.bannerUrl,
       links: user.links ?? [],
+      aListApproved: user.aListApproved === true,
     },
     artists,
     dubs: data.dubs
-      .slice()
+      .filter((dub) => canAccessDub(data, dub, user))
       .sort((left, right) => Date.parse(right.uploadedAt) - Date.parse(left.uploadedAt))
       .map((dub) => publicDub(data, dub, user.id)),
     buddies,
     conversations,
-    likedDubIds: data.likes.filter((like) => like.userId === user.id).map((like) => like.dubId),
+    likedDubIds: data.likes.filter((like) => like.userId === user.id && canAccessDub(data, data.dubs.find((dub) => dub.id === like.dubId), user)).map((like) => like.dubId),
     suggestedMembers: data.users
       .filter((other) => other.id !== user.id && !friendUserIds.has(other.id))
       .map(({ id, username, displayName, genre, avatarUrl }) => ({ id, username, displayName, genre, avatarUrl })),
     crates: publicCrates(data, user.id),
     library: data.downloads
       .filter((download) => download.userId === user.id)
-      .filter((download) => data.dubs.some((dub) => dub.id === download.dubId))
+      .filter((download) => canAccessDub(data, data.dubs.find((dub) => dub.id === download.dubId), user))
       .slice()
       .sort((left, right) => Date.parse(right.downloadedAt) - Date.parse(left.downloadedAt))
       .map((download) => ({
@@ -485,7 +499,7 @@ function getConversationMessagePage(data, user, buddyId, beforeId) {
   const startIndex = Math.max(0, endIndex - conversationPageSize);
   return {
     buddyId,
-    messages: messages.slice(startIndex, endIndex),
+    messages: messages.slice(startIndex, endIndex).map((message) => visibleMessage(data, user, message)),
     hasMoreMessages: startIndex > 0,
   };
 }
@@ -541,12 +555,18 @@ function createConversationMessage(data, user, buddyId, input) {
   if (!text || text.length > 2000) {
     return { error: "Message must contain between 1 and 2000 characters.", status: 400 };
   }
-  if (input.dubId && !data.dubs.some((dub) => dub.id === input.dubId)) {
-    return { error: "The shared dub could not be found.", status: 404 };
-  }
-
   const recipient = data.users.find((item) => item.id === friendship.friendUserId);
   if (!recipient) return { error: "Friend not found.", status: 404 };
+  if (input.dubId) {
+    const dub = data.dubs.find((item) => item.id === input.dubId);
+    if (!canAccessDub(data, dub, user) || (dub.distribution === "private" && dub.uploaderId !== user.id)
+      || (dub.distribution === "alist" && recipient.aListApproved !== true)) {
+      return { error: "The shared dub is unavailable to this recipient.", status: 404 };
+    }
+    if (dub.distribution === "private" && !data.dubGrants.some((grant) => grant.dubId === dub.id && grant.userId === recipient.id)) {
+      data.dubGrants.push({ dubId: dub.id, userId: recipient.id });
+    }
+  }
   const recipientFriendship = findOrCreateFriendship(data, recipient, user);
   const sentAt = new Date().toISOString();
   const messageId = randomUUID();
@@ -794,7 +814,9 @@ export function createApiServer({
           return;
         }
         const since = Date.now() - 7 * 24 * 60 * 60 * 1000;
-        const recentDubs = data.dubs.filter((dub) => Date.parse(dub.uploadedAt) >= since);
+        const accessibleDubs = data.dubs.filter((dub) => canAccessDub(data, dub, user));
+        const accessibleDubIds = new Set(accessibleDubs.map((dub) => dub.id));
+        const recentDubs = accessibleDubs.filter((dub) => Date.parse(dub.uploadedAt) >= since);
         const recentUsers = data.users.filter((account) => Date.parse(account.createdAt ?? 0) >= since);
         const activity = Array.from({ length: 7 }, (_, index) => {
           const date = new Date();
@@ -804,12 +826,12 @@ export function createApiServer({
           next.setUTCDate(next.getUTCDate() + 1);
           return {
             date: date.toISOString().slice(0, 10),
-            uploads: data.dubs.filter((dub) => Date.parse(dub.uploadedAt) >= date.getTime() && Date.parse(dub.uploadedAt) < next.getTime()).length,
+            uploads: accessibleDubs.filter((dub) => Date.parse(dub.uploadedAt) >= date.getTime() && Date.parse(dub.uploadedAt) < next.getTime()).length,
             members: data.users.filter((account) => Date.parse(account.createdAt ?? 0) >= date.getTime() && Date.parse(account.createdAt ?? 0) < next.getTime()).length,
           };
         });
         const userById = new Map(data.users.map((account) => [account.id, account]));
-        const dubs = data.dubs.map((dub) => ({
+        const dubs = accessibleDubs.map((dub) => ({
           id: dub.id, title: dub.title, artist: dub.artist, artistId: dub.artistId,
           uploader: dub.uploaderDisplayName || userById.get(dub.uploaderId)?.displayName || dub.uploader,
           username: userById.get(dub.uploaderId)?.username ?? dub.uploader,
@@ -821,7 +843,7 @@ export function createApiServer({
           id: account.id, username: account.username, displayName: account.displayName,
           genre: account.genre, role: account.role, presence: account.presence,
           createdAt: account.createdAt ?? null,
-          uploads: data.dubs.filter((dub) => dub.uploaderId === account.id).length,
+          uploads: accessibleDubs.filter((dub) => dub.uploaderId === account.id).length,
           friends: data.friendships.filter((friendship) => friendship.ownerId === account.id).length,
         })).sort((a, b) => (Date.parse(b.createdAt ?? 0) || 0) - (Date.parse(a.createdAt ?? 0) || 0));
         const topDubs = [...dubs].sort((a, b) => b.downloads - a.downloads).slice(0, 5);
@@ -829,7 +851,7 @@ export function createApiServer({
           generatedAt: new Date().toISOString(),
           metrics: {
             members: users.length, tracks: dubs.length,
-            downloads: data.downloads.length,
+            downloads: data.downloads.filter((download) => accessibleDubIds.has(download.dubId)).length,
             connections: new Set(
               data.friendships.map((friendship) =>
                 JSON.stringify([friendship.ownerId, friendship.friendUserId].sort()),
@@ -851,7 +873,7 @@ export function createApiServer({
           json(response, 400, { error: "Provide a valid dub and playback position." });
           return;
         }
-        if (!data.dubs.some((dub) => dub.id === input.dubId)) {
+        if (!canAccessDub(data, data.dubs.find((dub) => dub.id === input.dubId), user)) {
           json(response, 404, { error: "Dub not found." });
           return;
         }
@@ -865,6 +887,15 @@ export function createApiServer({
         return;
       }
       if (request.method === "GET" && route === "/api/dubs/search") {
+        const distribution = url.searchParams.get("distribution") ?? "worldwide";
+        if (!["worldwide", "alist"].includes(distribution)) {
+          json(response, 400, { error: "Choose a valid feed." });
+          return;
+        }
+        if (distribution === "alist" && user.aListApproved !== true) {
+          json(response, 403, { error: "A-List approval is required." });
+          return;
+        }
         const query = String(url.searchParams.get("q") ?? "").trim().slice(0, 120).toLocaleLowerCase();
         const tags = url.searchParams.getAll("tag").map((tag) => tag.trim()).filter((tag) => dubTags.has(tag));
         const fileType = String(url.searchParams.get("fileType") ?? "").trim().toLocaleUpperCase();
@@ -883,6 +914,7 @@ export function createApiServer({
           return;
         }
         const filtered = data.dubs.filter((dub) => {
+          if (dub.distribution !== distribution || !canAccessDub(data, dub, user)) return false;
           const dubTags = dub.tags ?? [];
           const format = dub.audioFormat ?? audioFormat(dub.audioFileName);
           const searchable = [dub.title, dub.artist, dub.uploader, dub.uploaderDisplayName, dub.genre, dub.message, format, ...dubTags].filter(Boolean).join(" ").toLocaleLowerCase();
@@ -989,10 +1021,19 @@ export function createApiServer({
       }
       if (request.method === "POST" && route === "/api/dubs") {
         const input = await readJson(request);
+        const distribution = input.distribution ?? "worldwide";
+        if (!["private", "worldwide", "alist"].includes(distribution)) {
+          json(response, 400, { error: "Choose a valid distribution option." });
+          return;
+        }
+        if (distribution === "alist" && user.aListApproved !== true) {
+          json(response, 403, { error: "A-List approval is required to upload an exclusive dub." });
+          return;
+        }
         const title = String(input.title ?? "").trim();
         const artistId = String(input.artistId ?? "");
         const artist = data.artists.find((item) => item.id === artistId && item.userId === user.id);
-        const upload = data.uploads.find((item) => item.id === input.uploadId && item.userId === user.id && item.type !== "artwork");
+        const upload = data.uploads.find((item) => item.id === input.uploadId && item.userId === user.id && item.type === "audio");
         const artworkUpload = input.artworkUploadId
           ? data.uploads.find((item) => item.id === input.artworkUploadId && item.userId === user.id && item.type === "artwork")
           : undefined;
@@ -1003,6 +1044,7 @@ export function createApiServer({
         const durationSeconds = audioDurationSeconds(Number(input.durationSeconds));
         const dub = {
           id: randomUUID(),
+          distribution,
           title,
           artist: artist.name,
           artistId: artist.id,
@@ -1033,6 +1075,7 @@ export function createApiServer({
         data.dubs.unshift(dub);
         data.uploads = data.uploads.filter((item) => item.id !== upload.id && item.id !== artworkUpload?.id);
         persist();
+        for (const connectedUserId of socketsByUser.keys()) broadcastCommunity(connectedUserId);
         json(response, 201, publicDub(data, dub, user.id));
         return;
       }
@@ -1043,6 +1086,14 @@ export function createApiServer({
           return;
         }
         const input = await readJson(request);
+        if (input.distribution !== undefined && input.distribution !== dub.distribution) {
+          json(response, 400, { error: "A dub's distribution cannot be changed after upload." });
+          return;
+        }
+        if (!canAccessDub(data, dub, user)) {
+          json(response, 404, { error: "Dub not found." });
+          return;
+        }
         const title = String(input.title ?? "").trim();
         const artistId = String(input.artistId ?? "");
         const artist = data.artists.find((item) => item.id === artistId && item.userId === user.id);
@@ -1092,7 +1143,7 @@ export function createApiServer({
           const oldMediaPath = resolve(mediaDirectory, basename(storedName));
           if (existsSync(oldMediaPath)) unlinkSync(oldMediaPath);
         }
-        broadcastCommunity(user.id);
+        for (const connectedUserId of socketsByUser.keys()) broadcastCommunity(connectedUserId);
         json(response, 200, publicDub(data, dub, user.id));
         return;
       }
@@ -1116,20 +1167,22 @@ export function createApiServer({
         }
         data.likes = data.likes.filter((item) => item.dubId !== dub.id);
         data.downloads = data.downloads.filter((item) => item.dubId !== dub.id);
+        data.dubGrants = data.dubGrants.filter((item) => item.dubId !== dub.id);
         persist();
         for (const storedName of [dub.storedAudioName, dub.storedArtworkName]) {
           if (!storedName) continue;
           const mediaPath = resolve(mediaDirectory, basename(storedName));
           if (existsSync(mediaPath)) unlinkSync(mediaPath);
         }
+        for (const connectedUserId of socketsByUser.keys()) affectedUserIds.add(connectedUserId);
         for (const affectedUserId of affectedUserIds) broadcastCommunity(affectedUserId);
         json(response, 200, { id: dub.id });
         return;
       }
       if (match && match[1] === "dubs" && request.method === "GET" && match[3] === "artwork") {
         const dub = data.dubs.find((item) => item.id === match[2]);
-        if (!dub?.storedArtworkName) {
-          json(response, 404, { error: "This dub uses the default whitelabel artwork." });
+        if (!canAccessDub(data, dub, user) || !dub.storedArtworkName) {
+          json(response, 404, { error: "Track artwork not found." });
           return;
         }
         const filePath = resolve(mediaDirectory, basename(dub.storedArtworkName));
@@ -1142,7 +1195,7 @@ export function createApiServer({
       }
       if (match && match[1] === "dubs" && request.method === "GET" && match[3] === "audio") {
         const dub = data.dubs.find((item) => item.id === match[2]);
-        if (!dub) {
+        if (!canAccessDub(data, dub, user)) {
           json(response, 404, { error: "Dub not found." });
           return;
         }
@@ -1158,7 +1211,7 @@ export function createApiServer({
       }
       if (match && match[1] === "dubs" && request.method === "POST" && match[2] && match[3] === "download") {
         const dub = data.dubs.find((item) => item.id === match[2]);
-        if (!dub) {
+        if (!canAccessDub(data, dub, user)) {
           json(response, 404, { error: "Dub not found." });
           return;
         }
@@ -1186,6 +1239,20 @@ export function createApiServer({
           downloads: data.downloads.filter((item) => item.dubId === dub.id).length,
           liked: true,
         });
+        return;
+      }
+      if (match && match[1] === "dubs" && match[3] === "grants" && match[4] && request.method === "DELETE") {
+        const dub = data.dubs.find((item) => item.id === match[2] && item.uploaderId === user.id && item.distribution === "private");
+        const grantIndex = data.dubGrants.findIndex((grant) => grant.dubId === match[2] && grant.userId === match[4]);
+        if (!dub || grantIndex === -1) {
+          json(response, 404, { error: "Private dub grant not found." });
+          return;
+        }
+        const [grant] = data.dubGrants.splice(grantIndex, 1);
+        persist();
+        broadcastCommunity(user.id);
+        broadcastCommunity(grant.userId);
+        json(response, 200, communitySnapshot(data, user));
         return;
       }
       if (request.method === "POST" && route === "/api/buddies") {
@@ -1366,7 +1433,7 @@ export function createApiServer({
       if (match && match[1] === "crates" && match[3] === "dubs" && request.method === "PUT") {
         const crate = data.crates.find((item) => item.id === match[2] && item.userId === user.id);
         const dub = data.dubs.find((item) => item.id === match[4]);
-        if (!crate || !dub) {
+        if (!crate || !canAccessDub(data, dub, user)) {
           json(response, 404, { error: "Crate or dub not found." });
           return;
         }

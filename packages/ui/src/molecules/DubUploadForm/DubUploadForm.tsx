@@ -16,6 +16,7 @@ export interface DubUploadFormValues {
   message: string;
   audioFile?: File;
   artworkFile?: File;
+  distribution?: "worldwide" | "private" | "alist";
 }
 
 export interface DubUploadFormProps {
@@ -25,6 +26,7 @@ export interface DubUploadFormProps {
   uploadProgress?: UploadProgressState | null;
   submissionError?: string;
   initialDub?: Dub;
+  aListApproved?: boolean;
 }
 
 export function DubUploadForm({
@@ -34,6 +36,7 @@ export function DubUploadForm({
   uploadProgress = null,
   submissionError = "",
   initialDub,
+  aListApproved = false,
 }: DubUploadFormProps) {
   const isEditing = Boolean(initialDub);
   const formId = `dub-upload-form-${useId()}`;
@@ -65,6 +68,7 @@ export function DubUploadForm({
         tags,
         bpm: bpmValue ? Number(bpmValue) : undefined,
         message: String(formData.get("message") ?? ""),
+        distribution: isEditing ? initialDub?.distribution : (formData.get("distribution") === "private" ? "private" : formData.get("distribution") === "alist" ? "alist" : "worldwide"),
         audioFile: selectedAudioFile,
         artworkFile:
           artworkFile instanceof File && artworkFile.size > 0
@@ -99,6 +103,18 @@ export function DubUploadForm({
             ))}
           </select>
         </label>
+        {!isEditing && (
+          <label className="dub-upload-form__field">
+            <span>Distribution</span>
+            <select aria-label="Distribution" aria-describedby={!aListApproved ? `${formId}-alist-help` : undefined} defaultValue="worldwide" name="distribution">
+              <option value="worldwide">Worldwide - visible to all members</option>
+              <option value="private">Private - share with selected friends</option>
+              <option value="alist" disabled={!aListApproved}>A-List - approved members only</option>
+            </select>
+            {!aListApproved && <small id={`${formId}-alist-help`}>A-List approval is required for exclusive uploads.</small>}
+          </label>
+        )}
+        {isEditing && <p>Distribution: {initialDub?.distribution === "alist" ? "A-List" : initialDub?.distribution === "private" ? "Private" : "Worldwide"} (cannot be changed after upload)</p>}
         <div className="dub-upload-form__row">
           <TagSelector
             label="Tags"
