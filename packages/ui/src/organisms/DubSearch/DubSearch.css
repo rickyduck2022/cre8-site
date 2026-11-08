@@ -31,7 +31,6 @@
 
 .dub-search__panel > .tag-selector,
 .dub-search__controls > * {
-  background: var(--surface-control);
   border: 1px solid var(--border-default);
   border-radius: var(--radius-sm, 0.45rem);
   min-width: 0;
@@ -59,14 +58,12 @@
 }
 
 .dub-search__range {
-  border: 0;
   display: grid;
   gap: 0.65rem;
   flex: 0 1 15rem;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   margin: 0;
   min-width: 0;
-  padding: 0;
 }
 
 .dub-search__range legend {
@@ -92,7 +89,7 @@
 
 .dub-search__range input,
 .dub-search__select select {
-  background: var(--surface-raised);
+  background: var(--surface-control);
   border: 1px solid var(--border-default);
   border-radius: var(--radius-sm, 0.45rem);
   color: var(--text-primary);
