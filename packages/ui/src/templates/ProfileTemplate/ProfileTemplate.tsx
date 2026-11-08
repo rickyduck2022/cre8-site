@@ -24,6 +24,8 @@ export interface ProfileTemplateProps {
   onPlay: (dub: Dub) => void;
   onDownload: (dub: Dub) => void;
   onOpenProfile?: (username: string) => void;
+  onEditDub?: (dub: Dub) => void;
+  onDeleteDub?: (dub: Dub) => void;
 }
 
 export function ProfileTemplate({
@@ -37,6 +39,8 @@ export function ProfileTemplate({
   onPlay,
   onDownload,
   onOpenProfile,
+  onEditDub,
+  onDeleteDub,
 }: ProfileTemplateProps) {
   const uploadsPagination = usePagination(uploads, profile.id);
   return (
@@ -128,6 +132,9 @@ export function ProfileTemplate({
                     onDownload={onDownload}
                     onOpenProfile={onOpenProfile}
                     onPlay={onPlay}
+                    manageable={isOwnProfile}
+                    onEdit={onEditDub}
+                    onDelete={onDeleteDub}
                     key={dub.id}
                   />
                 ))}

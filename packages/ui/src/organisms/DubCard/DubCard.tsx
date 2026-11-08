@@ -2,6 +2,7 @@ import { Check, Download, Heart, Plus } from "@craft/icons";
 import { Avatar } from "../../atoms/Avatar/Avatar";
 import { Button } from "../../atoms/Button/Button";
 import { TrackTag } from "../../atoms/TrackTag/TrackTag";
+import { DubManagementActions } from "../../molecules/DubManagementActions/DubManagementActions";
 import { AudioPlayer } from "../AudioPlayer/AudioPlayer";
 import type { Dub } from "../../templates/communityTypes";
 import { formatLocalTimestamp, formatRelativeTime } from "../../templates/templateFormatters";
@@ -134,15 +135,12 @@ export function DubCard({
         >
           {hasLiked ? "Download again" : "Download · Like"}
         </Button>
-        {manageable && onEdit && (
-          <Button onClick={() => onEdit(dub)} size="small" variant="secondary">
-            Edit
-          </Button>
-        )}
-        {manageable && onDelete && (
-          <Button onClick={() => onDelete(dub)} size="small" variant="tertiary">
-            Delete
-          </Button>
+        {manageable && onEdit && onDelete && (
+          <DubManagementActions
+            onDelete={() => onDelete(dub)}
+            onEdit={() => onEdit(dub)}
+            title={dub.title}
+          />
         )}
         {crateId ? (
           <Button onClick={() => onRemoveFromCrate?.(crateId, dub.id)} size="small" variant="tertiary">

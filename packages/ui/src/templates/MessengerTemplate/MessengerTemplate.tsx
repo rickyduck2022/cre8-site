@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import {
   Disc3,
   Download,
@@ -11,6 +11,7 @@ import { Avatar } from "../../atoms/Avatar/Avatar";
 import { Badge } from "../../atoms/Badge/Badge";
 import { Button } from "../../atoms/Button/Button";
 import { ChatComposer } from "../../molecules/ChatComposer/ChatComposer";
+import { DubManagementActions } from "../../molecules/DubManagementActions/DubManagementActions";
 import { InfiniteScroll } from "../../molecules/InfiniteScroll/InfiniteScroll";
 import { AudioPlayer } from "../../organisms/AudioPlayer/AudioPlayer";
 import { TrackArtwork } from "../shared/TrackArtwork";
@@ -37,6 +38,9 @@ export interface MessengerTemplateProps {
   onDownload?: (dub: Dub) => void;
   onStartConversation: () => void;
   onCreateAndShareDub?: (buddyId: string) => void;
+  currentUsername?: string;
+  onEditDub?: (dub: Dub) => void;
+  onDeleteDub?: (dub: Dub) => void;
   onSelectConversation: (buddyId: string) => void;
   onLoadOlderMessages: (buddyId: string, beforeId: string) => Promise<unknown>;
   onSendMessage: (
@@ -63,6 +67,9 @@ export function MessengerTemplate({
   onDownload = () => undefined,
   onStartConversation,
   onCreateAndShareDub,
+  currentUsername,
+  onEditDub,
+  onDeleteDub,
   onSelectConversation,
   onLoadOlderMessages,
   onSendMessage,
@@ -72,6 +79,9 @@ export function MessengerTemplate({
   const [loadingOlder, setLoadingOlder] = useState(false);
   const [visibleBuddyCount, setVisibleBuddyCount] = useState(20);
   const [visibleDubCount, setVisibleDubCount] = useState(20);
+  const [isShareMenuOpen, setIsShareMenuOpen] = useState(false);
+  const shareMenuRef = useRef<HTMLDivElement>(null);
+  const shareMenuTriggerRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     setSelectedBuddyId(initialBuddyId);
@@ -85,7 +95,29 @@ export function MessengerTemplate({
   const visibleBuddies = buddies.slice(0, visibleBuddyCount);
   const visibleDubs = shareableDubs.slice(0, visibleDubCount);
 
-  useEffect(() => setLoadingOlder(false), [selectedBuddy?.id]);
+  useEffect(() => {
+    setLoadingOlder(false);
+    setIsShareMenuOpen(false);
+  }, [selectedBuddy?.id]);
+
+  useEffect(() => {
+    if (!isShareMenuOpen) return;
+    function handleOutsidePointer(event: PointerEvent) {
+      if (!shareMenuRef.current?.contains(event.target as Node)) setIsShareMenuOpen(false);
+    }
+    function handleEscape(event: KeyboardEvent) {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      setIsShareMenuOpen(false);
+      shareMenuTriggerRef.current?.focus();
+    }
+    document.addEventListener("pointerdown", handleOutsidePointer);
+    document.addEventListener("keydown", handleEscape);
+    return () => {
+      document.removeEventListener("pointerdown", handleOutsidePointer);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, [isShareMenuOpen]);
 
   async function loadOlderMessages(): Promise<boolean> {
     const firstMessage = selectedConversation?.messages[0];
@@ -114,6 +146,7 @@ export function MessengerTemplate({
   function shareDub(dub: Dub) {
     if (selectedBuddy) {
       onSendMessage(selectedBuddy.id, `Shared a dub: ${dub.title}`, dub.id);
+      setIsShareMenuOpen(false);
     }
   }
 
@@ -247,16 +280,25 @@ export function MessengerTemplate({
                         className="shared-dub shared-dub__player"
                         currentTimeSeconds={nowPlayingId === sharedDub.id ? currentTimeSeconds : 0}
                         durationSeconds={nowPlayingId === sharedDub.id ? durationSeconds : undefined}
-                        endAction={
-                          <Button
-                            aria-label={`Download ${sharedDub.title}`}
-                            className="app-icon-button shared-dub__download"
-                            leadingIcon={<Download aria-hidden="true" />}
-                            onClick={() => onDownload(sharedDub)}
-                            size="small"
-                            variant="tertiary"
-                          />
-                        }
+                        endAction={(
+                          <div className="shared-dub__actions">
+                            <Button
+                              aria-label={`Download ${sharedDub.title}`}
+                              className="app-icon-button shared-dub__download"
+                              leadingIcon={<Download aria-hidden="true" />}
+                              onClick={() => onDownload(sharedDub)}
+                              size="small"
+                              variant="tertiary"
+                            />
+                            {sharedDub.uploader === currentUsername && onEditDub && onDeleteDub && (
+                              <DubManagementActions
+                                onDelete={() => onDeleteDub(sharedDub)}
+                                onEdit={() => onEditDub(sharedDub)}
+                                title={sharedDub.title}
+                              />
+                            )}
+                          </div>
+                        )}
                         onPlayChange={() => onPlay(sharedDub)}
                         onSeek={nowPlayingId === sharedDub.id ? onSeek : undefined}
                         playing={nowPlayingId === sharedDub.id && isPlaying}
@@ -279,50 +321,80 @@ export function MessengerTemplate({
               })}
             </InfiniteScroll>
 
-            <details className="share-a-dub">
-              <summary>
+            <div className="share-a-dub" ref={shareMenuRef}>
+              <button
+                aria-controls="share-a-dub-menu"
+                aria-expanded={isShareMenuOpen}
+                className="share-a-dub__trigger"
+                onClick={() => setIsShareMenuOpen((open) => !open)}
+                ref={shareMenuTriggerRef}
+                type="button"
+              >
                 <Disc3 aria-hidden="true" />
                 Share one of My Dubs
-              </summary>
-              <InfiniteScroll
-                className="share-a-dub__list"
-                contentClassName="share-a-dub__results"
-                hasMore={visibleDubs.length < shareableDubs.length}
-                itemCount={visibleDubs.length}
-                label="Dubs"
-                loadDirection="end"
-                loading={false}
-                onLoadMore={() => setVisibleDubCount((count) => Math.min(count + 20, shareableDubs.length))}
-              >
-                {onCreateAndShareDub && (
-                  <div className="share-a-dub__create">
-                    <span>Have a new dub?</span>
-                    <Button onClick={() => onCreateAndShareDub(selectedBuddy.id)} size="small" variant="secondary">
-                      Upload &amp; share
-                    </Button>
-                  </div>
-                )}
-                {visibleDubs.map((dub) => (
-                  <div className="share-a-dub__entry" key={dub.id}>
-                    <div>
-                      <strong>{dub.title}</strong>
-                      <span>{dub.artist}</span>
-                    </div>
-                    <Button
-                      leadingIcon={<Link aria-hidden="true" />}
-                      onClick={() => shareDub(dub)}
-                      size="small"
-                      variant="tertiary"
-                    >
-                      Share Dub
-                    </Button>
-                  </div>
-                ))}
-                {shareableDubs.length === 0 && (
-                  <p className="share-a-dub__empty">You have not shared a dub yet. Upload one to send it here.</p>
-                )}
-              </InfiniteScroll>
-            </details>
+              </button>
+              {isShareMenuOpen && (
+                <div
+                  aria-label="My Dubs available to share"
+                  className="share-a-dub__popover"
+                  id="share-a-dub-menu"
+                  role="region"
+                >
+                  <InfiniteScroll
+                    className="share-a-dub__list"
+                    contentClassName="share-a-dub__results"
+                    hasMore={visibleDubs.length < shareableDubs.length}
+                    itemCount={visibleDubs.length}
+                    label="Dubs"
+                    loadDirection="end"
+                    loading={false}
+                    onLoadMore={() => setVisibleDubCount((count) => Math.min(count + 20, shareableDubs.length))}
+                  >
+                    {onCreateAndShareDub && (
+                      <div className="share-a-dub__create">
+                        <span>Have a new dub?</span>
+                        <Button
+                          onClick={() => {
+                            setIsShareMenuOpen(false);
+                            onCreateAndShareDub(selectedBuddy.id);
+                          }}
+                          size="small"
+                          variant="secondary"
+                        >
+                          Upload &amp; share
+                        </Button>
+                      </div>
+                    )}
+                    {visibleDubs.map((dub) => (
+                      <div className="share-a-dub__entry" key={dub.id}>
+                        <div>
+                          <strong>{dub.title}</strong>
+                          <span>{dub.artist}</span>
+                        </div>
+                        <Button
+                          leadingIcon={<Link aria-hidden="true" />}
+                          onClick={() => shareDub(dub)}
+                          size="small"
+                          variant="tertiary"
+                        >
+                          Share Dub
+                        </Button>
+                        {dub.uploader === currentUsername && onEditDub && onDeleteDub && (
+                          <DubManagementActions
+                            onDelete={() => onDeleteDub(dub)}
+                            onEdit={() => onEditDub(dub)}
+                            title={dub.title}
+                          />
+                        )}
+                      </div>
+                    ))}
+                    {shareableDubs.length === 0 && (
+                      <p className="share-a-dub__empty">You have not shared a dub yet. Upload one to send it here.</p>
+                    )}
+                  </InfiniteScroll>
+                </div>
+              )}
+            </div>
 
             <ChatComposer
               onChange={setMessage}

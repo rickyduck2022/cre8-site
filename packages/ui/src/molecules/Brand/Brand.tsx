@@ -18,7 +18,7 @@ export function Brand({ className, href = "#dubs", logoSrc, size = "small" }: Br
       href={href}
     >
       {logoSrc ? (
-        <img className="brand__logo" src={logoSrc} alt="Cre8 Messenger · Wear Cre8 DnB" />
+        <img className="brand__logo" src={logoSrc} alt="Cre8 DnB silhouette mark" />
       ) : (
         <>
           <AudioLines className="brand__mark" aria-hidden="true" />

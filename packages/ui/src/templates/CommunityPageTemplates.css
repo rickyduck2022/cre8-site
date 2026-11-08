@@ -700,22 +700,31 @@ button {
   position: relative;
 }
 
-.share-a-dub summary {
+.share-a-dub__trigger {
   align-items: center;
+  background: transparent;
+  border: 0;
   color: var(--text-secondary);
   cursor: pointer;
   display: flex;
   font-size: var(--font-size-10);
   gap: 0.4rem;
-  list-style: none;
   padding: 0.625rem 1rem;
+  text-align: left;
+  width: 100%;
 }
 
-.share-a-dub summary::-webkit-details-marker {
-  display: none;
+.share-a-dub__trigger:hover,
+.share-a-dub__trigger[aria-expanded="true"] {
+  color: var(--text-primary);
 }
 
-.share-a-dub summary svg {
+.share-a-dub__trigger:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+}
+
+.share-a-dub__trigger svg {
   height: 0.9rem;
   width: 0.9rem;
 }
@@ -788,6 +797,15 @@ button {
   flex: none;
   min-height: 1.875rem;
   padding: 0.25rem 0.5rem;
+}
+
+.share-a-dub__entry > .dub-management-actions {
+  gap: 0.25rem;
+}
+
+.shared-dub__actions .dub-management-actions > .button {
+  font-size: var(--font-size-9);
+  padding: 0.2rem 0.35rem;
 }
 
 .share-a-dub__empty {

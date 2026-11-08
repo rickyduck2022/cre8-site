@@ -261,6 +261,12 @@
   width: 100%;
 }
 
+.app-header--compact > .brand .brand__logo,
+.app-header--mobile > .brand .brand__logo {
+  max-width: 24vw;
+  width: 4.5rem;
+}
+
 .navigation__sections,
 .navigation__items {
   display: grid;

@@ -16,11 +16,14 @@ describe("MessengerTemplate shared dubs", () => {
     const foreignDub: Dub = { ...ownDub, id: "foreign", title: "Someone Else's", uploader: "other" };
     const onCreateAndShareDub = vi.fn();
     const onSendMessage = vi.fn(async () => true);
+    const onEditDub = vi.fn();
+    const onDeleteDub = vi.fn();
     render(<MessengerTemplate
       buddies={[{ id: "friend-1", username: "amber", displayName: "Amber", presence: "online", genre: "Jungle", role: "DJ", bio: "", groups: [] }]}
       conversations={[]}
       dubs={[ownDub, foreignDub]}
       shareableDubs={[ownDub]}
+      currentUsername="you"
       initialBuddyId="friend-1"
       chatConnectionStatus="connected"
       nowPlayingId={null}
@@ -29,17 +32,34 @@ describe("MessengerTemplate shared dubs", () => {
       onPlay={vi.fn()}
       onStartConversation={vi.fn()}
       onCreateAndShareDub={onCreateAndShareDub}
+      onEditDub={onEditDub}
+      onDeleteDub={onDeleteDub}
       onSelectConversation={vi.fn()}
       onLoadOlderMessages={vi.fn(async () => null)}
       onSendMessage={onSendMessage}
     />);
-    fireEvent.click(screen.getByText("Share one of My Dubs"));
+    const trigger = screen.getByRole("button", { name: "Share one of My Dubs" });
+    fireEvent.click(trigger);
     expect(screen.getByText("My Release")).toBeInTheDocument();
     expect(screen.queryByText("Someone Else's")).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Share Dub" }));
-    expect(onSendMessage).toHaveBeenCalledWith("friend-1", "Shared a dub: My Release", "my-dub");
+    expect(screen.getByRole("button", { name: "Edit My Release" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Delete My Release" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Upload & share" }));
     expect(onCreateAndShareDub).toHaveBeenCalledWith("friend-1");
+    expect(trigger).toHaveAttribute("aria-expanded", "false");
+
+    fireEvent.click(trigger);
+    fireEvent.click(screen.getByRole("button", { name: "Share Dub" }));
+    expect(onSendMessage).toHaveBeenCalledWith("friend-1", "Shared a dub: My Release", "my-dub");
+    expect(trigger).toHaveAttribute("aria-expanded", "false");
+
+    fireEvent.click(trigger);
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(trigger).toHaveAttribute("aria-expanded", "false");
+
+    fireEvent.click(trigger);
+    fireEvent.pointerDown(document.body);
+    expect(trigger).toHaveAttribute("aria-expanded", "false");
   });
 
   it("plays and downloads a shared dub inside its conversation", () => {
@@ -51,10 +71,13 @@ describe("MessengerTemplate shared dubs", () => {
     };
     const onPlay = vi.fn();
     const onDownload = vi.fn();
+    const onEditDub = vi.fn();
+    const onDeleteDub = vi.fn();
     render(<MessengerTemplate
       buddies={[{ id: "friend-1", username: "amber", displayName: "Amber", presence: "online", genre: "Jungle", role: "DJ", bio: "", groups: [] }]}
       conversations={[{ buddyId: "friend-1", messages: [{ id: "message-1", sender: "them", text: "Shared a dub: Jungle Drop", sentAt: "2026-11-01T12:00:00.000Z", dubId: dub.id }] }]}
       dubs={[dub]}
+      currentUsername="amber"
       initialBuddyId="friend-1"
       chatConnectionStatus="connected"
       nowPlayingId={dub.id}
@@ -65,12 +88,16 @@ describe("MessengerTemplate shared dubs", () => {
       onOpenProfile={vi.fn()}
       onPlay={onPlay}
       onDownload={onDownload}
+      onEditDub={onEditDub}
+      onDeleteDub={onDeleteDub}
       onStartConversation={vi.fn()}
       onSelectConversation={vi.fn()}
       onLoadOlderMessages={vi.fn(async () => null)}
       onSendMessage={vi.fn(async () => true)}
     />);
     expect(screen.getByRole("region", { name: "Audio player: Jungle Drop" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Edit Jungle Drop" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Delete Jungle Drop" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Pause" }));
     fireEvent.click(screen.getByRole("button", { name: "Download Jungle Drop" }));
     const inlineControls = screen

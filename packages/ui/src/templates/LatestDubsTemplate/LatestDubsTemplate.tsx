@@ -35,6 +35,11 @@ export interface LatestDubsTemplateProps {
   onDownload: (dub: Dub) => void;
   onOpenProfile: (username: string) => void;
   onPlay: (dub: Dub) => void;
+  brandingImageSrc?: string;
+  brandingImageAlt?: string;
+  currentUsername?: string;
+  onEditDub?: (dub: Dub) => void;
+  onDeleteDub?: (dub: Dub) => void;
   onAddToCrate?: (dubId: string) => void;
   onRemoveFromCrate?: (crateId: string, dubId: string) => void;
 }
@@ -61,6 +66,11 @@ export function LatestDubsTemplate({
   onDownload,
   onOpenProfile,
   onPlay,
+  brandingImageSrc,
+  brandingImageAlt = "Cre8 DnB branding",
+  currentUsername,
+  onEditDub,
+  onDeleteDub,
   onAddToCrate,
   onRemoveFromCrate,
 }: LatestDubsTemplateProps) {
@@ -86,8 +96,15 @@ export function LatestDubsTemplate({
 
   return (
     <div className="latest-dubs-template">
-      <section className="page-intro">
-        <div>
+      <section className={brandingImageSrc ? "page-intro latest-dubs-template__intro" : "page-intro"}>
+        {brandingImageSrc && (
+          <img
+            alt={brandingImageAlt}
+            className="latest-dubs-template__branding"
+            src={brandingImageSrc}
+          />
+        )}
+        <div className={brandingImageSrc ? "latest-dubs-template__intro-copy" : undefined}>
           <span className="eyebrow">YOUR COMMUNITY, IN ROTATION</span>
           <h1>{crateName ?? "Dub Feed"}</h1>
           <p>
@@ -155,6 +172,9 @@ export function LatestDubsTemplate({
             onDownload={onDownload}
             onOpenProfile={onOpenProfile}
             onPlay={onPlay}
+            manageable={Boolean(currentUsername && dub.uploader === currentUsername)}
+            onEdit={onEditDub}
+            onDelete={onDeleteDub}
           />
         ))}
         {visibleDubs.length === 0 && (

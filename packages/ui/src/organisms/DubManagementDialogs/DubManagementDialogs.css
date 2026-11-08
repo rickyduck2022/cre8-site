@@ -1,0 +1,9 @@
+.dub-management-dialogs__delete-copy {
+  color: var(--text-secondary);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.dub-management-dialogs__delete-copy strong {
+  color: var(--text-primary);
+}

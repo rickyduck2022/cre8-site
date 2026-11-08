@@ -27,3 +27,4 @@ export * from "./AudioPreview/AudioPreview";
 export * from "./ShareEntry/ShareEntry";
 export * from "./CircleShortcut/CircleShortcut";
 export * from "./ChatComposer/ChatComposer";
+export * from "./DubManagementActions/DubManagementActions";

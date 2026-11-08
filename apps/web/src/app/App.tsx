@@ -14,6 +14,7 @@ import {
   BuddyListTemplate,
   Button,
   DashboardTemplate,
+  DubManagementDialogs,
   DubUploadForm,
   EditProfileForm,
   LatestDubsTemplate,
@@ -25,6 +26,7 @@ import {
   NotificationViewport,
   ProfileTemplate,
   TrackArtwork,
+  type Dub,
   type NotificationMessage,
   type NavigationSection,
 } from "@craft/ui";
@@ -53,7 +55,7 @@ const sectionIcons: Record<CommunitySection, ReactNode> = {
 };
 
 const sections = Object.keys(sectionLabels) as CommunitySection[];
-const cre8LogoSrc = "/cre8-messenger-logo.png";
+const cre8LogoSrc = "/cre8-main-logo.png";
 
 function getSectionFromHash(hash: string): CommunitySection {
   const section = hash.replace(/^#/, "") as CommunitySection;
@@ -123,6 +125,8 @@ export function App() {
   const [memberSearchQuery, setMemberSearchQuery] = useState("");
   const { members: memberSearchResults, isSearching: isSearchingMembers } = useMemberSearch(memberSearchQuery);
   const [isUploadOpen, setIsUploadOpen] = useState(false);
+  const [editingDub, setEditingDub] = useState<Dub | null>(null);
+  const [deletingDub, setDeletingDub] = useState<Dub | null>(null);
   const [shareDubTargetId, setShareDubTargetId] = useState<string | null>(null);
   const [isProfileEditOpen, setIsProfileEditOpen] = useState(false);
   const [isStartConversationOpen, setIsStartConversationOpen] = useState(false);
@@ -178,6 +182,14 @@ export function App() {
     setChatBuddyId(buddyId);
     void markConversationRead(buddyId);
     navigateTo("messenger");
+  }
+
+  function beginDubEdit(dub: Dub) {
+    setEditingDub(dub);
+  }
+
+  function beginDubDelete(dub: Dub) {
+    setDeletingDub(dub);
   }
 
   function openNotification(notification: NotificationMessage) {
@@ -409,6 +421,11 @@ export function App() {
               onShuffleChange={setShuffle}
               onRepeatChange={setRepeat}
               onDownload={downloadDub}
+              currentUsername={state.member.username}
+              onEditDub={beginDubEdit}
+              onDeleteDub={beginDubDelete}
+              brandingImageSrc="/we-are-cre8-dnb.png"
+              brandingImageAlt="We Are Cre8 DnB"
               onOpenProfile={openProfile}
               onPlay={togglePlayback}
               onQueryChange={setSearchQuery}
@@ -434,11 +451,16 @@ export function App() {
           />
         )}
         {activeSection === "library" && (
-          <LibraryTemplate downloads={state.library} onDownload={downloadDub} />
+          <LibraryTemplate
+            downloads={state.library}
+            onDownload={downloadDub}
+            currentUsername={state.member.username}
+            onEditDub={beginDubEdit}
+            onDeleteDub={beginDubDelete}
+          />
         )}
         {activeSection === "my-dubs" && (
           <MyDubsTemplate
-            artists={state.artists}
             dubs={myDubs}
             likedDubIds={state.likedDubIds}
             nowPlayingId={state.nowPlayingId}
@@ -456,10 +478,8 @@ export function App() {
             onDownload={downloadDub}
             onPlay={togglePlayback}
             onShareDub={() => setIsUploadOpen(true)}
-            onUpdateDub={updateDub}
-            onDeleteDub={deleteDub}
-            uploadProgress={uploadProgress}
-            uploadError={uploadError}
+            onEditDub={beginDubEdit}
+            onDeleteDub={beginDubDelete}
           />
         )}
         {activeSection === "messenger" && (
@@ -483,6 +503,9 @@ export function App() {
               setShareDubTargetId(buddyId);
               setIsUploadOpen(true);
             }}
+            currentUsername={state.member.username}
+            onEditDub={beginDubEdit}
+            onDeleteDub={beginDubDelete}
             onSelectConversation={markConversationRead}
             onLoadOlderMessages={loadOlderMessages}
             onSendMessage={sendMessage}
@@ -500,6 +523,8 @@ export function App() {
             playingDubId={state.nowPlayingId}
             onDownload={downloadDub}
             onOpenProfile={openProfile}
+            onEditDub={beginDubEdit}
+            onDeleteDub={beginDubDelete}
           />
         )}
       </div>
@@ -582,6 +607,17 @@ export function App() {
           )}
         </div>
       </Modal>
+      <DubManagementDialogs
+        artists={state.artists}
+        deletingDub={deletingDub}
+        editingDub={editingDub}
+        onCloseDelete={() => setDeletingDub(null)}
+        onCloseEdit={() => setEditingDub(null)}
+        onDeleteDub={deleteDub}
+        onUpdateDub={updateDub}
+        uploadError={uploadError}
+        uploadProgress={uploadProgress}
+      />
     </DashboardTemplate>
   );
 }

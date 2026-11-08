@@ -1,7 +1,6 @@
 import type { ReactNode } from "react";
 import { Avatar } from "../../atoms/Avatar/Avatar";
 import { Brand } from "../../molecules/Brand/Brand";
-import { Pagination, usePagination } from "../../molecules/Pagination/Pagination";
 import "../Organisms.css";
 
 export interface NavigationItem {
@@ -90,16 +89,13 @@ function NavigationSectionView({
   section,
   variant,
 }: NavigationSectionViewProps) {
-  const resetKey = section.items.map((item) => item.label).join("\u0000");
-  const pagination = usePagination(section.items, resetKey);
-
   return (
     <div className="navigation__section">
       {section.label && (
         <div className="navigation__section-label">{section.label}</div>
       )}
       <div className="navigation__items">
-        {pagination.items.map((item) => (
+        {section.items.map((item) => (
           <a
             aria-current={activeItem === item.label ? "page" : undefined}
             aria-label={variant === "icons" ? item.label : undefined}
@@ -118,16 +114,6 @@ function NavigationSectionView({
           </a>
         ))}
       </div>
-      <Pagination
-        className="pagination--compact"
-        itemCount={section.items.length}
-        label={section.label ?? "Navigation"}
-        onPageChange={pagination.setPage}
-        onPageSizeChange={pagination.setPageSize}
-        page={pagination.page}
-        pageSize={pagination.pageSize}
-        totalPages={pagination.totalPages}
-      />
       {section.footer && (
         <div className="navigation__section-footer">{section.footer}</div>
       )}
