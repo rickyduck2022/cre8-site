@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { Dub } from "../../templates/communityTypes";
+import type { Dub } from "../../types/domain";
 import { DubCard } from "./DubCard";
 
 afterEach(cleanup);

@@ -3,7 +3,7 @@ import { Avatar } from "../../atoms/Avatar/Avatar";
 import { AListBadge } from "../../atoms/AListBadge/AListBadge";
 import { Button } from "../../atoms/Button/Button";
 import { SearchField } from "../SearchField/SearchField";
-import type { Buddy } from "../../templates/communityTypes";
+import type { Buddy } from "../../types/domain";
 import "./FriendPicker.css";
 
 export interface FriendPickerProps {

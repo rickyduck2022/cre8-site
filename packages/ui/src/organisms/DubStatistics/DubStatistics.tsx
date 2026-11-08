@@ -1,6 +1,6 @@
 import { Button } from "../../atoms/Button/Button";
 import { ArtistCard } from "../../molecules/ArtistCard/ArtistCard";
-import type { Dub } from "../../templates/communityTypes";
+import type { Dub } from "../../types/domain";
 import "./DubStatistics.css";
 
 export interface DubStatisticsProps {

@@ -3,7 +3,7 @@ import { Badge } from "../../atoms/Badge/Badge";
 import { Button } from "../../atoms/Button/Button";
 import { SearchField } from "../../molecules/SearchField/SearchField";
 import { TagSelector } from "../../molecules/TagSelector/TagSelector";
-import type { Dub } from "../../templates/communityTypes";
+import type { Dub } from "../../types/domain";
 import "./DubSearch.css";
 
 type Distribution = NonNullable<Dub["distribution"]>;

@@ -6,7 +6,7 @@ import { UploadProgress } from "../UploadProgress/UploadProgress";
 import { TagSelector } from "../TagSelector/TagSelector";
 import { FriendPicker } from "../FriendPicker/FriendPicker";
 import type { UploadProgressState } from "../notificationTypes";
-import type { Buddy, Dub } from "../../templates/communityTypes";
+import type { Buddy, Dub } from "../../types/domain";
 import "../Molecules.css";
 
 export interface DubUploadFormValues {

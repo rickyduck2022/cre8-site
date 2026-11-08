@@ -6,7 +6,7 @@ import { TrackTag } from "../../atoms/TrackTag/TrackTag";
 import { DubActionsMenu } from "../../molecules/DubActionsMenu/DubActionsMenu";
 import { TrackFileMetadata } from "../../molecules/TrackFileMetadata/TrackFileMetadata";
 import { AudioPlayer } from "../AudioPlayer/AudioPlayer";
-import type { Dub } from "../../templates/communityTypes";
+import type { Dub } from "../../types/domain";
 import { formatLocalTimestamp, formatRelativeTime } from "../../templates/templateFormatters";
 import { TrackArtwork } from "../../templates/shared/TrackArtwork";
 import "../../foundations/DistributionSurfaces.css";

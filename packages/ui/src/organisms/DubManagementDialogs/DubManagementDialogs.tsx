@@ -5,7 +5,7 @@ import type { DubUploadFormValues } from "../../molecules/DubUploadForm/DubUploa
 import { ModalFooter } from "../../molecules/ModalFooter/ModalFooter";
 import type { UploadProgressState } from "../../molecules/notificationTypes";
 import { Modal } from "../Modal/Modal";
-import type { ArtistOption, Buddy, Dub } from "../../templates/communityTypes";
+import type { ArtistOption, Buddy, Dub } from "../../types/domain";
 import "./DubManagementDialogs.css";
 
 export interface DubManagementDialogsProps {

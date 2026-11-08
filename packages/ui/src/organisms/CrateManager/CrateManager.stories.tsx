@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react";
 import { CrateManager } from "./CrateManager";
-import type { Dub } from "../../templates/communityTypes";
+import type { Dub } from "../../types/domain";
 
 const dubs: Dub[] = [
   {

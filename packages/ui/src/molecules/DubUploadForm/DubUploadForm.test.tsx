@@ -1,7 +1,7 @@
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { DubUploadForm } from "./DubUploadForm";
-import type { Buddy } from "../../templates/communityTypes";
+import type { Buddy } from "../../types/domain";
 
 const buddies: Buddy[] = [
   { id: "friend-1", username: "meladee", displayName: "Meladee", presence: "online", genre: "Jungle", role: "DJ", bio: "", groups: [] },

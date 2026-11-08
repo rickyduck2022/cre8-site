@@ -3,7 +3,7 @@ import { Disc3, Folder, Plus } from "@craft/icons";
 import { Button } from "../../atoms/Button/Button";
 import { CreateCrateForm } from "../../molecules/CreateCrateForm/CreateCrateForm";
 import { SearchField } from "../../molecules/SearchField/SearchField";
-import type { Dub } from "../../templates/communityTypes";
+import type { Dub } from "../../types/domain";
 import "./CrateManager.css";
 
 export interface ManagedCrate {

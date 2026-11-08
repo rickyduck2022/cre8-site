@@ -4,7 +4,7 @@ import type { NowPlayingProps } from "../../molecules/NowPlaying/NowPlaying";
 import { NowPlaying } from "../../molecules/NowPlaying/NowPlaying";
 import { TransportControls } from "../../molecules/TransportControls/TransportControls";
 import { Waveform } from "../../molecules/Waveform/Waveform";
-import type { Dub } from "../../templates/communityTypes";
+import type { Dub } from "../../types/domain";
 import "../Organisms.css";
 import "../../foundations/DistributionSurfaces.css";
 

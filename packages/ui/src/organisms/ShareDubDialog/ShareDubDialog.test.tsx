@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { ShareDubDialog, canShareDub } from "./ShareDubDialog";
-import type { Buddy, Dub } from "../../templates/communityTypes";
+import type { Buddy, Dub } from "../../types/domain";
 
 const dub: Dub = {
   id: "dub-1", title: "Night Drive", artist: "Amber", uploader: "amber",

@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { DubManagementDialogs } from "./DubManagementDialogs";
-import type { Dub } from "../../templates/communityTypes";
+import type { Dub } from "../../types/domain";
 
 afterEach(cleanup);
 beforeAll(() => {

@@ -5,7 +5,7 @@ import { Button } from "../../atoms/Button/Button";
 import { FriendPicker } from "../../molecules/FriendPicker/FriendPicker";
 import { ModalFooter } from "../../molecules/ModalFooter/ModalFooter";
 import { Modal } from "../Modal/Modal";
-import type { Buddy, Dub } from "../../templates/communityTypes";
+import type { Buddy, Dub } from "../../types/domain";
 import { shareDubToFriends } from "./shareDubToFriends";
 import "./ShareDubDialog.css";
 

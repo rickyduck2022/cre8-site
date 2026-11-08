@@ -2,7 +2,7 @@ import { UserPlus } from "@craft/icons";
 import { Button } from "../../atoms/Button/Button";
 import { ArtistCard } from "../../molecules/ArtistCard/ArtistCard";
 import { SearchField } from "../../molecules/SearchField/SearchField";
-import type { MemberSearchResult } from "../../templates/communityTypes";
+import type { MemberSearchResult } from "../../types/domain";
 import "../Organisms.css";
 
 export interface FriendLookupProps {
