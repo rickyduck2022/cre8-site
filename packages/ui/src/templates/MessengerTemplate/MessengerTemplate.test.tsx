@@ -44,7 +44,11 @@ describe("MessengerTemplate shared dubs", () => {
     expect(screen.queryByRole("button", { name: "Edit My Release" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Delete My Release" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Share Dub" })).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Upload & share" }));
+    const uploadButton = screen.getByRole("button", { name: "Upload and share a dub" });
+    expect(uploadButton).toHaveClass("button--primary");
+    expect(uploadButton.querySelector("svg")).toBeInTheDocument();
+    expect(uploadButton).not.toHaveTextContent("Upload");
+    fireEvent.click(uploadButton);
     expect(onCreateAndShareDub).toHaveBeenCalledWith("friend-1");
     expect(trigger).toHaveAttribute("aria-expanded", "false");
 

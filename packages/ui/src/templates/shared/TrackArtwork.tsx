@@ -33,10 +33,7 @@ export function TrackArtwork({ dub, large = false }: TrackArtworkProps) {
           src={dub.artworkUrl}
         />
       ) : (
-        <>
-          <AudioLines aria-hidden="true" />
-          <span>WHITELABEL</span>
-        </>
+        <AudioLines aria-hidden="true" />
       )}
     </div>
   );

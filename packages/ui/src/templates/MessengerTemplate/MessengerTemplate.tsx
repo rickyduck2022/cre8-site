@@ -7,6 +7,7 @@ import {
   MoreActions,
   Plus,
   Undo,
+  Upload,
 } from "@craft/icons";
 import { Avatar } from "../../atoms/Avatar/Avatar";
 import { Badge } from "../../atoms/Badge/Badge";
@@ -420,15 +421,16 @@ export function MessengerTemplate({
                       <div className="share-a-dub__create">
                         <span>Have a new dub?</span>
                         <Button
+                          aria-label="Upload and share a dub"
+                          className="share-a-dub__upload"
+                          leadingIcon={<Upload aria-hidden="true" />}
                           onClick={() => {
                             setIsShareMenuOpen(false);
                             onCreateAndShareDub(selectedBuddy.id);
                           }}
                           size="small"
-                          variant="secondary"
-                        >
-                          Upload &amp; share
-                        </Button>
+                          variant="primary"
+                        />
                       </div>
                     )}
                     {visibleDubs.map((dub) => (

@@ -8,11 +8,6 @@
   width: 2rem;
 }
 
-.dub-actions-menu__trigger--icon-only .button__icon > svg {
-  height: 1rem;
-  width: 1rem;
-}
-
 .dub-actions-menu__popover {
   background: var(--surface-raised);
   border: 1px solid var(--border-default);

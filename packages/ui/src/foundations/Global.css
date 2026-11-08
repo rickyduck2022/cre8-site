@@ -3,3 +3,10 @@
 *::after {
   box-sizing: border-box;
 }
+
+button,
+input[type="button"],
+input[type="submit"],
+input[type="reset"] {
+  text-transform: uppercase;
+}
