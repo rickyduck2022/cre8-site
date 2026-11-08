@@ -1,0 +1,40 @@
+/* Design Tokens - Breakpoints */
+:root {
+  --breakpoint-mobile: 520px;
+}
+
+/* Design Tokens - Animation & Transition Timings */
+:root {
+  --animation-duration-fast: 120ms;
+  --animation-duration-spinner: 800ms;
+  --animation-easing-default: ease;
+}
+
+/* Design Tokens - Spacing */
+:root {
+  --spacing-2xs: 0.25rem;
+  --spacing-xs: 0.375rem;
+  --spacing-sm: 0.5rem;
+  --spacing-md: 0.625rem;
+  --spacing-lg: 0.75rem;
+  --spacing-xl: 0.875rem;
+  --spacing-2xl: 1rem;
+  --spacing-3xl: 1.25rem;
+  --spacing-4xl: 1.5rem;
+  --spacing-5xl: 2rem;
+}
+
+/* Design Tokens - Size */
+:root {
+  --size-icon-small: 1.125rem;
+  --size-icon-medium: 1.25rem;
+}
+
+/* Design Tokens - Dimension Constants */
+:root {
+  --focus-outline-width: 2px;
+  --focus-outline-offset: 3px;
+  --border-radius-default: 0.5rem;
+  --button-spinner-border-width: 2px;
+  --button-spinner-size: 0.85em;
+}
