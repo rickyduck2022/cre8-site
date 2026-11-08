@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, type ReactNode } from "react";
 import { Button } from "../../atoms/Button/Button";
 import { ModalFooterOutlet } from "../../molecules/ModalFooter/ModalFooter";
+import { cn } from "../../utils/cn";
 import "../Organisms.css";
 
 export interface ModalProps {
@@ -31,7 +32,7 @@ export function Modal({
   return (
     <dialog
       aria-labelledby={titleId}
-      className={["modal", className].filter(Boolean).join(" ")}
+      className={cn("modal", className)}
       onCancel={(event) => {
         event.preventDefault();
         onClose();
