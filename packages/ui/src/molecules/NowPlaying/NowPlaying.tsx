@@ -9,6 +9,7 @@ export interface NowPlayingProps {
   artwork?: string;
   artworkContent?: ReactNode;
   onArtistClick?: () => void;
+  isPlaying?: boolean;
   showArtwork?: boolean;
   className?: string;
 }
@@ -18,6 +19,7 @@ export function NowPlaying({
   artworkContent,
   artwork,
   className,
+  isPlaying = true,
   onArtistClick,
   showArtwork = true,
   title,
@@ -58,7 +60,7 @@ export function NowPlaying({
           <span className="now-playing__artist">{artist}</span>
         )}
       </span>
-      <Badge dot variant="audio" aria-label="Now playing" />
+      {isPlaying && <Badge dot variant="audio" role="status" aria-label="Now playing" />}
     </div>
   );
 }

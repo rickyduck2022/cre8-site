@@ -3,6 +3,8 @@
 Run the app and API together with `pnpm dev`, or start the backend alone with
 `pnpm dev:api`. The API listens on port 3001 and the Vite development server
 proxies `/api` requests to it.
+During development, the web app loads the UI package from source so player and
+other component changes are reflected without rebuilding the UI bundle.
 
 ## Render demo
 

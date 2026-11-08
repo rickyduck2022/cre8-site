@@ -1,6 +1,9 @@
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { Repeat } from "@craft/icons";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { TransportControls } from "./TransportControls";
+
+afterEach(cleanup);
 
 describe("TransportControls", () => {
   it("keeps the play button icon as its only flex item", () => {
@@ -9,5 +12,18 @@ describe("TransportControls", () => {
     const playButton = screen.getByRole("button", { name: "Play" });
     expect(playButton.children).toHaveLength(1);
     expect(playButton.firstElementChild).toHaveClass("button__icon");
+  });
+
+  it("uses the repeat icon and toggles the repeat state", () => {
+    const onRepeatChange = vi.fn();
+    render(<TransportControls onRepeatChange={onRepeatChange} />);
+    const repeatButton = screen.getByRole("button", { name: "Enable repeat" });
+    const reference = render(<Repeat />);
+    expect(repeatButton.querySelector("path")?.getAttribute("d"))
+      .toBe(reference.container.querySelector("path")?.getAttribute("d"));
+    expect(repeatButton).toHaveAttribute("aria-pressed", "false");
+    fireEvent.click(repeatButton);
+    expect(onRepeatChange).toHaveBeenCalledWith(true);
+    expect(screen.getByRole("button", { name: "Disable repeat" })).toHaveAttribute("aria-pressed", "true");
   });
 });

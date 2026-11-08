@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { AudioLines, Pause, Play, Shuffle, SkipBack, SkipForward } from "@craft/icons";
+import { Pause, Play, Repeat, Shuffle, SkipBack, SkipForward } from "@craft/icons";
 import { Button } from "../../atoms/Button/Button";
 import "../Molecules.css";
 
@@ -97,7 +97,7 @@ export function TransportControls({
         aria-label={repeat ? "Disable repeat" : "Enable repeat"}
         aria-pressed={repeat}
         className={`transport-controls__button${repeat ? " is-active" : ""}`}
-        leadingIcon={<AudioLines aria-hidden="true" />}
+        leadingIcon={<Repeat aria-hidden="true" />}
         onClick={toggleRepeat}
         size="small"
         variant="tertiary"

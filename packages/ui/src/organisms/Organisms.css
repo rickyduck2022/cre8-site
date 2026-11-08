@@ -547,7 +547,6 @@
   min-width: 0;
 }
 
-.audio-player--inline .now-playing > .badge,
 .audio-player--inline .audio-player__volume,
 .audio-player--inline .transport-controls__button {
   display: none;

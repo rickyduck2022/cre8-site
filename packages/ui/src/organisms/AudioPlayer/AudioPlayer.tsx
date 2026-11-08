@@ -108,6 +108,7 @@ export function AudioPlayer({
         artist={track.artist}
         artwork={track.artwork}
         artworkContent={track.artworkContent}
+        isPlaying={currentPlaying}
         onArtistClick={track.onArtistClick}
         title={track.title}
       />
