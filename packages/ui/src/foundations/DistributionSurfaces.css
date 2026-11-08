@@ -13,9 +13,10 @@
   --text-secondary: var(--text-inverse-secondary);
   --audio-active: var(--audio-inverse-active);
   --audio-inactive: var(--audio-inverse-inactive);
-  --action-primary: var(--action-inverse-hover);
+  --action-primary: var(--action-inverse);
   --action-primary-hover: var(--action-inverse-hover);
-  --alist-badge-background: var(--color-orange-500);
+  --action-primary-pressed: var(--action-inverse-pressed);
+  --text-on-accent: var(--text-on-inverse-accent);
   --focus-ring: var(--audio-inverse-active);
   --status-error: var(--status-inverse-error);
   background: var(--surface-canvas);

@@ -44,7 +44,10 @@
   --text-inverse-secondary: #4B5563;
   --audio-inverse-active: #006C7A;
   --audio-inverse-inactive: #8995A3;
-  --action-inverse-hover: #954500;
+  --action-inverse: var(--audio-inverse-active);
+  --action-inverse-hover: color-mix(in srgb, var(--action-inverse) 85%, var(--text-inverse));
+  --action-inverse-pressed: color-mix(in srgb, var(--action-inverse) 70%, var(--text-inverse));
+  --text-on-inverse-accent: var(--surface-inverse-raised);
   --status-inverse-error: #A51D2D;
 
   /* Font names are optional local fonts; no external font request is required. */

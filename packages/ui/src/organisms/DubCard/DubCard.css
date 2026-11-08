@@ -9,14 +9,6 @@
   transition: border-color 140ms ease;
 }
 
-.dub-card--alist .button--primary {
-  background: var(--color-orange-500);
-}
-
-.dub-card--alist .button--primary:not(:disabled):hover {
-  background: var(--color-orange-400);
-}
-
 .dub-card:hover {
   border-color: color-mix(in srgb, var(--text-secondary) 55%, var(--border-default));
 }
