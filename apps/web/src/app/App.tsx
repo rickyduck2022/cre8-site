@@ -13,8 +13,7 @@ import {
   ArtistRegistrationForm,
   BuddyListTemplate,
   Button,
-  CreateCrateForm,
-  CratePicker,
+  CrateManager,
   DashboardTemplate,
   DubUploadForm,
   EditProfileForm,
@@ -61,7 +60,7 @@ function getCrateIdFromHash(hash: string) {
 function createNavigationSections(
   unreadCount: number,
   crates: Array<{ id: string; name: string }>,
-  onCreateCrate: () => void,
+  onManageCrates: () => void,
 ): NavigationSection[] {
   return [
     {
@@ -84,9 +83,9 @@ function createNavigationSections(
         href: `#crate/${encodeURIComponent(crate.id)}`,
       })),
       footer: (
-        <button onClick={onCreateCrate} type="button">
+        <button onClick={onManageCrates} type="button">
           <Plus aria-hidden="true" />
-          Add a crate
+          Manage crates
         </button>
       ),
     },
@@ -123,8 +122,11 @@ export function App() {
     addBuddy,
     removeBuddy,
     markConversationRead,
+    loadOlderMessages,
     sendMessage,
     createCrate,
+    renameCrate,
+    deleteCrate,
     updateCrateDub,
     updateProfile,
     unreadCount,
@@ -139,10 +141,10 @@ export function App() {
   const [chatBuddyId, setChatBuddyId] = useState("evan");
   const [searchQuery, setSearchQuery] = useState("");
   const [isUploadOpen, setIsUploadOpen] = useState(false);
-  const [isCrateCreateOpen, setIsCrateCreateOpen] = useState(false);
+  const [isCrateManagerOpen, setIsCrateManagerOpen] = useState(false);
   const [isProfileEditOpen, setIsProfileEditOpen] = useState(false);
   const [isStartConversationOpen, setIsStartConversationOpen] = useState(false);
-  const [cratePickerDubId, setCratePickerDubId] = useState<string | null>(null);
+  const [pendingCrateDubId, setPendingCrateDubId] = useState<string | null>(null);
   const [loginUsername, setLoginUsername] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [loginError, setLoginError] = useState("");
@@ -154,7 +156,7 @@ export function App() {
     () => createNavigationSections(
       unreadCount,
       state.crates,
-      () => setIsCrateCreateOpen(true),
+      openCrateManager,
     ),
     [unreadCount, state.crates],
   );
@@ -169,6 +171,7 @@ export function App() {
   const profileUploads = state.dubs.filter((dub) => dub.uploader === profile?.username);
   const profileBuddy = state.buddies.find((buddy) => buddy.username === profile?.username);
   const selectedCrate = state.crates.find((crate) => crate.id === activeCrateId);
+  const pendingCrateDub = state.dubs.find((dub) => dub.id === pendingCrateDubId) ?? null;
   const visibleDubs = selectedCrate
     ? state.dubs.filter((dub) => selectedCrate.dubIds.includes(dub.id))
     : state.dubs;
@@ -218,15 +221,39 @@ export function App() {
     navigateTo("messenger");
   }
 
-  function handleCreateCrate(name: string) {
-    void createCrate(name);
-    setIsCrateCreateOpen(false);
+  function openCrate(crateId: string) {
+    setActiveCrateId(crateId);
+    setActiveSection("dubs");
+    closeCrateManager();
+    const nextHash = `#crate/${encodeURIComponent(crateId)}`;
+    if (window.location.hash !== nextHash) window.history.pushState(null, "", nextHash);
   }
 
-  function handleAddDubToCrate(crateId: string) {
-    if (!cratePickerDubId) return;
-    void updateCrateDub(crateId, cratePickerDubId, true);
-    setCratePickerDubId(null);
+  function openCrateManager() {
+    setPendingCrateDubId(null);
+    setIsCrateManagerOpen(true);
+  }
+
+  function openCrateManagerForDub(dubId: string) {
+    setPendingCrateDubId(dubId);
+    setIsCrateManagerOpen(true);
+  }
+
+  function closeCrateManager() {
+    setIsCrateManagerOpen(false);
+    setPendingCrateDubId(null);
+  }
+
+  async function handleDeleteCrate(crateId: string) {
+    const succeeded = await deleteCrate(crateId);
+    if (succeeded && activeCrateId === crateId) navigateTo("dubs");
+    return succeeded;
+  }
+
+  async function handleAddPendingDubToCrate(crateId: string, dubId: string) {
+    const succeeded = await updateCrateDub(crateId, dubId, true);
+    if (succeeded) closeCrateManager();
+    return succeeded;
   }
 
   async function handleShareDub(values: Parameters<typeof addDub>[0]) {
@@ -446,7 +473,7 @@ export function App() {
               onPlay={togglePlayback}
               onQueryChange={setSearchQuery}
               query={searchQuery}
-              onAddToCrate={setCratePickerDubId}
+              onAddToCrate={openCrateManagerForDub}
               crateId={selectedCrate?.id}
               onRemoveFromCrate={(crateId, dubId) => void updateCrateDub(crateId, dubId, false)}
             />
@@ -475,6 +502,7 @@ export function App() {
             onPlay={togglePlayback}
             onStartConversation={() => setIsStartConversationOpen(true)}
             onSelectConversation={markConversationRead}
+            onLoadOlderMessages={loadOlderMessages}
             onSendMessage={sendMessage}
           />
         )}
@@ -542,24 +570,21 @@ export function App() {
         )}
       </Modal>
       <Modal
-        isOpen={isCrateCreateOpen}
-        onClose={() => setIsCrateCreateOpen(false)}
-        title="Create a crate"
+        className="crate-management-modal"
+        isOpen={isCrateManagerOpen}
+        onClose={closeCrateManager}
+        title={pendingCrateDub ? `Add ${pendingCrateDub.title} to a crate` : "Manage crates"}
       >
-        <CreateCrateForm
-          onCancel={() => setIsCrateCreateOpen(false)}
-          onSubmit={handleCreateCrate}
-        />
-      </Modal>
-      <Modal
-        isOpen={cratePickerDubId !== null}
-        onClose={() => setCratePickerDubId(null)}
-        title={`Add ${state.dubs.find((dub) => dub.id === cratePickerDubId)?.title ?? "dub"} to a crate`}
-      >
-        <CratePicker
+        <CrateManager
           crates={state.crates}
-          onCancel={() => setCratePickerDubId(null)}
-          onSelect={handleAddDubToCrate}
+          dubs={state.dubs}
+          pendingDub={pendingCrateDub}
+          onCreateCrate={createCrate}
+          onRenameCrate={renameCrate}
+          onDeleteCrate={handleDeleteCrate}
+          onSetDubInCrate={updateCrateDub}
+          onAddPendingDub={handleAddPendingDubToCrate}
+          onOpenCrate={openCrate}
         />
       </Modal>
       <Modal

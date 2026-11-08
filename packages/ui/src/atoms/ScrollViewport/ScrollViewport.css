@@ -1,0 +1,11 @@
+.scroll-viewport {
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+.scroll-trigger {
+  flex: 0 0 1px;
+  min-height: 1px;
+}

@@ -10,7 +10,7 @@ import { Avatar } from "../../atoms/Avatar/Avatar";
 import { Badge } from "../../atoms/Badge/Badge";
 import { Button } from "../../atoms/Button/Button";
 import { ChatComposer } from "../../molecules/ChatComposer/ChatComposer";
-import { Pagination, usePagination } from "../../molecules/Pagination/Pagination";
+import { InfiniteScroll } from "../../molecules/InfiniteScroll/InfiniteScroll";
 import { TrackArtwork } from "../shared/TrackArtwork";
 import { PresenceIndicator } from "../shared/PresenceIndicator";
 import { formatTime } from "../templateFormatters";
@@ -28,6 +28,7 @@ export interface MessengerTemplateProps {
   onPlay: (dub: Dub) => void;
   onStartConversation: () => void;
   onSelectConversation: (buddyId: string) => void;
+  onLoadOlderMessages: (buddyId: string, beforeId: string) => Promise<unknown>;
   onSendMessage: (
     buddyId: string,
     text: string,
@@ -45,10 +46,14 @@ export function MessengerTemplate({
   onPlay,
   onStartConversation,
   onSelectConversation,
+  onLoadOlderMessages,
   onSendMessage,
 }: MessengerTemplateProps) {
   const [selectedBuddyId, setSelectedBuddyId] = useState(initialBuddyId);
   const [message, setMessage] = useState("");
+  const [loadingOlder, setLoadingOlder] = useState(false);
+  const [visibleBuddyCount, setVisibleBuddyCount] = useState(20);
+  const [visibleDubCount, setVisibleDubCount] = useState(20);
 
   useEffect(() => {
     setSelectedBuddyId(initialBuddyId);
@@ -59,12 +64,22 @@ export function MessengerTemplate({
   const selectedConversation = conversations.find(
     (conversation) => conversation.buddyId === selectedBuddy?.id,
   );
-  const buddyPagination = usePagination(buddies);
-  const messagePagination = usePagination(
-    selectedConversation?.messages ?? [],
-    selectedBuddy?.id,
-  );
-  const dubPagination = usePagination(dubs);
+  const visibleBuddies = buddies.slice(0, visibleBuddyCount);
+  const visibleDubs = dubs.slice(0, visibleDubCount);
+
+  useEffect(() => setLoadingOlder(false), [selectedBuddy?.id]);
+
+  async function loadOlderMessages(): Promise<boolean> {
+    const firstMessage = selectedConversation?.messages[0];
+    if (!selectedBuddy || !firstMessage || loadingOlder) return false;
+    setLoadingOlder(true);
+    try {
+      const result = await onLoadOlderMessages(selectedBuddy.id, firstMessage.id);
+      return result !== null && result !== false;
+    } finally {
+      setLoadingOlder(false);
+    }
+  }
 
   function selectConversation(buddyId: string) {
     setSelectedBuddyId(buddyId);
@@ -121,45 +136,46 @@ export function MessengerTemplate({
               <span className="sr-only">Start conversation</span>
             </Button>
           </div>
-          {buddyPagination.items.map((buddy) => {
-            const conversation = conversations.find(
-              (item) => item.buddyId === buddy.id,
-            );
-            const latest = conversation?.messages.at(-1);
-            return (
-              <button
-                aria-current={selectedBuddy?.id === buddy.id ? "true" : undefined}
-                className={`conversation-link${selectedBuddy?.id === buddy.id ? " is-selected" : ""}`}
-                key={buddy.id}
-                onClick={() => selectConversation(buddy.id)}
-                type="button"
-              >
-                <span className={`buddy-row__avatar buddy-row__avatar--${buddy.presence}`}>
-                  <Avatar
-                    name={buddy.displayName}
-                    size="medium"
-                    status={buddy.presence === "offline" ? "inactive" : "active"}
-                  />
-                  <PresenceIndicator presence={buddy.presence} />
-                </span>
-                <span className="conversation-link__copy">
-                  <strong>{buddy.displayName}</strong>
-                  <span>{latest?.text ?? "Start a conversation"}</span>
-                </span>
-                {buddy.unread && <Badge>{buddy.unread}</Badge>}
-              </button>
-            );
-          })}
-          <Pagination
-            className="pagination--compact"
-            itemCount={buddies.length}
+          <InfiniteScroll
+            className="messenger__conversations"
+            contentClassName="messenger__conversation-list"
+            hasMore={visibleBuddies.length < buddies.length}
+            itemCount={visibleBuddies.length}
             label="Conversations"
-            onPageChange={buddyPagination.setPage}
-            onPageSizeChange={buddyPagination.setPageSize}
-            page={buddyPagination.page}
-            pageSize={buddyPagination.pageSize}
-            totalPages={buddyPagination.totalPages}
-          />
+            loadDirection="end"
+            loading={false}
+            onLoadMore={() => setVisibleBuddyCount((count) => Math.min(count + 20, buddies.length))}
+          >
+            {visibleBuddies.map((buddy) => {
+              const conversation = conversations.find(
+                (item) => item.buddyId === buddy.id,
+              );
+              const latest = conversation?.messages.at(-1);
+              return (
+                <button
+                  aria-current={selectedBuddy?.id === buddy.id ? "true" : undefined}
+                  className={`conversation-link${selectedBuddy?.id === buddy.id ? " is-selected" : ""}`}
+                  key={buddy.id}
+                  onClick={() => selectConversation(buddy.id)}
+                  type="button"
+                >
+                  <span className={`buddy-row__avatar buddy-row__avatar--${buddy.presence}`}>
+                    <Avatar
+                      name={buddy.displayName}
+                      size="medium"
+                      status={buddy.presence === "offline" ? "inactive" : "active"}
+                    />
+                    <PresenceIndicator presence={buddy.presence} />
+                  </span>
+                  <span className="conversation-link__copy">
+                    <strong>{buddy.displayName}</strong>
+                    <span>{latest?.text ?? "Start a conversation"}</span>
+                  </span>
+                  {buddy.unread && <Badge>{buddy.unread}</Badge>}
+                </button>
+              );
+            })}
+          </InfiniteScroll>
         </aside>
 
         {selectedBuddy ? (
@@ -185,8 +201,21 @@ export function MessengerTemplate({
               </Button>
             </header>
 
-            <div aria-live="polite" className="chat-messages">
-              {messagePagination.items.map((chatMessage) => {
+            <InfiniteScroll
+              key={selectedBuddy.id}
+              className="chat-messages"
+              contentClassName="chat-messages__content"
+              firstItemKey={selectedConversation?.messages[0]?.id}
+              hasMore={selectedConversation?.hasMoreMessages ?? false}
+              initialPosition="end"
+              itemCount={selectedConversation?.messages.length ?? 0}
+              label="Conversation messages"
+              loading={loadingOlder}
+              onLoadMore={loadOlderMessages}
+              role="log"
+              scrollToBottomKey={selectedConversation?.messages.at(-1)?.id}
+            >
+              {(selectedConversation?.messages ?? []).map((chatMessage) => {
                 const sharedDub = chatMessage.dubId
                   ? dubs.find((dub) => dub.id === chatMessage.dubId)
                   : undefined;
@@ -218,24 +247,24 @@ export function MessengerTemplate({
                   </div>
                 );
               })}
-            </div>
-            <Pagination
-              itemCount={selectedConversation?.messages.length ?? 0}
-              label="Messages"
-              onPageChange={messagePagination.setPage}
-              onPageSizeChange={messagePagination.setPageSize}
-              page={messagePagination.page}
-              pageSize={messagePagination.pageSize}
-              totalPages={messagePagination.totalPages}
-            />
+            </InfiniteScroll>
 
             <details className="share-a-dub">
               <summary>
                 <Disc3 aria-hidden="true" />
                 Share a dub
               </summary>
-              <div className="share-a-dub__list">
-                {dubPagination.items.map((dub) => (
+              <InfiniteScroll
+                className="share-a-dub__list"
+                contentClassName="share-a-dub__results"
+                hasMore={visibleDubs.length < dubs.length}
+                itemCount={visibleDubs.length}
+                label="Dubs"
+                loadDirection="end"
+                loading={false}
+                onLoadMore={() => setVisibleDubCount((count) => Math.min(count + 20, dubs.length))}
+              >
+                {visibleDubs.map((dub) => (
                   <button
                     key={dub.id}
                     onClick={() => shareDub(dub)}
@@ -246,16 +275,7 @@ export function MessengerTemplate({
                     <Link aria-hidden="true" />
                   </button>
                 ))}
-                <Pagination
-                  itemCount={dubs.length}
-                  label="Share a dub"
-                  onPageChange={dubPagination.setPage}
-                  onPageSizeChange={dubPagination.setPageSize}
-                  page={dubPagination.page}
-                  pageSize={dubPagination.pageSize}
-                  totalPages={dubPagination.totalPages}
-                />
-              </div>
+              </InfiniteScroll>
             </details>
 
             <ChatComposer

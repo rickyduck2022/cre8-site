@@ -1,6 +1,7 @@
 export * from "./AppHeader/AppHeader";
 export * from "./AudioPlayer/AudioPlayer";
 export * from "./CommunityPanel/CommunityPanel";
+export * from "./CrateManager/CrateManager";
 export * from "./DubPost/DubPost";
 export * from "./Feed/Feed";
 export * from "./FriendDiscovery/FriendDiscovery";

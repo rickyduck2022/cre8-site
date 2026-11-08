@@ -53,6 +53,13 @@ export interface ChatMessage {
 export interface Conversation {
   buddyId: string;
   messages: ChatMessage[];
+  hasMoreMessages?: boolean;
+}
+
+export interface ChatMessagePage {
+  buddyId: string;
+  messages: ChatMessage[];
+  hasMoreMessages: boolean;
 }
 
 export interface MemberProfile {

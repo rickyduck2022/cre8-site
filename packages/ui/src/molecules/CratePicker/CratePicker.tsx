@@ -33,7 +33,7 @@ export function CratePicker({ crates, onCancel, onSelect }: CratePickerProps) {
         </ul>
       ) : (
         <p className="crate-picker__empty">
-          You don't have any crates yet. Create one from the sidebar first.
+          You don't have any crates yet. Open Manage crates in the sidebar to create one.
         </p>
       )}
       <div className="crate-form__actions">

@@ -241,6 +241,46 @@ test("starter account has no seeded tracks and retains uploaded community activi
     assert.equal(crateResponse.status, 201);
     const crate = await crateResponse.json();
 
+    const renameCrateResponse = await fetch(`${server.baseUrl}/api/crates/${crate.id}`, {
+      method: "PATCH",
+      headers: { cookie, "content-type": "application/json" },
+      body: JSON.stringify({ name: "Late-night selection" }),
+    });
+    assert.equal(renameCrateResponse.status, 200);
+    assert.equal((await renameCrateResponse.json()).name, "Late-night selection");
+
+    const duplicateCrateResponse = await fetch(`${server.baseUrl}/api/crates`, {
+      method: "POST",
+      headers: { cookie, "content-type": "application/json" },
+      body: JSON.stringify({ name: " late-NIGHT SELECTION " }),
+    });
+    assert.equal(duplicateCrateResponse.status, 409);
+
+    const invalidRenameResponse = await fetch(`${server.baseUrl}/api/crates/${crate.id}`, {
+      method: "PATCH",
+      headers: { cookie, "content-type": "application/json" },
+      body: JSON.stringify({ name: " " }),
+    });
+    assert.equal(invalidRenameResponse.status, 400);
+
+    const temporaryCrateResponse = await fetch(`${server.baseUrl}/api/crates`, {
+      method: "POST",
+      headers: { cookie, "content-type": "application/json" },
+      body: JSON.stringify({ name: "Disposable crate" }),
+    });
+    const temporaryCrate = await temporaryCrateResponse.json();
+    const deleteCrateResponse = await fetch(`${server.baseUrl}/api/crates/${temporaryCrate.id}`, {
+      method: "DELETE",
+      headers: { cookie },
+    });
+    assert.equal(deleteCrateResponse.status, 200);
+    assert.equal((await deleteCrateResponse.json()).id, temporaryCrate.id);
+    const deletedCrateResponse = await fetch(`${server.baseUrl}/api/crates/${temporaryCrate.id}`, {
+      method: "DELETE",
+      headers: { cookie },
+    });
+    assert.equal(deletedCrateResponse.status, 404);
+
     const addedFriendResponse = await fetch(`${server.baseUrl}/api/buddies`, {
       method: "POST",
       headers: { cookie, "content-type": "application/json" },

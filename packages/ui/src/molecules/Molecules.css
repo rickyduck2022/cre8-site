@@ -987,3 +987,37 @@
     transition-duration: 0.01ms;
   }
 }
+.infinite-scroll__status {
+  align-items: center;
+  color: var(--text-secondary);
+  display: flex;
+  font-size: var(--font-size-11);
+  gap: 0.5rem;
+  justify-content: center;
+  min-height: 2rem;
+  padding: 0.25rem 0;
+}
+
+.infinite-scroll__end {
+  flex: 0 0 1px;
+  min-height: 1px;
+}
+
+.infinite-scroll-story {
+  height: 22rem;
+  width: min(100%, 32rem);
+}
+
+.infinite-scroll-story__content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.5rem;
+}
+
+.infinite-scroll-story__item {
+  background: var(--surface-raised);
+  border: 1px solid var(--border-default);
+  border-radius: 0.5rem;
+  padding: 0.75rem;
+}

@@ -1,0 +1,236 @@
+.crate-manager {
+  display: grid;
+  gap: 1rem;
+  max-width: 100%;
+  min-width: 34rem;
+  width: max-content;
+}
+
+.crate-manager__intro {
+  color: var(--text-secondary);
+  font-size: var(--font-size-11);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.crate-manager__toolbar {
+  align-items: center;
+  display: flex;
+  gap: 0.75rem;
+}
+
+.crate-manager__toolbar > .search-field {
+  flex: 1;
+}
+
+.crate-manager__create,
+.crate-manager__inline-form {
+  background: var(--surface-canvas);
+  border: 1px solid var(--border-default);
+  border-radius: 0.625rem;
+  padding: 0.75rem;
+}
+
+.crate-manager__pending-track {
+  align-items: center;
+  background: color-mix(in srgb, var(--audio-active) 8%, var(--surface-canvas));
+  border: 1px solid color-mix(in srgb, var(--audio-active) 28%, var(--border-default));
+  border-radius: 0.5rem;
+  color: var(--text-secondary);
+  display: flex;
+  font-size: var(--font-size-11);
+  gap: 0.625rem;
+  min-width: 0;
+  padding: 0.625rem 0.75rem;
+}
+
+.crate-manager__pending-track svg {
+  color: var(--audio-active);
+  flex: none;
+  height: 1rem;
+  width: 1rem;
+}
+
+.crate-manager__pending-track strong {
+  color: var(--text-primary);
+}
+
+.crate-manager__list,
+.crate-manager__track-list {
+  display: grid;
+  gap: 0.625rem;
+  list-style: none;
+  margin: 0;
+  max-height: min(58vh, 30rem);
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: 0 0.25rem 0 0;
+  min-width: 0;
+}
+
+.crate-manager__item article {
+  background: var(--surface-raised);
+  border: 1px solid var(--border-default);
+  border-radius: 0.625rem;
+  display: grid;
+  gap: 0.75rem;
+  min-width: 0;
+  padding: 0.75rem;
+}
+
+.crate-manager__row,
+.crate-manager__identity,
+.crate-manager__actions,
+.crate-manager__track-info {
+  align-items: center;
+  display: flex;
+  gap: 0.625rem;
+}
+
+.crate-manager__row {
+  flex-wrap: wrap;
+  justify-content: space-between;
+}
+
+.crate-manager__identity {
+  min-width: 10rem;
+}
+
+.crate-manager__identity > svg {
+  color: var(--action-primary-hover);
+  flex: none;
+  height: 1.25rem;
+  width: 1.25rem;
+}
+
+.crate-manager__identity > div,
+.crate-manager__track-info > span {
+  display: grid;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.crate-manager__identity strong,
+.crate-manager__track-info strong {
+  color: var(--text-primary);
+  font-size: var(--font-size-11);
+  overflow-wrap: anywhere;
+}
+
+.crate-manager__identity span,
+.crate-manager__track-info small {
+  color: var(--text-secondary);
+  font-size: var(--font-size-9);
+}
+
+.crate-manager__actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.crate-manager__confirm {
+  align-items: center;
+  background: color-mix(in srgb, var(--color-danger) 8%, var(--surface-canvas));
+  border: 1px solid color-mix(in srgb, var(--color-danger) 35%, var(--border-default));
+  border-radius: 0.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0.75rem;
+}
+
+.crate-manager__confirm p {
+  flex: 1 1 100%;
+  font-size: var(--font-size-11);
+  margin: 0;
+}
+
+.crate-manager__tracks {
+  border-top: 1px solid var(--border-default);
+  display: grid;
+  gap: 0.75rem;
+  padding-top: 0.75rem;
+}
+
+.crate-manager__track-list {
+  max-height: min(36vh, 18rem);
+}
+
+.crate-manager__track-list > li {
+  align-items: center;
+  border-bottom: 1px solid var(--border-default);
+  display: flex;
+  gap: 0.75rem;
+  justify-content: space-between;
+  padding: 0.5rem 0.25rem;
+}
+
+.crate-manager__track-info {
+  min-width: 0;
+}
+
+.crate-manager__track-info > svg {
+  color: var(--audio-active);
+  flex: none;
+  height: 1rem;
+  width: 1rem;
+}
+
+.crate-manager__empty {
+  align-items: center;
+  color: var(--text-secondary);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: var(--font-size-11);
+  gap: 0.5rem;
+  justify-content: center;
+  margin: 0;
+  padding: 1rem;
+  text-align: center;
+}
+
+.crate-manager__empty > strong,
+.crate-manager__empty > span {
+  flex: 1 1 100%;
+}
+
+.crate-management-modal .modal__surface {
+  box-sizing: border-box;
+  max-width: min(48rem, calc(100vw - 2rem));
+  min-width: min(36.5rem, calc(100vw - 2rem));
+  width: max-content;
+}
+
+.crate-management-modal {
+  max-width: min(48rem, calc(100vw - 2rem));
+  width: max-content;
+}
+
+@media (max-width: 38rem) {
+  .crate-management-modal,
+  .crate-management-modal .modal__surface {
+    max-width: calc(100vw - 1.5rem);
+    min-width: 0;
+    width: calc(100vw - 1.5rem);
+  }
+
+  .crate-manager {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .crate-manager__toolbar,
+  .crate-manager__row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .crate-manager__actions {
+    justify-content: flex-start;
+  }
+
+  .crate-manager__list,
+  .crate-manager__track-list {
+    max-width: 100%;
+  }
+}

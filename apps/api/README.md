@@ -32,6 +32,17 @@ optional genre. Registration creates a linked artist profile and signs the
 artist in immediately. Signing out clears the server-side session and expires
 the session cookie.
 
+Conversation snapshots include the most recent 30 messages per conversation.
+The authenticated `GET /api/conversations/:buddyId/messages` endpoint returns
+the newest page; pass `?before=<message-id>` to fetch the page immediately
+before that message. Responses include `hasMoreMessages` so clients can stop
+requesting history when they reach the beginning of the conversation.
+
+Crate owners can create crates, rename them with `PATCH /api/crates/:crateId`,
+delete them with `DELETE /api/crates/:crateId`, and add or remove dubs with the
+`/api/crates/:crateId/dubs/:dubId` routes. Deleting a crate does not delete the
+tracks it contained.
+
 The seeded demo accounts are `meladee` / `meladee` and `holik` / `holik`.
 Passwords are stored as salted scrypt hashes. On a local run, community records,
 uploaded audio, and optional dub artwork are stored under `apps/api/data/`;

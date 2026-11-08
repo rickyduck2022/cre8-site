@@ -4,6 +4,7 @@ import type {
   Buddy,
   ChatConnectionStatus,
   ChatMessage,
+  ChatMessagePage,
   Conversation,
   Dub,
   DubUploadFormValues,
@@ -98,6 +99,12 @@ function jsonBody(value: unknown) {
   return JSON.stringify(value);
 }
 
+function mergeMessages(...groups: ChatMessage[][]) {
+  const byId = new Map<string, ChatMessage>();
+  for (const message of groups.flat()) byId.set(message.id, message);
+  return [...byId.values()].sort((left, right) => Date.parse(left.sentAt) - Date.parse(right.sentAt));
+}
+
 export function useCommunity() {
   const [state, setState] = useState(initialState);
   const [loading, setLoading] = useState(true);
@@ -184,7 +191,13 @@ export function useCommunity() {
       artists: snapshot.artists,
       dubs: snapshot.dubs,
       buddies: snapshot.buddies,
-      conversations: snapshot.conversations,
+      conversations: snapshot.conversations.map((conversation) => {
+        const existing = current.conversations.find((item) => item.buddyId === conversation.buddyId);
+        return {
+          ...conversation,
+          messages: mergeMessages(existing?.messages ?? [], conversation.messages),
+        };
+      }),
       likedDubIds: new Set(snapshot.likedDubIds),
       suggestedMembers: snapshot.suggestedMembers,
       crates: snapshot.crates,
@@ -554,6 +567,30 @@ export function useCommunity() {
     }
   }
 
+  async function loadOlderMessages(buddyId: string, beforeId: string): Promise<ChatMessagePage | null> {
+    try {
+      const page = await requestApi<ChatMessagePage>(
+        `/api/conversations/${encodeURIComponent(buddyId)}/messages?before=${encodeURIComponent(beforeId)}`,
+      );
+      setState((current) => ({
+        ...current,
+        conversations: current.conversations.map((conversation) =>
+          conversation.buddyId === buddyId
+            ? {
+                ...conversation,
+                messages: mergeMessages(page.messages, conversation.messages),
+                hasMoreMessages: page.hasMoreMessages,
+              }
+            : conversation,
+        ),
+      }));
+      return page;
+    } catch (requestError) {
+      notify(requestError instanceof Error ? requestError.message : "Earlier messages could not be loaded.", "error");
+      return null;
+    }
+  }
+
   async function sendMessage(buddyId: string, text: string, dubId?: string): Promise<boolean> {
     try {
       applySnapshot(await requestApi<CommunitySnapshot>(
@@ -567,7 +604,7 @@ export function useCommunity() {
     }
   }
 
-  async function createCrate(name: string) {
+  async function createCrate(name: string): Promise<boolean> {
     try {
       const crate = await requestApi<Crate>("/api/crates", {
         method: "POST",
@@ -575,12 +612,49 @@ export function useCommunity() {
       });
       setState((current) => ({ ...current, crates: [...current.crates, crate] }));
       notify(`${crate.name} crate created.`);
+      return true;
     } catch (requestError) {
       notify(requestError instanceof Error ? requestError.message : "Crate could not be created.", "error");
+      return false;
     }
   }
 
-  async function updateCrateDub(crateId: string, dubId: string, add: boolean) {
+  async function renameCrate(crateId: string, name: string): Promise<boolean> {
+    try {
+      const crate = await requestApi<Crate>(`/api/crates/${encodeURIComponent(crateId)}`, {
+        method: "PATCH",
+        body: jsonBody({ name }),
+      });
+      setState((current) => ({
+        ...current,
+        crates: current.crates.map((item) => item.id === crate.id ? crate : item),
+      }));
+      notify(`${crate.name} crate updated.`);
+      return true;
+    } catch (requestError) {
+      notify(requestError instanceof Error ? requestError.message : "Crate could not be renamed.", "error");
+      return false;
+    }
+  }
+
+  async function deleteCrate(crateId: string): Promise<boolean> {
+    try {
+      await requestApi<{ id: string }>(`/api/crates/${encodeURIComponent(crateId)}`, {
+        method: "DELETE",
+      });
+      setState((current) => ({
+        ...current,
+        crates: current.crates.filter((item) => item.id !== crateId),
+      }));
+      notify("Crate deleted. Its tracks remain in the Dub Feed.");
+      return true;
+    } catch (requestError) {
+      notify(requestError instanceof Error ? requestError.message : "Crate could not be deleted.", "error");
+      return false;
+    }
+  }
+
+  async function updateCrateDub(crateId: string, dubId: string, add: boolean): Promise<boolean> {
     try {
       const crate = await requestApi<Crate>(
         `/api/crates/${encodeURIComponent(crateId)}/dubs/${encodeURIComponent(dubId)}`,
@@ -591,8 +665,10 @@ export function useCommunity() {
         crates: current.crates.map((item) => item.id === crate.id ? crate : item),
       }));
       notify(add ? "Dub saved to crate." : "Dub removed from crate.");
+      return true;
     } catch (requestError) {
       notify(requestError instanceof Error ? requestError.message : "Crate could not be updated.", "error");
+      return false;
     }
   }
 
@@ -640,8 +716,11 @@ export function useCommunity() {
     addBuddy,
     removeBuddy,
     markConversationRead,
+    loadOlderMessages,
     sendMessage,
     createCrate,
+    renameCrate,
+    deleteCrate,
     updateCrateDub,
     updateProfile,
     unreadCount,

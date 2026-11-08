@@ -15,6 +15,7 @@ const maxAudioUploadBytes = 100 * 1024 * 1024;
 const maxArtworkUploadBytes = 10 * 1024 * 1024;
 const sessionLifetimeSeconds = 60 * 60 * 24 * 7;
 const dataSchemaVersion = 3;
+const conversationPageSize = 30;
 const removedSeedDubIds = new Set([
   "dub-coffeeshop",
   "dub-miller",
@@ -333,13 +334,35 @@ function publicDub(data, dub, currentUserId) {
   };
 }
 
+function crateNameKey(name) {
+  return String(name ?? "").trim().toLocaleLowerCase();
+}
+
+function publicCrates(data, userId) {
+  const grouped = new Map();
+  for (const crate of data.crates.filter((item) => item.userId === userId)) {
+    const key = crateNameKey(crate.name);
+    const existing = grouped.get(key);
+    if (existing) {
+      existing.dubIds = [...new Set([...existing.dubIds, ...(crate.dubIds ?? [])])];
+    } else {
+      grouped.set(key, { id: crate.id, name: crate.name, dubIds: [...(crate.dubIds ?? [])] });
+    }
+  }
+  return [...grouped.values()];
+}
+
 function communitySnapshot(data, user) {
   const artists = data.artists.filter((artist) => artist.userId === user.id);
   const friendships = data.friendships.filter((friendship) => friendship.ownerId === user.id);
   const friendUserIds = new Set(friendships.map((friendship) => friendship.friendUserId));
   const conversations = data.conversations
     .filter((conversation) => conversation.ownerId === user.id)
-    .map(({ buddyId, messages }) => ({ buddyId, messages }));
+    .map(({ buddyId, messages }) => ({
+      buddyId,
+      messages: messages.slice(-conversationPageSize),
+      hasMoreMessages: messages.length > conversationPageSize,
+    }));
   const buddies = friendships.map((friendship) => {
     const buddyUser = data.users.find((item) => item.id === friendship.friendUserId);
     const conversation = conversations.find((item) => item.buddyId === friendship.id);
@@ -378,9 +401,30 @@ function communitySnapshot(data, user) {
     suggestedMembers: data.users
       .filter((other) => other.id !== user.id && !friendUserIds.has(other.id))
       .map(({ username, displayName, genre }) => ({ username, displayName, genre })),
-    crates: data.crates
-      .filter((crate) => crate.userId === user.id)
-      .map((crate) => ({ id: crate.id, name: crate.name, dubIds: crate.dubIds })),
+    crates: publicCrates(data, user.id),
+  };
+}
+
+function getConversationMessagePage(data, user, buddyId, beforeId) {
+  const friendship = data.friendships.find(
+    (item) => item.id === buddyId && item.ownerId === user.id,
+  );
+  if (!friendship) return { error: "Friend not found.", status: 404 };
+
+  const conversation = data.conversations.find(
+    (item) => item.ownerId === user.id && item.buddyId === buddyId,
+  );
+  const messages = conversation?.messages ?? [];
+  let endIndex = messages.length;
+  if (beforeId) {
+    endIndex = messages.findIndex((message) => message.id === beforeId);
+    if (endIndex === -1) return { error: "Message cursor not found.", status: 400 };
+  }
+  const startIndex = Math.max(0, endIndex - conversationPageSize);
+  return {
+    buddyId,
+    messages: messages.slice(startIndex, endIndex),
+    hasMoreMessages: startIndex > 0,
   };
 }
 
@@ -615,6 +659,15 @@ export function createApiServer({
         json(response, 200, communitySnapshot(data, user));
         return;
       }
+      if (match && match[1] === "conversations" && request.method === "GET" && match[3] === "messages") {
+        const page = getConversationMessagePage(data, user, match[2], url.searchParams.get("before"));
+        if (page.error) {
+          json(response, page.status, { error: page.error });
+          return;
+        }
+        json(response, 200, page);
+        return;
+      }
       if (request.method === "POST" && route === "/api/uploads") {
         const audioFileName = basename(decodeURIComponent(request.headers["x-file-name"] ?? ""));
         const extension = extname(audioFileName).toLowerCase();
@@ -833,10 +886,58 @@ export function createApiServer({
           json(response, 400, { error: "Crate names must contain between 1 and 60 characters." });
           return;
         }
+        if (data.crates.some((crate) => crate.userId === user.id && crateNameKey(crate.name) === crateNameKey(name))) {
+          json(response, 409, { error: "A crate with that name already exists." });
+          return;
+        }
         const crate = { id: randomUUID(), userId: user.id, name, dubIds: [] };
         data.crates.push(crate);
         persist();
+        broadcastCommunity(user.id);
         json(response, 201, { id: crate.id, name: crate.name, dubIds: crate.dubIds });
+        return;
+      }
+      if (match && match[1] === "crates" && !match[3] && request.method === "PATCH") {
+        const crate = data.crates.find((item) => item.id === match[2] && item.userId === user.id);
+        if (!crate) {
+          json(response, 404, { error: "Crate not found." });
+          return;
+        }
+        const input = await readJson(request);
+        const name = String(input.name ?? "").trim();
+        if (!name || name.length > 60) {
+          json(response, 400, { error: "Crate names must contain between 1 and 60 characters." });
+          return;
+        }
+        const oldNameKey = crateNameKey(crate.name);
+        const newNameKey = crateNameKey(name);
+        if (data.crates.some((item) =>
+          item.userId === user.id && crateNameKey(item.name) === newNameKey && crateNameKey(item.name) !== oldNameKey,
+        )) {
+          json(response, 409, { error: "A crate with that name already exists." });
+          return;
+        }
+        for (const item of data.crates) {
+          if (item.userId === user.id && crateNameKey(item.name) === oldNameKey) item.name = name;
+        }
+        persist();
+        broadcastCommunity(user.id);
+        json(response, 200, publicCrates(data, user.id).find((item) => item.id === crate.id));
+        return;
+      }
+      if (match && match[1] === "crates" && !match[3] && request.method === "DELETE") {
+        const crateIndex = data.crates.findIndex((item) => item.id === match[2] && item.userId === user.id);
+        if (crateIndex === -1) {
+          json(response, 404, { error: "Crate not found." });
+          return;
+        }
+        const crateName = crateNameKey(data.crates[crateIndex].name);
+        data.crates = data.crates.filter((item) =>
+          item.userId !== user.id || crateNameKey(item.name) !== crateName,
+        );
+        persist();
+        broadcastCommunity(user.id);
+        json(response, 200, { id: match[2] });
         return;
       }
       if (match && match[1] === "crates" && match[3] === "dubs" && request.method === "PUT") {
@@ -846,9 +947,15 @@ export function createApiServer({
           json(response, 404, { error: "Crate or dub not found." });
           return;
         }
-        if (!crate.dubIds.includes(dub.id)) crate.dubIds.push(dub.id);
+        for (const item of data.crates) {
+          if (item.userId === user.id && crateNameKey(item.name) === crateNameKey(crate.name)) {
+            item.dubIds ??= [];
+            if (!item.dubIds.includes(dub.id)) item.dubIds.push(dub.id);
+          }
+        }
         persist();
-        json(response, 200, { id: crate.id, name: crate.name, dubIds: crate.dubIds });
+        broadcastCommunity(user.id);
+        json(response, 200, publicCrates(data, user.id).find((item) => item.id === crate.id));
         return;
       }
       if (match && match[1] === "crates" && match[3] === "dubs" && request.method === "DELETE") {
@@ -857,9 +964,14 @@ export function createApiServer({
           json(response, 404, { error: "Crate not found." });
           return;
         }
-        crate.dubIds = crate.dubIds.filter((dubId) => dubId !== match[4]);
+        for (const item of data.crates) {
+          if (item.userId === user.id && crateNameKey(item.name) === crateNameKey(crate.name)) {
+            item.dubIds = (item.dubIds ?? []).filter((dubId) => dubId !== match[4]);
+          }
+        }
         persist();
-        json(response, 200, { id: crate.id, name: crate.name, dubIds: crate.dubIds });
+        broadcastCommunity(user.id);
+        json(response, 200, publicCrates(data, user.id).find((item) => item.id === crate.id));
         return;
       }
       json(response, 404, { error: "Endpoint not found." });

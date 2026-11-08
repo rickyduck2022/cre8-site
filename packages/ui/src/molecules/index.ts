@@ -9,6 +9,7 @@ export * from "./ArtistRegistrationForm/ArtistRegistrationForm";
 export * from "./AccountMenu/AccountMenu";
 export * from "./EditProfileForm/EditProfileForm";
 export * from "./Pagination/Pagination";
+export * from "./InfiniteScroll/InfiniteScroll";
 export * from "./Brand/Brand";
 export * from "./MemberIdentity/MemberIdentity";
 export * from "./PostAuthor/PostAuthor";

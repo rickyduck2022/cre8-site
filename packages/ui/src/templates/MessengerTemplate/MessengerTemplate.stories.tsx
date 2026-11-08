@@ -78,6 +78,7 @@ const meta = {
     onPlay: () => undefined,
     onStartConversation: () => undefined,
     onSelectConversation: () => undefined,
+    onLoadOlderMessages: async () => true,
     onSendMessage: () => true,
   },
 } satisfies Meta<typeof MessengerTemplate>;
