@@ -8,6 +8,7 @@ import { Avatar } from "../../atoms/Avatar/Avatar";
 import { Button } from "../../atoms/Button/Button";
 import { Pagination, usePagination } from "../../molecules/Pagination/Pagination";
 import { DubCard } from "../../organisms/DubCard/DubCard";
+import { canShareDub } from "../../organisms/ShareDubDialog/ShareDubDialog";
 import type { Dub, MemberProfile } from "../communityTypes";
 import { formatRelativeTime } from "../templateFormatters";
 import "../CommunityPageTemplates.css";
@@ -39,6 +40,8 @@ export interface ProfileTemplateProps {
   onOpenProfile?: (username: string) => void;
   onEditDub?: (dub: Dub) => void;
   onDeleteDub?: (dub: Dub) => void;
+  onShareWithFriend?: (dub: Dub) => void;
+  currentUsername?: string;
 }
 
 export function ProfileTemplate({
@@ -67,6 +70,8 @@ export function ProfileTemplate({
   onOpenProfile,
   onEditDub,
   onDeleteDub,
+  onShareWithFriend,
+  currentUsername,
 }: ProfileTemplateProps) {
   const uploadsPagination = usePagination(uploads, profile.id);
   return (
@@ -174,6 +179,7 @@ export function ProfileTemplate({
                     manageable={isOwnProfile}
                     onEdit={onEditDub}
                     onDelete={onDeleteDub}
+                    onShareWithFriend={currentUsername && canShareDub(dub, currentUsername) ? onShareWithFriend : undefined}
                     key={dub.id}
                   />
                 ))}

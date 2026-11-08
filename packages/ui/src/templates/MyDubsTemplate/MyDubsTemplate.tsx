@@ -30,6 +30,7 @@ export interface MyDubsTemplateProps {
   onDownload: (dub: Dub) => void;
   onPlay: (dub: Dub) => void;
   onShareDub: () => void;
+  onShareWithFriend?: (dub: Dub) => void;
   onEditDub: (dub: Dub) => void;
   onDeleteDub: (dub: Dub) => void;
   onRevokeGrant?: (dubId: string, userId: string) => void;
@@ -56,6 +57,7 @@ export function MyDubsTemplate({
   onDownload,
   onPlay,
   onShareDub,
+  onShareWithFriend,
   onEditDub,
   onDeleteDub,
   onRevokeGrant,
@@ -118,6 +120,7 @@ export function MyDubsTemplate({
               onPlay={onPlay}
               onEdit={onEditDub}
               onDelete={onDeleteDub}
+              onShareWithFriend={onShareWithFriend}
               manageable
             />
             <p className="my-dubs-template__distribution">
@@ -139,7 +142,7 @@ export function MyDubsTemplate({
               ) : <p>No supporters yet.</p>}
               {dub.distribution === "private" && (
                 <div>
-                  <p>Share this dub with a friend in Messenger to grant access.</p>
+                  <p>Share this dub with a friend to grant access in Messenger.</p>
                   <p>Revoking access cannot remove files already downloaded.</p>
                   {dub.grants?.length ? (
                     <ul aria-label={`Private access to ${dub.title}`}>

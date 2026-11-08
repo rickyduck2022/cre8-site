@@ -48,10 +48,13 @@ dubs migrate to Worldwide. The distribution cannot be changed after upload.
 Unversioned data is not automatically reset; startup stops without changing it
 so it can be migrated safely.
 
-Private dubs are visible to their uploader and friends explicitly shared with
-in Messenger. Only the uploader can share a private dub or revoke a grant from
+Members can share accessible Worldwide dubs with friends from dub cards and
+the library; delivery happens in Messenger, with an optional message. A-List
+dubs can only be sent to approved A-List members. Private dubs are visible to
+their uploader and friends explicitly shared with in Messenger. Only the uploader can share a private dub or revoke a grant from
 My Dubs. Revocation prevents subsequent API access, but cannot recall files
-already downloaded or bytes already transferred. A-List access and uploads
+already downloaded or bytes already transferred. Unsending a message does not
+revoke private access; the uploader must revoke it separately. A-List access and uploads
 require server-side A-List approval. Members can submit applications under
 A-List Submission; administrators configured through `ADMIN_USERNAMES` can
 review and approve, reject, request information or revoke access in the admin

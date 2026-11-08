@@ -13,6 +13,17 @@ const dub: Dub = {
 };
 
 describe("LatestDubsTemplate ownership controls", () => {
+  it("shares a feed dub through the friend-sharing action", () => {
+    const onShareWithFriend = vi.fn();
+    render(<LatestDubsTemplate
+      dubs={[dub]} likedDubIds={new Set()} nowPlayingId={null} isPlaying={false}
+      onDownload={vi.fn()} onOpenProfile={vi.fn()} onPlay={vi.fn()}
+      currentUsername="meladee" onShareWithFriend={onShareWithFriend}
+    />);
+    fireEvent.click(screen.getByRole("button", { name: "Share My Dub with a friend" }));
+    expect(onShareWithFriend).toHaveBeenCalledWith(dub);
+  });
+
   it("can show a compact music-first heading without the rotation introduction", () => {
     render(<LatestDubsTemplate
       dubs={[dub]}

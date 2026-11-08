@@ -1,0 +1,16 @@
+.share-dub-dialog { display: grid; gap: 1rem; }
+.share-dub-dialog__track { background: var(--surface-control); border: 1px solid var(--border-default); border-radius: 0.625rem; display: grid; gap: 0.25rem; padding: 0.875rem; }
+.share-dub-dialog__track strong, .share-dub-dialog__track span { overflow-wrap: anywhere; }
+.share-dub-dialog__track span, .share-dub-dialog__hint, .share-dub-dialog__friend small, .share-dub-dialog__message small, .share-dub-dialog__empty p, .share-dub-dialog__success p { color: var(--text-secondary); font-size: var(--font-size-11); }
+.share-dub-dialog__hint, .share-dub-dialog__empty p, .share-dub-dialog__success p { line-height: 1.5; margin: 0; }
+.share-dub-dialog__friends { border: 0; display: grid; gap: 0.25rem; margin: 0; max-height: 13rem; min-width: 0; overflow-y: auto; padding: 0; }
+.share-dub-dialog__friends legend, .share-dub-dialog__message > span { font-size: var(--font-size-11); font-weight: 700; margin-bottom: 0.5rem; }
+.share-dub-dialog__friend { align-items: center; border: 1px solid var(--border-default); border-radius: 0.5rem; cursor: pointer; display: flex; gap: 0.75rem; padding: 0.625rem; }
+.share-dub-dialog__friend:has(input:checked) { border-color: var(--action-primary-hover); }
+.share-dub-dialog__friend > span:last-child { display: grid; gap: 0.125rem; min-width: 0; }
+.share-dub-dialog__friend strong { font-size: var(--font-size-12); overflow-wrap: anywhere; }
+.share-dub-dialog__message { display: grid; }
+.share-dub-dialog__message textarea { background: var(--surface-control); border: 1px solid var(--border-default); border-radius: 0.5rem; color: var(--text-primary); font: inherit; padding: 0.75rem; resize: vertical; width: 100%; }
+.share-dub-dialog__error { color: var(--status-error, #ff7777); font-size: var(--font-size-11); margin: 0; }
+.share-dub-dialog__empty, .share-dub-dialog__success { display: grid; gap: 0.75rem; justify-items: start; }
+.share-dub-dialog__success > svg { color: var(--action-primary-hover); height: 2rem; width: 2rem; }

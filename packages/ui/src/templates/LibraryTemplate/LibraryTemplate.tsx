@@ -1,9 +1,10 @@
-import { Download, Disc3 } from "@craft/icons";
+import { Download, Disc3, MessageCircle } from "@craft/icons";
 import { Button } from "../../atoms/Button/Button";
 import { Badge } from "../../atoms/Badge/Badge";
 import { TrackTag } from "../../atoms/TrackTag/TrackTag";
 import { DubActionsMenu } from "../../molecules/DubActionsMenu/DubActionsMenu";
 import { TrackFileMetadata } from "../../molecules/TrackFileMetadata/TrackFileMetadata";
+import { canShareDub } from "../../organisms/ShareDubDialog/ShareDubDialog";
 import type { LibraryDownload } from "../communityTypes";
 import { formatLocalTimestamp } from "../templateFormatters";
 import { TrackArtwork } from "../shared/TrackArtwork";
@@ -15,9 +16,10 @@ export interface LibraryTemplateProps {
   currentUsername?: string;
   onEditDub?: (dub: LibraryDownload["dub"]) => void;
   onDeleteDub?: (dub: LibraryDownload["dub"]) => void;
+  onShareWithFriend?: (dub: LibraryDownload["dub"]) => void;
 }
 
-export function LibraryTemplate({ downloads, onDownload, currentUsername, onEditDub, onDeleteDub }: LibraryTemplateProps) {
+export function LibraryTemplate({ downloads, onDownload, currentUsername, onEditDub, onDeleteDub, onShareWithFriend }: LibraryTemplateProps) {
   return (
     <div className="library-template">
       <section className="page-intro">
@@ -44,6 +46,9 @@ export function LibraryTemplate({ downloads, onDownload, currentUsername, onEdit
               <time dateTime={downloadedAt}>Downloaded {formatLocalTimestamp(downloadedAt)}</time>
               <div className="library-list__actions">
                 <Button leadingIcon={<Download />} onClick={() => onDownload(dub)} size="small" variant="secondary">Download again</Button>
+                {currentUsername && canShareDub(dub, currentUsername) && onShareWithFriend && (
+                  <Button aria-label={`Share ${dub.title} with a friend`} leadingIcon={<MessageCircle />} onClick={() => onShareWithFriend(dub)} size="small" variant="secondary">Share</Button>
+                )}
                 {dub.uploader === currentUsername && onEditDub && onDeleteDub && (
                   <DubActionsMenu
                     onDelete={() => onDeleteDub(dub)}

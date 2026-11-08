@@ -898,7 +898,9 @@ test("distribution permissions protect discovery, media, messaging and revocatio
     const ownerBuddy = (await snapshot(owner)).buddies.find((buddy) => buddy.username === "outsider");
     const outsiderBuddy = (await snapshot(outsider)).buddies.find((buddy) => buddy.username === "holik");
     const approvedBuddy = (await snapshot(approved)).buddies.find((buddy) => buddy.username === "outsider");
-    assert.equal((await request(approved, `/api/conversations/${approvedBuddy.id}/messages`, "POST", { text: "Exclusive", dubId: exclusiveDub.id })).status, 404);
+    const deniedShare = await request(approved, `/api/conversations/${approvedBuddy.id}/messages`, "POST", { text: "Exclusive", dubId: exclusiveDub.id });
+    assert.equal(deniedShare.status, 404);
+    assert.match((await deniedShare.json()).error, /approved A-List members/);
     socket = openChat(server.baseUrl, outsider);
     await waitForOpen(socket);
     const grantedEvent = waitForMessage(socket, (event) => event.type === "community.snapshot" && event.snapshot.dubs.some((dub) => dub.id === privateDub.id));
@@ -929,6 +931,11 @@ test("distribution permissions protect discovery, media, messaging and revocatio
     const history = await (await request(outsider, `/api/conversations/${ownerBuddyFromOutsider.id}/messages`)).json();
     assert.equal(history.messages[0].dubId, undefined);
     assert.equal(history.messages[0].text, "This dub is no longer available.");
+    const publicShare = await request(outsider, `/api/conversations/${outsiderBuddy.id}/messages`, "POST", { text: "Have a listen", dubId: publicDub.id });
+    assert.equal(publicShare.status, 201);
+    const receivedPublic = (await snapshot(approved)).conversations.find((conversation) => conversation.buddyId === approvedBuddy.id).messages.at(-1);
+    assert.equal(receivedPublic.text, "Have a listen");
+    assert.equal(receivedPublic.dubId, publicDub.id);
     socket.close();
     await waitForClose(socket);
     socket = undefined;

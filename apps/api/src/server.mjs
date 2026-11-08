@@ -625,9 +625,11 @@ function createConversationMessage(data, user, buddyId, input) {
   if (!recipient) return { error: "Friend not found.", status: 404 };
   if (input.dubId) {
     const dub = data.dubs.find((item) => item.id === input.dubId);
-    if (!canAccessDub(data, dub, user) || (dub.distribution === "private" && dub.uploaderId !== user.id)
-      || (dub.distribution === "alist" && recipient.aListApproved !== true)) {
+    if (!canAccessDub(data, dub, user) || (dub.distribution === "private" && dub.uploaderId !== user.id)) {
       return { error: "The shared dub is unavailable to this recipient.", status: 404 };
+    }
+    if (dub.distribution === "alist" && recipient.aListApproved !== true) {
+      return { error: "A-List dubs can only be shared with approved A-List members.", status: 404 };
     }
     if (dub.distribution === "private" && !data.dubGrants.some((grant) => grant.dubId === dub.id && grant.userId === recipient.id)) {
       data.dubGrants.push({ dubId: dub.id, userId: recipient.id });

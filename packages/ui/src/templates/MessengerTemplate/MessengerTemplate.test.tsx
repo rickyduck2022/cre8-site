@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { MessengerTemplate } from "./MessengerTemplate";
 import type { Dub } from "../communityTypes";
@@ -6,7 +6,7 @@ import type { Dub } from "../communityTypes";
 afterEach(cleanup);
 
 describe("MessengerTemplate shared dubs", () => {
-  it("offers only owned dubs and can open the existing upload flow", () => {
+  it("offers only owned dubs and can open the existing upload flow", async () => {
     const ownDub: Dub = {
       id: "my-dub", title: "My Release", artist: "You", uploader: "you",
       uploaderDisplayName: "You", uploadedAt: "2026-11-01T12:00:00.000Z", bpm: 174,
@@ -50,12 +50,12 @@ describe("MessengerTemplate shared dubs", () => {
     expect(uploadButton).not.toHaveTextContent("Upload");
     fireEvent.click(uploadButton);
     expect(onCreateAndShareDub).toHaveBeenCalledWith("friend-1");
-    expect(trigger).toHaveAttribute("aria-expanded", "false");
+    await waitFor(() => expect(trigger).toHaveAttribute("aria-expanded", "false"));
 
     fireEvent.click(trigger);
     fireEvent.click(screen.getByRole("button", { name: "Share My Release with Amber" }));
     expect(onSendMessage).toHaveBeenCalledWith("friend-1", "Shared a dub: My Release", "my-dub");
-    expect(trigger).toHaveAttribute("aria-expanded", "false");
+    await waitFor(() => expect(trigger).toHaveAttribute("aria-expanded", "false"));
 
     fireEvent.click(trigger);
     fireEvent.keyDown(document, { key: "Escape" });
@@ -78,7 +78,7 @@ describe("MessengerTemplate shared dubs", () => {
     const onDownload = vi.fn();
     render(<MessengerTemplate
       buddies={[{ id: "friend-1", username: "amber", displayName: "Amber", presence: "online", genre: "Jungle", role: "DJ", bio: "", groups: [] }]}
-      conversations={[{ buddyId: "friend-1", messages: [{ id: "message-1", sender: "them", text: "Shared a dub: Jungle Drop", sentAt: "2026-11-01T12:00:00.000Z", dubId: dub.id }] }]}
+      conversations={[{ buddyId: "friend-1", messages: [{ id: "message-1", sender: "them", text: "Have a listen", sentAt: "2026-11-01T12:00:00.000Z", dubId: dub.id }] }]}
       dubs={[dub]}
       initialBuddyId="friend-1"
       chatConnectionStatus="connected"
@@ -96,6 +96,7 @@ describe("MessengerTemplate shared dubs", () => {
       onSendMessage={vi.fn(async () => true)}
     />);
     expect(screen.getByRole("region", { name: "Audio player: Jungle Drop" })).toBeInTheDocument();
+    expect(within(screen.getByRole("log", { name: "Conversation messages" })).getByText("Have a listen")).toBeVisible();
     expect(screen.queryByRole("button", { name: "Edit Jungle Drop" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Delete Jungle Drop" })).not.toBeInTheDocument();
     expect(screen.getByText("WAV")).toBeInTheDocument();
@@ -120,5 +121,28 @@ describe("MessengerTemplate shared dubs", () => {
     ]);
     expect(onPlay).toHaveBeenCalledWith(dub);
     expect(onDownload).toHaveBeenCalledWith(dub);
+  });
+
+  it("keeps the share menu open if sending fails and supports searching", async () => {
+    const dub: Dub = {
+      id: "my-dub", title: "My Release", artist: "You", uploader: "you",
+      uploaderDisplayName: "You", uploadedAt: "2026-11-01T12:00:00Z", bpm: 174,
+      genre: "Jungle", duration: "03:30", likes: 0, downloads: 0, artwork: "whitelabel", message: "",
+    };
+    render(<MessengerTemplate
+      buddies={[{ id: "friend", username: "amber", displayName: "Amber", presence: "online", genre: "Jungle", role: "DJ", bio: "", groups: [] }]}
+      conversations={[]} dubs={[dub]} shareableDubs={[dub]} initialBuddyId="friend"
+      chatConnectionStatus="connected" nowPlayingId={null} isPlaying={false}
+      onOpenProfile={vi.fn()} onPlay={vi.fn()} onStartConversation={vi.fn()}
+      onSelectConversation={vi.fn()} onLoadOlderMessages={vi.fn(async () => null)}
+      onSendMessage={vi.fn(async () => false)}
+    />);
+    fireEvent.click(screen.getByRole("button", { name: "Share one of My Dubs" }));
+    fireEvent.change(screen.getByRole("searchbox", { name: "Search My Dubs to share" }), { target: { value: "missing" } });
+    expect(screen.getByText("No dubs match your search.")).toBeVisible();
+    fireEvent.change(screen.getByRole("searchbox", { name: "Search My Dubs to share" }), { target: { value: "release" } });
+    fireEvent.click(screen.getByRole("button", { name: "Share My Release with Amber" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Could not send this dub");
+    expect(screen.getByRole("button", { name: "Share one of My Dubs" })).toHaveAttribute("aria-expanded", "true");
   });
 });

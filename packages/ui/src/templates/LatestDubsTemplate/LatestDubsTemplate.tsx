@@ -7,6 +7,7 @@ import type { Dub } from "../communityTypes";
 import { formatLocalTimestamp, formatRelativeTime } from "../templateFormatters";
 import { TrackArtwork } from "../shared/TrackArtwork";
 import { DubCard } from "../../organisms/DubCard/DubCard";
+import { canShareDub } from "../../organisms/ShareDubDialog/ShareDubDialog";
 import { DubSearch, createEmptyDubSearchFilters, type DubSearchFilters } from "../../organisms/DubSearch/DubSearch";
 import "../CommunityPageTemplates.css";
 import "./LatestDubsTemplate.css";
@@ -50,6 +51,7 @@ export interface LatestDubsTemplateProps {
   currentUsername?: string;
   onEditDub?: (dub: Dub) => void;
   onDeleteDub?: (dub: Dub) => void;
+  onShareWithFriend?: (dub: Dub) => void;
   onAddToCrate?: (dubId: string) => void;
   onRemoveFromCrate?: (crateId: string, dubId: string) => void;
 }
@@ -91,6 +93,7 @@ export function LatestDubsTemplate({
   currentUsername,
   onEditDub,
   onDeleteDub,
+  onShareWithFriend,
   onAddToCrate,
   onRemoveFromCrate,
 }: LatestDubsTemplateProps) {
@@ -197,6 +200,7 @@ export function LatestDubsTemplate({
             manageable={Boolean(currentUsername && dub.uploader === currentUsername)}
             onEdit={onEditDub}
             onDelete={onDeleteDub}
+            onShareWithFriend={currentUsername && canShareDub(dub, currentUsername) ? onShareWithFriend : undefined}
           />
         ))}
         {visibleDubs.length === 0 && !isSearching && !searchError && (

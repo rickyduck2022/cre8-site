@@ -16,6 +16,7 @@ import { ChatComposer } from "../../molecules/ChatComposer/ChatComposer";
 import { TrackMetadata } from "../../molecules/TrackMetadata/TrackMetadata";
 import { TrackFileMetadata } from "../../molecules/TrackFileMetadata/TrackFileMetadata";
 import { InfiniteScroll } from "../../molecules/InfiniteScroll/InfiniteScroll";
+import { SearchField } from "../../molecules/SearchField/SearchField";
 import { AudioPlayer } from "../../organisms/AudioPlayer/AudioPlayer";
 import { TrackArtwork } from "../shared/TrackArtwork";
 import { PresenceIndicator } from "../shared/PresenceIndicator";
@@ -99,6 +100,9 @@ export function MessengerTemplate({
   const [visibleBuddyCount, setVisibleBuddyCount] = useState(20);
   const [visibleDubCount, setVisibleDubCount] = useState(20);
   const [isShareMenuOpen, setIsShareMenuOpen] = useState(false);
+  const [shareQuery, setShareQuery] = useState("");
+  const [sharing, setSharing] = useState(false);
+  const [shareFailed, setShareFailed] = useState(false);
   const shareMenuRef = useRef<HTMLDivElement>(null);
   const shareMenuTriggerRef = useRef<HTMLButtonElement>(null);
 
@@ -112,11 +116,16 @@ export function MessengerTemplate({
     (conversation) => conversation.buddyId === selectedBuddy?.id,
   );
   const visibleBuddies = buddies.slice(0, visibleBuddyCount);
-  const visibleDubs = shareableDubs.slice(0, visibleDubCount);
+  const filteredDubs = shareableDubs.filter((dub) =>
+    [dub.title, dub.artist].some((value) => value.toLocaleLowerCase().includes(shareQuery.trim().toLocaleLowerCase())),
+  );
+  const visibleDubs = filteredDubs.slice(0, visibleDubCount);
 
   useEffect(() => {
     setLoadingOlder(false);
     setIsShareMenuOpen(false);
+    setShareFailed(false);
+    setShareQuery("");
   }, [selectedBuddy?.id]);
 
   useEffect(() => {
@@ -162,10 +171,18 @@ export function MessengerTemplate({
     if (await onSendMessage(selectedBuddy.id, text)) setMessage("");
   }
 
-  function shareDub(dub: Dub) {
-    if (selectedBuddy) {
-      onSendMessage(selectedBuddy.id, `Shared a dub: ${dub.title}`, dub.id);
-      setIsShareMenuOpen(false);
+  async function shareDub(dub: Dub) {
+    if (!selectedBuddy || sharing) return;
+    setSharing(true);
+    setShareFailed(false);
+    try {
+      if (await onSendMessage(selectedBuddy.id, `Shared a dub: ${dub.title}`, dub.id)) {
+        setIsShareMenuOpen(false);
+      } else {
+        setShareFailed(true);
+      }
+    } finally {
+      setSharing(false);
     }
   }
 
@@ -320,6 +337,7 @@ export function MessengerTemplate({
                           <p className="chat-message__unsent">This message was unsent.</p>
                         ) : sharedDub ? (
                           <div className="shared-dub-message">
+                            {chatMessage.text !== `Shared a dub: ${sharedDub.title}` && <p>{chatMessage.text}</p>}
                             <AudioPlayer
                               className="shared-dub__player"
                               currentTimeSeconds={nowPlayingId === sharedDub.id ? currentTimeSeconds : 0}
@@ -407,15 +425,23 @@ export function MessengerTemplate({
                   id="share-a-dub-menu"
                   role="region"
                 >
+                  <SearchField
+                    aria-label="Search My Dubs to share"
+                    className="share-a-dub__search"
+                    onChange={(event) => { setShareQuery(event.currentTarget.value); setVisibleDubCount(20); }}
+                    placeholder="Search My Dubs"
+                    value={shareQuery}
+                  />
+                  {shareFailed && <p className="share-a-dub__empty" role="alert">Could not send this dub. Check the notification and try again.</p>}
                   <InfiniteScroll
                     className="share-a-dub__list"
                     contentClassName="share-a-dub__results"
-                    hasMore={visibleDubs.length < shareableDubs.length}
+                    hasMore={visibleDubs.length < filteredDubs.length}
                     itemCount={visibleDubs.length}
                     label="Dubs"
                     loadDirection="end"
                     loading={false}
-                    onLoadMore={() => setVisibleDubCount((count) => Math.min(count + 20, shareableDubs.length))}
+                    onLoadMore={() => setVisibleDubCount((count) => Math.min(count + 20, filteredDubs.length))}
                   >
                     {onCreateAndShareDub && (
                       <div className="share-a-dub__create">
@@ -437,8 +463,9 @@ export function MessengerTemplate({
                       <button
                         aria-label={`Share ${dub.title} with ${selectedBuddy.displayName}`}
                         className="share-a-dub__entry"
+                        disabled={sharing}
                         key={dub.id}
-                        onClick={() => shareDub(dub)}
+                        onClick={() => void shareDub(dub)}
                         type="button"
                       >
                         <div>
@@ -450,6 +477,9 @@ export function MessengerTemplate({
                     ))}
                     {shareableDubs.length === 0 && (
                       <p className="share-a-dub__empty">You have not shared a dub yet. Upload one to send it here.</p>
+                    )}
+                    {shareableDubs.length > 0 && filteredDubs.length === 0 && (
+                      <p className="share-a-dub__empty">No dubs match your search.</p>
                     )}
                   </InfiniteScroll>
                 </div>

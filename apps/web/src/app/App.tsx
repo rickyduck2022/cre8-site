@@ -25,6 +25,7 @@ import {
   Navigation,
   NotificationViewport,
   ProfileTemplate,
+  ShareDubDialog,
   TrackArtwork,
   createEmptyDubSearchFilters,
   type DubSearchFilters,
@@ -143,6 +144,7 @@ export function App() {
   const [editingDub, setEditingDub] = useState<Dub | null>(null);
   const [deletingDub, setDeletingDub] = useState<Dub | null>(null);
   const [shareDubTargetId, setShareDubTargetId] = useState<string | null>(null);
+  const [sharingDub, setSharingDub] = useState<Dub | null>(null);
   const [isProfileEditOpen, setIsProfileEditOpen] = useState(false);
   const [isStartConversationOpen, setIsStartConversationOpen] = useState(false);
   const [loginUsername, setLoginUsername] = useState("");
@@ -450,6 +452,7 @@ export function App() {
               currentUsername={state.member.username}
               onEditDub={beginDubEdit}
               onDeleteDub={beginDubDelete}
+              onShareWithFriend={setSharingDub}
               showIntro={false}
               feedName={activeSection === "alist" ? "A-List" : "Dub Feed"}
               onOpenProfile={openProfile}
@@ -499,6 +502,7 @@ export function App() {
             currentUsername={state.member.username}
             onEditDub={beginDubEdit}
             onDeleteDub={beginDubDelete}
+            onShareWithFriend={setSharingDub}
           />
         )}
         {activeSection === "my-dubs" && (
@@ -526,6 +530,7 @@ export function App() {
             onEditDub={beginDubEdit}
             onDeleteDub={beginDubDelete}
             onRevokeGrant={revokeDubGrant}
+            onShareWithFriend={setSharingDub}
           />
         )}
         {activeSection === "messenger" && (
@@ -592,6 +597,8 @@ export function App() {
             onOpenProfile={openProfile}
             onEditDub={beginDubEdit}
             onDeleteDub={beginDubDelete}
+            currentUsername={state.member.username}
+            onShareWithFriend={setSharingDub}
           />
         )}
       </div>
@@ -614,6 +621,23 @@ export function App() {
         notifications={activeNotifications}
         onDismiss={dismissNotification}
       />
+      {sharingDub && (
+        <ShareDubDialog
+          buddies={state.buddies}
+          dub={sharingDub}
+          key={sharingDub.id}
+          onClose={() => setSharingDub(null)}
+          onFindFriends={() => {
+            setSharingDub(null);
+            navigateTo("buddies");
+          }}
+          onOpenChat={(buddyId) => {
+            setSharingDub(null);
+            openChat(buddyId);
+          }}
+          onSendMessage={sendMessage}
+        />
+      )}
       <Modal
         isOpen={isUploadOpen}
         onClose={() => {

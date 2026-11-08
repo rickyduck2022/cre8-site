@@ -53,4 +53,21 @@ describe("LibraryTemplate", () => {
     expect(onDeleteDub).toHaveBeenCalledWith(ownDub);
     expect(trigger).toHaveAttribute("aria-expanded", "false");
   });
+
+  it("offers sharing for public and owned private dubs, but not received private dubs", () => {
+    const onShareWithFriend = vi.fn();
+    const dub = {
+      id: "public", title: "Public", artist: "Amber", uploader: "amber",
+      uploaderDisplayName: "Amber", uploadedAt: "2026-11-01T12:00:00Z", bpm: 174,
+      genre: "Jungle", duration: "03:30", likes: 0, downloads: 0, artwork: "whitelabel", message: "",
+    };
+    const received = { ...dub, id: "private", title: "Private", distribution: "private" as const };
+    const owned = { ...received, id: "owned", title: "Mine", uploader: "meladee" };
+    render(<LibraryTemplate downloads={[dub, received, owned].map((item) => ({ dub: item, downloadedAt: "2026-11-02T12:00:00Z" }))} onDownload={vi.fn()} currentUsername="meladee" onShareWithFriend={onShareWithFriend} />);
+    fireEvent.click(screen.getByRole("button", { name: "Share Public with a friend" }));
+    fireEvent.click(screen.getByRole("button", { name: "Share Mine with a friend" }));
+    expect(screen.queryByRole("button", { name: "Share Private with a friend" })).not.toBeInTheDocument();
+    expect(onShareWithFriend).toHaveBeenNthCalledWith(1, dub);
+    expect(onShareWithFriend).toHaveBeenNthCalledWith(2, owned);
+  });
 });

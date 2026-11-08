@@ -1,4 +1,4 @@
-import { Check, Download, Heart, Plus } from "@craft/icons";
+import { Check, Download, Heart, MessageCircle, Plus } from "@craft/icons";
 import { Avatar } from "../../atoms/Avatar/Avatar";
 import { Button } from "../../atoms/Button/Button";
 import { TrackTag } from "../../atoms/TrackTag/TrackTag";
@@ -36,6 +36,7 @@ export interface DubCardProps {
   onRemoveFromCrate?: (crateId: string, dubId: string) => void;
   onEdit?: (dub: Dub) => void;
   onDelete?: (dub: Dub) => void;
+  onShareWithFriend?: (dub: Dub) => void;
   manageable?: boolean;
 }
 
@@ -65,6 +66,7 @@ export function DubCard({
   onRemoveFromCrate,
   onEdit,
   onDelete,
+  onShareWithFriend,
   manageable = false,
 }: DubCardProps) {
   return (
@@ -150,6 +152,11 @@ export function DubCard({
         >
           {hasLiked ? "Download again" : "Download · Like"}
         </Button>
+        {onShareWithFriend && (
+          <Button aria-label={`Share ${dub.title} with a friend`} leadingIcon={<MessageCircle />} onClick={() => onShareWithFriend(dub)} size="small" variant="secondary">
+            Share
+          </Button>
+        )}
         {manageable && onEdit && onDelete && (
           <DubActionsMenu
             iconOnly
