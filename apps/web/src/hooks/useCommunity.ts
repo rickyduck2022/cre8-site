@@ -14,7 +14,7 @@ import type {
 } from "@craft/ui";
 import { uploadFile } from "../services/uploadFile";
 import { readAudioDurationSeconds } from "../services/readAudioDuration";
-import { useAudioPlayback } from "./useAudioPlayback";
+import { useAudioPlayback, type PlaybackPosition } from "./useAudioPlayback";
 import { useChatConnection } from "./useChatConnection";
 import { useNotifications } from "./useNotifications";
 
@@ -26,6 +26,7 @@ export interface Crate {
 
 interface CommunitySnapshot {
   member: MemberProfile;
+  lastPlayback: PlaybackPosition | null;
   artists: ArtistOption[];
   dubs: Dub[];
   buddies: Buddy[];
@@ -38,6 +39,7 @@ interface CommunitySnapshot {
 
 interface CommunityState {
   member: MemberProfile | null;
+  lastPlayback: PlaybackPosition | null;
   artists: ArtistOption[];
   dubs: Dub[];
   buddies: Buddy[];
@@ -54,6 +56,7 @@ interface ApiError {
 
 const initialState: CommunityState = {
   member: null,
+  lastPlayback: null,
   artists: [],
   dubs: [],
   buddies: [],
@@ -103,7 +106,9 @@ export function useCommunity() {
   const seenMessageIds = useRef(new Set<string>());
   const notificationState = useNotifications();
   const { notify } = notificationState;
-  const playback = useAudioPlayback(state.dubs, notify);
+  const playback = useAudioPlayback(state.dubs, notify, state.member?.id, state.lastPlayback, async (position) => {
+    await requestApi("/api/playback", { method: "PUT", body: jsonBody(position), keepalive: true });
+  });
 
   function applySnapshot(
     snapshot: CommunitySnapshot,
@@ -128,6 +133,7 @@ export function useCommunity() {
     setState((current) => ({
       ...current,
       member: snapshot.member,
+      lastPlayback: snapshot.lastPlayback,
       artists: snapshot.artists,
       dubs: snapshot.dubs,
       buddies: snapshot.buddies,
@@ -195,6 +201,7 @@ export function useCommunity() {
   }
 
   async function logout() {
+    await playback.flushPosition();
     await requestApi("/api/logout", { method: "POST" });
     playback.reset();
     seenMessageIds.current.clear();
@@ -556,6 +563,7 @@ export function useCommunity() {
     downloadDub,
     togglePlayback: playback.togglePlayback,
     seekPlayback: playback.seekPlayback,
+    seekPlaybackProgress: playback.seekPlaybackProgress,
     setVolume: playback.setVolume,
     setShuffle: playback.setShuffle,
     setRepeat: playback.setRepeat,

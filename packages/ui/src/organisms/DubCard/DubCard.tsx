@@ -22,7 +22,10 @@ export interface DubCardProps {
   shuffle?: boolean;
   repeat?: boolean;
   playbackError?: string | null;
-  onSeek?: (timeSeconds: number) => void;
+  onSeek?: (timeSeconds: number, dub: Dub) => void;
+  onSeekProgress?: (progress: number, dub: Dub) => void;
+  onPrevious?: () => void;
+  onNext?: () => void;
   onVolumeChange?: (volume: number) => void;
   onShuffleChange?: (enabled: boolean) => void;
   onRepeatChange?: (enabled: boolean) => void;
@@ -49,6 +52,9 @@ export function DubCard({
   repeat,
   playbackError,
   onSeek,
+  onSeekProgress,
+  onPrevious,
+  onNext,
   onVolumeChange,
   onShuffleChange,
   onRepeatChange,
@@ -95,7 +101,10 @@ export function DubCard({
             shuffle={shuffle}
             repeat={repeat}
             playbackError={playbackError}
-            onSeek={isCurrentTrack ? onSeek : undefined}
+            onSeek={onSeek ? (time) => onSeek(time, dub) : undefined}
+            onSeekProgress={onSeekProgress ? (progress) => onSeekProgress(progress, dub) : undefined}
+            onPrevious={onPrevious}
+            onNext={onNext}
             onVolumeChange={onVolumeChange}
             onShuffleChange={onShuffleChange}
             onRepeatChange={onRepeatChange}

@@ -13,6 +13,32 @@ const dub: Dub = {
 };
 
 describe("DubCard actions", () => {
+  it("seeks an inactive track and forwards transport controls", () => {
+    const onSeek = vi.fn();
+    const onNext = vi.fn();
+    const onPrevious = vi.fn();
+    render(<DubCard dub={dub} onDownload={vi.fn()} onPlay={vi.fn()} onSeek={onSeek} onNext={onNext} onPrevious={onPrevious} />);
+    const waveform = screen.getByRole("slider", { name: "Night Drive playback progress" });
+    vi.spyOn(waveform, "getBoundingClientRect").mockReturnValue({ left: 10, width: 200 } as DOMRect);
+    fireEvent.click(waveform, { clientX: 110 });
+    expect(onSeek).toHaveBeenCalledWith(105, dub);
+    fireEvent.click(screen.getByRole("button", { name: "Next track" }));
+    fireEvent.click(screen.getByRole("button", { name: "Previous track" }));
+    expect(onNext).toHaveBeenCalledOnce();
+    expect(onPrevious).toHaveBeenCalledOnce();
+  });
+
+  it("offers a waveform seek when the track duration is unknown", () => {
+    const onSeekProgress = vi.fn();
+    render(<DubCard dub={{ ...dub, duration: "00:00" }} onDownload={vi.fn()} onPlay={vi.fn()} onSeekProgress={onSeekProgress} />);
+    const waveform = screen.getByRole("slider", { name: "Night Drive playback progress" });
+    vi.spyOn(waveform, "getBoundingClientRect").mockReturnValue({ left: 0, width: 200 } as DOMRect);
+    fireEvent.click(waveform, { clientX: 50 });
+    expect(onSeekProgress).toHaveBeenCalledWith(0.25, expect.objectContaining({ id: dub.id }));
+    fireEvent.keyDown(waveform, { key: "End" });
+    expect(onSeekProgress).toHaveBeenLastCalledWith(1, expect.objectContaining({ id: dub.id }));
+  });
+
   it("toggles the actions and closes after invoking each callback", () => {
     const onEdit = vi.fn();
     const onDelete = vi.fn();

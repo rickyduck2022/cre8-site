@@ -20,7 +20,10 @@ export interface MyDubsTemplateProps {
   shuffle?: boolean;
   repeat?: boolean;
   playbackError?: string | null;
-  onSeek?: (timeSeconds: number) => void;
+  onSeek?: (timeSeconds: number, dub: Dub) => void;
+  onSeekProgress?: (progress: number, dub: Dub) => void;
+  onPrevious?: () => void;
+  onNext?: () => void;
   onVolumeChange?: (volume: number) => void;
   onShuffleChange?: (enabled: boolean) => void;
   onRepeatChange?: (enabled: boolean) => void;
@@ -43,6 +46,9 @@ export function MyDubsTemplate({
   repeat,
   playbackError,
   onSeek,
+  onSeekProgress,
+  onPrevious,
+  onNext,
   onVolumeChange,
   onShuffleChange,
   onRepeatChange,
@@ -99,6 +105,9 @@ export function MyDubsTemplate({
             repeat={repeat}
             playbackError={nowPlayingId === dub.id ? playbackError : undefined}
             onSeek={onSeek}
+            onSeekProgress={onSeekProgress}
+            onPrevious={onPrevious}
+            onNext={onNext}
             onVolumeChange={onVolumeChange}
             onShuffleChange={onShuffleChange}
             onRepeatChange={onRepeatChange}

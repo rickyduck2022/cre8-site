@@ -34,7 +34,17 @@ export interface MessengerTemplateProps {
   isPlaying: boolean;
   currentTimeSeconds?: number;
   durationSeconds?: number;
-  onSeek?: (timeSeconds: number) => void;
+  onSeek?: (timeSeconds: number, dub: Dub) => void;
+  onSeekProgress?: (progress: number, dub: Dub) => void;
+  volume?: number;
+  shuffle?: boolean;
+  repeat?: boolean;
+  playbackError?: string | null;
+  onVolumeChange?: (volume: number) => void;
+  onShuffleChange?: (enabled: boolean) => void;
+  onRepeatChange?: (enabled: boolean) => void;
+  onPrevious?: () => void;
+  onNext?: () => void;
   onOpenProfile: (username: string) => void;
   onPlay: (dub: Dub) => void;
   onDownload?: (dub: Dub) => void;
@@ -62,6 +72,16 @@ export function MessengerTemplate({
   currentTimeSeconds = 0,
   durationSeconds,
   onSeek,
+  onSeekProgress,
+  volume,
+  shuffle,
+  repeat,
+  playbackError,
+  onVolumeChange,
+  onShuffleChange,
+  onRepeatChange,
+  onPrevious,
+  onNext,
   onOpenProfile,
   onPlay,
   onDownload = () => undefined,
@@ -330,7 +350,17 @@ export function MessengerTemplate({
                                 </TrackMetadata>
                               )}
                               onPlayChange={() => onPlay(sharedDub)}
-                              onSeek={nowPlayingId === sharedDub.id ? onSeek : undefined}
+                              onSeek={onSeek ? (time) => onSeek(time, sharedDub) : undefined}
+                              onSeekProgress={onSeekProgress ? (progress) => onSeekProgress(progress, sharedDub) : undefined}
+                              volume={volume}
+                              shuffle={shuffle}
+                              repeat={repeat}
+                              playbackError={nowPlayingId === sharedDub.id ? playbackError : undefined}
+                              onVolumeChange={onVolumeChange}
+                              onShuffleChange={onShuffleChange}
+                              onRepeatChange={onRepeatChange}
+                              onPrevious={onPrevious}
+                              onNext={onNext}
                               playing={nowPlayingId === sharedDub.id && isPlaying}
                               track={{
                                 artist: sharedDub.artist,

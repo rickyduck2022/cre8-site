@@ -39,7 +39,7 @@ export function Waveform({
   }
 
   function seekFromKeyboard(event: KeyboardEvent<SVGSVGElement>) {
-    if (!onSeek || !durationSeconds) return;
+    if (!onSeek) return;
     const step = event.shiftKey ? 0.1 : 0.01;
     const offsets: Record<string, number> = {
       ArrowLeft: -step,

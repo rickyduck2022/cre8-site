@@ -20,14 +20,15 @@ export function TrackFileMetadata({
 }: TrackFileMetadataProps) {
   const extension = audioFileName?.match(/\.([a-z0-9]+)$/i)?.[1];
   const format = fileType ?? extension?.toUpperCase();
-  if (!format && !bitrateKbps) return null;
+  const hasBitrate = bitrateKbps !== undefined && Number.isFinite(bitrateKbps) && bitrateKbps >= 0;
+  if (!format && !hasBitrate) return null;
 
   return (
     <span className={["track-file-metadata", layout === "inline" && "track-file-metadata--inline", className].filter(Boolean).join(" ")} aria-label="Audio file details">
       {format && <TrackTag variant={tagVariant ?? "audio"}>{format}</TrackTag>}
-      {bitrateKbps && bitrateKbps > 0 && (
+      {hasBitrate && (
         <TrackTag variant={tagVariant} title="Average bitrate calculated from the uploaded file size and audio duration">
-          {bitrateKbps.toLocaleString(undefined, { maximumFractionDigits: 1 })} kbps avg
+          {Math.round(bitrateKbps).toLocaleString()} kbps avg
         </TrackTag>
       )}
     </span>

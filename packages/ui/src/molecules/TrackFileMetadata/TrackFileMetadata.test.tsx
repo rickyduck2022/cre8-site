@@ -16,4 +16,14 @@ describe("TrackFileMetadata", () => {
     expect(screen.getByText("FLAC")).toBeInTheDocument();
     expect(screen.queryByText(/kbps/)).not.toBeInTheDocument();
   });
+
+  it("rounds fractional bitrates to whole kbps", () => {
+    render(<TrackFileMetadata fileType="MP3" bitrateKbps={192.6} />);
+    expect(screen.getByText("193 kbps avg")).toBeInTheDocument();
+  });
+
+  it("shows a known bitrate that rounds to zero", () => {
+    render(<TrackFileMetadata bitrateKbps={0} />);
+    expect(screen.getByText("0 kbps avg")).toBeInTheDocument();
+  });
 });

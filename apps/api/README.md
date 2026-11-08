@@ -43,6 +43,15 @@ delete them with `DELETE /api/crates/:crateId`, and add or remove dubs with the
 `/api/crates/:crateId/dubs/:dubId` routes. Deleting a crate does not delete the
 tracks it contained.
 
+The authenticated `PUT /api/playback` endpoint saves the current user's most
+recent track and position as `{ "dubId": "...", "positionSeconds": 12.5 }`.
+The community snapshot returns this as `lastPlayback`, or `null` when no saved
+track is available. The player restores it paused, saves periodically and on
+seeks, pauses, track changes and sign-out, and advances through playable
+community dubs in snapshot order (wrapping at the ends). Shuffle chooses a
+different track and previous follows shuffle history; repeat loops the current
+track. Replacing or deleting the audio clears saved positions for that dub.
+
 The seeded demo accounts are `meladee` / `meladee` and `holik` / `holik`.
 Passwords are stored as salted scrypt hashes. On a local run, community records,
 uploaded audio, and optional dub artwork are stored under `apps/api/data/`;

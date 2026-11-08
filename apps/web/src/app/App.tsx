@@ -103,6 +103,7 @@ export function App() {
     downloadDub,
     togglePlayback,
     seekPlayback,
+    seekPlaybackProgress,
     setVolume,
     setShuffle,
     setRepeat,
@@ -391,7 +392,8 @@ export function App() {
             shuffle={state.shuffle}
             repeat={state.repeat}
             playbackError={state.playbackError}
-            onSeek={seekPlayback}
+            onSeek={(time) => seekPlayback(time, previewTrack)}
+            onSeekProgress={(progress) => seekPlaybackProgress(progress, previewTrack)}
             onVolumeChange={setVolume}
             onShuffleChange={setShuffle}
             onRepeatChange={setRepeat}
@@ -424,6 +426,9 @@ export function App() {
               repeat={state.repeat}
               playbackError={state.playbackError}
               onSeek={seekPlayback}
+              onSeekProgress={seekPlaybackProgress}
+              onPrevious={playPreviousDub}
+              onNext={playNextDub}
               onVolumeChange={setVolume}
               onShuffleChange={setShuffle}
               onRepeatChange={setRepeat}
@@ -484,6 +489,9 @@ export function App() {
             repeat={state.repeat}
             playbackError={state.playbackError}
             onSeek={seekPlayback}
+            onSeekProgress={seekPlaybackProgress}
+            onPrevious={playPreviousDub}
+            onNext={playNextDub}
             onVolumeChange={setVolume}
             onShuffleChange={setShuffle}
             onRepeatChange={setRepeat}
@@ -507,6 +515,16 @@ export function App() {
             currentTimeSeconds={state.currentTime}
             durationSeconds={state.duration}
             onSeek={seekPlayback}
+            onSeekProgress={seekPlaybackProgress}
+            volume={state.volume}
+            shuffle={state.shuffle}
+            repeat={state.repeat}
+            playbackError={state.playbackError}
+            onVolumeChange={setVolume}
+            onShuffleChange={setShuffle}
+            onRepeatChange={setRepeat}
+            onPrevious={playPreviousDub}
+            onNext={playNextDub}
             onOpenProfile={openProfile}
             onPlay={togglePlayback}
             onDownload={downloadDub}
@@ -527,6 +545,19 @@ export function App() {
             profile={profile}
             uploads={profileUploads}
             isPlaying={state.isPlaying}
+            currentTimeSeconds={state.currentTime}
+            durationSeconds={state.duration}
+            volume={state.volume}
+            shuffle={state.shuffle}
+            repeat={state.repeat}
+            playbackError={state.playbackError}
+            onSeek={seekPlayback}
+            onSeekProgress={seekPlaybackProgress}
+            onVolumeChange={setVolume}
+            onShuffleChange={setShuffle}
+            onRepeatChange={setRepeat}
+            onPrevious={playPreviousDub}
+            onNext={playNextDub}
             onEditProfile={() => setIsProfileEditOpen(true)}
             onMessage={() => profileBuddy && openChat(profileBuddy.id)}
             onPlay={togglePlayback}

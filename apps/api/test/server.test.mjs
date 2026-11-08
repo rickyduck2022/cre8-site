@@ -69,6 +69,56 @@ async function registerAccount(baseUrl, username) {
   return response.headers.get("set-cookie").split(";")[0];
 }
 
+test("playback positions are authenticated, validated, isolated and persisted", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "cre8-playback-"));
+  const dataPath = join(directory, "community.json");
+  const data = initializeData(dataPath, join(directory, "audio"));
+  data.dubs.push({
+    id: "track-one", title: "Track", artist: "Meladee", artistId: "artist-meladee",
+    uploaderId: "user-meladee", uploadedAt: "2026-01-01T00:00:00Z",
+    bitrateKbps: 192.7,
+  });
+  writeFileSync(dataPath, JSON.stringify(data));
+  let server = await startTestServer(directory);
+  const login = async (username) => {
+    const response = await fetch(`${server.baseUrl}/api/login`, {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ username, password: username }),
+    });
+    assert.equal(response.status, 200);
+    return response.headers.get("set-cookie").split(";")[0];
+  };
+  try {
+    const anonymous = await fetch(`${server.baseUrl}/api/playback`, { method: "PUT" });
+    assert.equal(anonymous.status, 401);
+    const cookie = await login("meladee");
+    const otherCookie = await login("holik");
+    const put = (body) => fetch(`${server.baseUrl}/api/playback`, {
+      method: "PUT", headers: { cookie, "content-type": "application/json" }, body: JSON.stringify(body),
+    });
+    assert.equal((await put({ dubId: "missing", positionSeconds: 1 })).status, 404);
+    assert.equal((await put({ dubId: "track-one", positionSeconds: -1 })).status, 400);
+    assert.equal((await put({ dubId: "track-one", positionSeconds: "4" })).status, 400);
+    assert.equal((await put(null)).status, 400);
+    assert.equal((await put({ dubId: "track-one", positionSeconds: 42.5 })).status, 200);
+    const other = await (await fetch(`${server.baseUrl}/api/community`, { headers: { cookie: otherCookie } })).json();
+    assert.equal(other.lastPlayback, null);
+    await server.close();
+    server = await startTestServer(directory);
+    const newCookie = await login("meladee");
+    const snapshot = await (await fetch(`${server.baseUrl}/api/community`, { headers: { cookie: newCookie } })).json();
+    assert.deepEqual(snapshot.lastPlayback, { dubId: "track-one", positionSeconds: 42.5 });
+    assert.equal(snapshot.dubs[0].bitrateKbps, 193);
+    const deleted = await fetch(`${server.baseUrl}/api/dubs/track-one`, { method: "DELETE", headers: { cookie: newCookie } });
+    assert.equal(deleted.status, 200);
+    const afterDelete = await (await fetch(`${server.baseUrl}/api/community`, { headers: { cookie: newCookie } })).json();
+    assert.equal(afterDelete.lastPlayback, null);
+  } finally {
+    await server.close();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
 function openChat(baseUrl, cookie, origin) {
   const headers = cookie ? { cookie } : {};
   if (origin) headers.origin = origin;
@@ -383,7 +433,7 @@ test("starter account has no seeded tracks and retains uploaded community activi
     assert.equal(newDub.artwork, "uploaded-artwork");
     assert.equal(newDub.audioFormat, "WAV");
     assert.equal(newDub.duration, "00:01");
-    assert.equal(newDub.bitrateKbps, 0.1);
+    assert.equal(newDub.bitrateKbps, 0);
     assert.deepEqual(newDub.tags, ["Jungle", "Rollers"]);
     assert.match(newDub.artworkUrl, new RegExp(`/api/dubs/${newDub.id}/artwork`));
     assert.ok(Number.isFinite(Date.parse(newDub.uploadedAt)));
@@ -403,7 +453,7 @@ test("starter account has no seeded tracks and retains uploaded community activi
     assert.equal(editedDub.title, "Updated Dub");
     assert.equal(editedDub.bpm, 132);
     assert.deepEqual(editedDub.tags, ["Rollers", "Jungle"]);
-    const filteredDubs = await fetch(`${server.baseUrl}/api/dubs/search?q=updated&tag=Jungle&minBpm=130&maxBpm=140&fileType=WAV&minBitrate=0.1`, { headers: { cookie } });
+    const filteredDubs = await fetch(`${server.baseUrl}/api/dubs/search?q=updated&tag=Jungle&minBpm=130&maxBpm=140&fileType=WAV&minBitrate=0`, { headers: { cookie } });
     assert.equal(filteredDubs.status, 200);
     assert.deepEqual((await filteredDubs.json()).dubs.map((dub) => dub.id), [newDub.id]);
     const invalidDubSearch = await fetch(`${server.baseUrl}/api/dubs/search?minBpm=180&maxBpm=120`, { headers: { cookie } });

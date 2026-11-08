@@ -36,7 +36,7 @@ function formatAudioDuration(seconds) {
 }
 function averageBitrateKbps(bytes, durationSeconds) {
   if (!bytes || !durationSeconds) return undefined;
-  return Math.round((bytes * 8 / durationSeconds / 1000) * 10) / 10;
+  return Math.round(bytes * 8 / durationSeconds / 1000);
 }
 const removedSeedDubIds = new Set([
   "dub-coffeeshop",
@@ -159,6 +159,7 @@ export function initializeData(dataPath = defaultDataPath, mediaDirectory = defa
   }
   data.dubs = data.dubs.map((dub) => ({
     ...dub,
+    bitrateKbps: Number.isFinite(dub.bitrateKbps) ? Math.round(dub.bitrateKbps) : undefined,
     artistId: dub.artistId ?? "artist-meladee",
     uploaderId: dub.uploaderId ?? meladee.id,
     artwork: dub.artworkUrl ? dub.artwork : "whitelabel",
@@ -426,6 +427,8 @@ function communitySnapshot(data, user) {
     };
   });
   return {
+    lastPlayback: user.lastPlayback && data.dubs.some((dub) => dub.id === user.lastPlayback.dubId)
+      ? user.lastPlayback : null,
     member: {
       id: user.id,
       username: user.username,
@@ -841,6 +844,25 @@ export function createApiServer({
         json(response, 200, communitySnapshot(data, user));
         return;
       }
+      if (request.method === "PUT" && route === "/api/playback") {
+        const input = await readJson(request);
+        if (!input || typeof input !== "object" || typeof input.dubId !== "string") {
+          json(response, 400, { error: "Provide a valid dub and playback position." });
+          return;
+        }
+        if (!data.dubs.some((dub) => dub.id === input.dubId)) {
+          json(response, 404, { error: "Dub not found." });
+          return;
+        }
+        if (typeof input.positionSeconds !== "number" || !Number.isFinite(input.positionSeconds) || input.positionSeconds < 0) {
+          json(response, 400, { error: "Provide a valid playback position." });
+          return;
+        }
+        user.lastPlayback = { dubId: input.dubId, positionSeconds: input.positionSeconds };
+        persist();
+        json(response, 200, user.lastPlayback);
+        return;
+      }
       if (request.method === "GET" && route === "/api/dubs/search") {
         const query = String(url.searchParams.get("q") ?? "").trim().slice(0, 120).toLocaleLowerCase();
         const tags = url.searchParams.getAll("tag").map((tag) => tag.trim()).filter((tag) => dubTags.has(tag));
@@ -1042,6 +1064,9 @@ export function createApiServer({
         dub.bpm = Number.isInteger(input.bpm) && input.bpm >= 1 && input.bpm <= 300 ? input.bpm : 0;
         dub.message = String(input.message ?? "").trim().slice(0, 400);
         if (audioUpload) {
+          for (const account of data.users) {
+            if (account.lastPlayback?.dubId === dub.id) delete account.lastPlayback;
+          }
           if (dub.storedAudioName) replacedMedia.push(dub.storedAudioName);
           dub.storedAudioName = audioUpload.storedName;
           dub.audioFileName = audioUpload.audioFileName;
@@ -1076,6 +1101,9 @@ export function createApiServer({
           return;
         }
         const [dub] = data.dubs.splice(dubIndex, 1);
+        for (const account of data.users) {
+          if (account.lastPlayback?.dubId === dub.id) delete account.lastPlayback;
+        }
         const affectedUserIds = new Set([user.id]);
         for (const download of data.downloads.filter((item) => item.dubId === dub.id)) affectedUserIds.add(download.userId);
         for (const crate of data.crates) {

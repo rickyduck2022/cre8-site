@@ -19,6 +19,19 @@ export interface ProfileTemplateProps {
   isOwnProfile: boolean;
   playingDubId: string | null;
   isPlaying: boolean;
+  currentTimeSeconds?: number;
+  durationSeconds?: number;
+  volume?: number;
+  shuffle?: boolean;
+  repeat?: boolean;
+  playbackError?: string | null;
+  onSeek?: (timeSeconds: number, dub: Dub) => void;
+  onSeekProgress?: (progress: number, dub: Dub) => void;
+  onVolumeChange?: (volume: number) => void;
+  onShuffleChange?: (enabled: boolean) => void;
+  onRepeatChange?: (enabled: boolean) => void;
+  onPrevious?: () => void;
+  onNext?: () => void;
   onEditProfile: () => void;
   onMessage: () => void;
   onPlay: (dub: Dub) => void;
@@ -34,6 +47,19 @@ export function ProfileTemplate({
   isOwnProfile,
   playingDubId,
   isPlaying,
+  currentTimeSeconds,
+  durationSeconds,
+  volume,
+  shuffle,
+  repeat,
+  playbackError,
+  onSeek,
+  onSeekProgress,
+  onVolumeChange,
+  onShuffleChange,
+  onRepeatChange,
+  onPrevious,
+  onNext,
   onEditProfile,
   onMessage,
   onPlay,
@@ -129,6 +155,19 @@ export function ProfileTemplate({
                     hasLiked={false}
                     isPlaying={isPlaying && playingDubId === dub.id}
                     isCurrentTrack={playingDubId === dub.id}
+                    currentTimeSeconds={currentTimeSeconds}
+                    durationSeconds={durationSeconds}
+                    volume={volume}
+                    shuffle={shuffle}
+                    repeat={repeat}
+                    playbackError={playingDubId === dub.id ? playbackError : undefined}
+                    onSeek={onSeek}
+                    onSeekProgress={onSeekProgress}
+                    onVolumeChange={onVolumeChange}
+                    onShuffleChange={onShuffleChange}
+                    onRepeatChange={onRepeatChange}
+                    onPrevious={onPrevious}
+                    onNext={onNext}
                     onDownload={onDownload}
                     onOpenProfile={onOpenProfile}
                     onPlay={onPlay}

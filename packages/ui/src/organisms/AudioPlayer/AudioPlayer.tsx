@@ -25,6 +25,7 @@ export interface AudioPlayerProps {
   playbackError?: string | null;
   onPlayChange?: (playing: boolean) => void;
   onSeek?: (timeSeconds: number) => void;
+  onSeekProgress?: (progress: number) => void;
   onVolumeChange?: (volume: number) => void;
   onShuffleChange?: (enabled: boolean) => void;
   onRepeatChange?: (enabled: boolean) => void;
@@ -59,6 +60,7 @@ export function AudioPlayer({
   onPrevious,
   onRepeatChange,
   onSeek,
+  onSeekProgress,
   onShuffleChange,
   onVolumeChange,
   playbackError,
@@ -74,7 +76,7 @@ export function AudioPlayer({
   const isControlled = playing !== undefined;
   const currentPlaying = isControlled ? playing : internalPlaying;
   const volumeLevel = volume ?? internalVolume;
-  const trackDuration = durationSeconds ?? durationFromLabel(track.duration);
+  const trackDuration = durationSeconds && durationSeconds > 0 ? durationSeconds : durationFromLabel(track.duration);
   const progress =
     trackDuration > 0
       ? Math.max(0, Math.min(1, currentTimeSeconds / trackDuration))
@@ -125,16 +127,16 @@ export function AudioPlayer({
           className="audio-player__waveform"
           durationSeconds={trackDuration}
           label={`${track.title} playback progress`}
-          onSeek={
+          onSeek={onSeekProgress ?? (
             onSeek && trackDuration > 0
               ? (nextProgress) => onSeek(nextProgress * trackDuration)
               : undefined
-          }
+          )}
           peaks={track.peaks}
           progress={progress}
         />
         <span className="audio-player__time">
-          {durationSeconds !== undefined
+          {durationSeconds !== undefined && durationSeconds > 0
             ? formatTime(durationSeconds)
             : track.duration ?? "00:00"}
         </span>
