@@ -8,7 +8,8 @@ import { formatLocalTimestamp, formatRelativeTime } from "../templateFormatters"
 import { TrackArtwork } from "../shared/TrackArtwork";
 import { DubCard } from "../../organisms/DubCard/DubCard";
 import { canShareDub } from "../../organisms/ShareDubDialog/ShareDubDialog";
-import { DubSearch, createEmptyDubSearchFilters, type DubSearchFilters } from "../../organisms/DubSearch/DubSearch";
+import { DubSearch, createEmptyDubSearchFilters, getDubSearchFilterCount, type DubSearchFilters } from "../../organisms/DubSearch/DubSearch";
+import { DubSearchToolbar } from "../shared/DubSearchToolbar";
 import "../CommunityPageTemplates.css";
 import "./LatestDubsTemplate.css";
 
@@ -152,36 +153,43 @@ export function LatestDubsTemplate({
         <h1 className="latest-dubs-template__title">{crateName ?? feedName}</h1>
       )}
 
-      <div className="feed-toolbar">
-        <div className="feed-toolbar__filters" role="tablist" aria-label="Sort dubs">
-          <FilterTab active={order === "newest"} onClick={() => setOrder("newest")}>
-            Newest
-          </FilterTab>
-          <FilterTab active={order === "liked"} onClick={() => setOrder("liked")}>
-            Most liked
-          </FilterTab>
-        </div>
-        <label className="sort-select">
-          <span className="sr-only">Sort uploads</span>
-          <select
-            aria-label="Sort uploads"
-            onChange={(event) => setOrder(event.target.value as FeedOrder)}
-            value={order}
-          >
-            <option value="newest">Newest first</option>
-            <option value="liked">Most liked</option>
-          </select>
-          <ChevronDown aria-hidden="true" />
-        </label>
-      </div>
-
       {prioritizeAList && dubs.some((dub) => dub.distribution === "alist") && (
         <p className="latest-dubs-template__priority">A-List dubs appear first. Sort order applies within each distribution.</p>
       )}
-      <DubSearch query={query} onQueryChange={(value) => onQueryChange?.(value)} filters={filters} onFiltersChange={(value) => onFiltersChange?.(value)} fileTypes={fileTypes} resultCount={visibleDubs.length} isSearching={isSearching} error={searchError} showDistributionFilter={showDistributionFilter} />
+      <DubSearchToolbar filterCount={getDubSearchFilterCount(filters)} query={query}>
+        <div className="feed-toolbar">
+          <div className="feed-toolbar__filters" role="tablist" aria-label="Sort dubs">
+            <FilterTab active={order === "newest"} onClick={() => setOrder("newest")}>
+              Newest
+            </FilterTab>
+            <FilterTab active={order === "liked"} onClick={() => setOrder("liked")}>
+              Most liked
+            </FilterTab>
+          </div>
+          <label className="sort-select">
+            <span className="sr-only">Sort uploads</span>
+            <select
+              aria-label="Sort uploads"
+              onChange={(event) => setOrder(event.target.value as FeedOrder)}
+              value={order}
+            >
+              <option value="newest">Newest first</option>
+              <option value="liked">Most liked</option>
+            </select>
+            <ChevronDown aria-hidden="true" />
+          </label>
+        </div>
+        <DubSearch query={query} onQueryChange={(value) => onQueryChange?.(value)} filters={filters} onFiltersChange={(value) => onFiltersChange?.(value)} fileTypes={fileTypes} resultCount={visibleDubs.length} isSearching={isSearching} error={searchError} showDistributionFilter={showDistributionFilter} />
+      </DubSearchToolbar>
 
       <section aria-label="Community uploads" className="feed-list">
-        {pagination.items.map((dub) => (
+        {isSearching && (
+          <div className="latest-dubs-template__loading" role="status">
+            <span className="button__spinner" aria-hidden="true" />
+            Searching dubs…
+          </div>
+        )}
+        {!isSearching && pagination.items.map((dub) => (
           <DubCard
             dub={dub}
             crateId={crateId}
@@ -221,7 +229,7 @@ export function LatestDubsTemplate({
           </div>
         )}
       </section>
-      <Pagination
+      {!isSearching && <Pagination
         itemCount={visibleDubs.length}
         label="Dubs"
         onPageChange={pagination.setPage}
@@ -229,7 +237,7 @@ export function LatestDubsTemplate({
         page={pagination.page}
         pageSize={pagination.pageSize}
         totalPages={pagination.totalPages}
-      />
+      />}
     </div>
   );
 }

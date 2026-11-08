@@ -110,9 +110,18 @@
     min-height: 2rem;
     padding: var(--spacing-xs) var(--spacing-sm);
   }
+}
 
-  .button--hide-label-mobile > span:last-child {
+@media (max-width: 760px) {
+  .button--hide-label-mobile > .button__label {
     display: none;
+  }
+
+  .button--hide-label-mobile {
+    gap: 0;
+    min-width: 2.75rem;
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
   }
 }
 

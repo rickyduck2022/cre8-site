@@ -1,0 +1,9 @@
+.chat-compose__send .button__icon {
+  display: none;
+}
+
+@media (max-width: 760px) {
+  .chat-compose__send .button__icon {
+    display: inline-flex;
+  }
+}

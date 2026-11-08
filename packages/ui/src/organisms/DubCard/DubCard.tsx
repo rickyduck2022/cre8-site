@@ -103,6 +103,7 @@ export function DubCard({
       <div className="dub-card__track">
         <div className="dub-card__track-info">
           <AudioPlayer
+            distribution={dub.distribution ?? "worldwide"}
             onPlayChange={() => onPlay(dub)}
             playing={isPlaying}
             currentTimeSeconds={isCurrentTrack ? currentTimeSeconds : 0}

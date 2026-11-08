@@ -155,7 +155,11 @@ export function App() {
     getSectionFromHash(window.location.hash),
   );
   const [profileUsername, setProfileUsername] = useState("");
-  const [chatBuddyId, setChatBuddyId] = useState("evan");
+  const [chatBuddyId, setChatBuddyId] = useState("");
+  const [chatNavigationKey, setChatNavigationKey] = useState(0);
+  const [playerMinimized, setPlayerMinimized] = useState<{ messenger?: boolean; other?: boolean }>({});
+  const playerContext = activeSection === "messenger" ? "messenger" : "other";
+  const isPlayerMinimized = playerMinimized[playerContext] ?? (playerContext === "messenger");
   const [searchQuery, setSearchQuery] = useState("");
   const [feedFilters, setFeedFilters] = useState<DubSearchFilters>(createEmptyDubSearchFilters);
   const [aListFilters, setAListFilters] = useState<DubSearchFilters>(createEmptyDubSearchFilters);
@@ -189,6 +193,14 @@ export function App() {
     () => createNavigationSections(unreadCount, approved, sharedDubs.length, feedCount, aListCount),
     [unreadCount, approved, sharedDubs.length, feedCount, aListCount],
   );
+  const interactiveNavigationSections = navigationSections.map((section) => ({
+    ...section,
+    items: section.items.map((item) => {
+      if (item.href === "#profile") return { ...item, onClick: () => setProfileUsername("") };
+      if (item.href === "#messenger") return { ...item, onClick: () => { setChatBuddyId(""); setChatNavigationKey((key) => key + 1); } };
+      return item;
+    }),
+  }));
   const nowPlaying = state.dubs.find((dub) => dub.id === state.nowPlayingId) ?? null;
   const previewTrack = nowPlaying ?? state.dubs.find((dub) => dub.distribution === "worldwide");
   const dubsById = new Map(state.dubs.map((dub) => [dub.id, dub]));
@@ -242,6 +254,7 @@ export function App() {
 
   function openChat(buddyId: string) {
     setChatBuddyId(buddyId);
+    setChatNavigationKey((key) => key + 1);
     void markConversationRead(buddyId);
     navigateTo("messenger");
   }
@@ -262,6 +275,7 @@ export function App() {
     const buddyId = await addBuddy(username);
     if (!buddyId) return;
     setChatBuddyId(buddyId);
+    setChatNavigationKey((key) => key + 1);
     setIsStartConversationOpen(false);
     navigateTo("messenger");
   }
@@ -432,7 +446,9 @@ export function App() {
 
   return (
     <DashboardTemplate
-      className="community-dashboard-template"
+      className={`community-dashboard-template${previewTrack ? " community-dashboard-template--has-player" : ""}${isPlayerMinimized ? " community-dashboard-template--player-minimized" : ""}${activeSection === "messenger" ? " community-dashboard-template--messenger" : ""}`}
+      scrollContent
+      scrollResetKey={activeSection}
       header={
         <AppHeader
           className="app-topbar"
@@ -453,11 +469,17 @@ export function App() {
           onClearNotifications={clearNotifications}
           onDismissNotification={dismissNotification}
           onActivateNotification={openNotification}
+          onMessages={() => {
+            setChatBuddyId("");
+            setChatNavigationKey((key) => key + 1);
+            navigateTo("messenger");
+          }}
           onNotifications={markNotificationsRead}
           onSearchChange={setSearchQuery}
           searchPlaceholder="Search tracks or members"
           searchValue={searchQuery}
           unreadNotificationCount={unreadNotificationCount}
+          unreadMessageCount={unreadCount}
           userName={state.member.displayName}
           userAvatarUrl={state.member.avatarUrl}
           variant="compact"
@@ -469,7 +491,7 @@ export function App() {
           className="app-sidebar"
           hideOnMobile
           logoSrc={cre8LogoSrc}
-          sections={navigationSections.map((section) => ({ ...section, items: section.items.map((item) => item.label === "My Profile" ? { ...item, onClick: () => setProfileUsername("") } : item) }))}
+          sections={interactiveNavigationSections}
           userDetail={state.member.role}
           userName={state.member.displayName}
           userAvatarUrl={state.member.avatarUrl}
@@ -480,7 +502,9 @@ export function App() {
         previewTrack ? (
           <AudioPlayer
             className="app-player"
-            distribution={previewTrack.distribution}
+            minimized={isPlayerMinimized}
+            onMinimizedChange={(minimized) => setPlayerMinimized((current) => ({ ...current, [playerContext]: minimized }))}
+            distribution={previewTrack.distribution ?? "worldwide"}
             onPlayChange={(playing) => {
               if (playing !== state.isPlaying) togglePlayback(previewTrack);
             }}
@@ -513,8 +537,8 @@ export function App() {
         ) : null
       }
     >
-      <div className="app-content">
-        <DemoModeNotice />
+      <div className={`app-content${activeSection === "messenger" ? " app-content--messenger" : ""}`}>
+        {activeSection !== "messenger" && <DemoModeNotice />}
         {(activeSection === "dubs" || (activeSection === "alist" && state.member.aListApproved)) && (
           <>
             <LatestDubsTemplate
@@ -681,6 +705,7 @@ export function App() {
             dubs={state.dubs}
             shareableDubs={myDubs}
             initialBuddyId={chatBuddyId}
+            navigationKey={chatNavigationKey}
             chatConnectionStatus={chatConnectionStatus}
             nowPlayingId={state.nowPlayingId}
             isPlaying={state.isPlaying}
@@ -745,8 +770,8 @@ export function App() {
         {activeSection === "profile" && !profile && <p role="status">This profile is no longer available.</p>}
       </div>
       <MobileNavigation activeItem={sectionLabels[activeSection]}
-        primaryHrefs={["#dubs", "#alist", "#shared-with-me", "#messenger"]}
-        sections={navigationSections.map((section) => ({ ...section, items: section.items.map((item) => item.href === "#profile" ? { ...item, onClick: () => setProfileUsername("") } : item) }))} />
+        primaryHrefs={["#dubs", "#library", "#profile", "#messenger"]}
+        sections={interactiveNavigationSections} />
 
       <NotificationViewport
         notifications={activeNotifications}

@@ -2,9 +2,11 @@ import { LockKeyhole } from "@craft/icons";
 import { useMemo, useState } from "react";
 import { Badge } from "../../atoms/Badge/Badge";
 import { Pagination, usePagination } from "../../molecules/Pagination/Pagination";
-import { DubSearch, createEmptyDubSearchFilters } from "../../organisms/DubSearch/DubSearch";
+import { DubSearch, createEmptyDubSearchFilters, getDubSearchFilterCount } from "../../organisms/DubSearch/DubSearch";
 import type { Dub } from "../communityTypes";
 import { DubCardList, type DubCardListProps } from "../shared/DubCardList";
+import { DubSearchToolbar } from "../shared/DubSearchToolbar";
+import { allDistributions, dubFileType, hasInvalidDubSearchRange, matchesDubSearch } from "../shared/dubSearchFilters";
 import "../CommunityPageTemplates.css";
 
 export interface SharedWithMeTemplateProps extends Omit<DubCardListProps, "entries" | "label"> {
@@ -13,25 +15,11 @@ export interface SharedWithMeTemplateProps extends Omit<DubCardListProps, "entri
 
 export function SharedWithMeTemplate({ dubs, ...cardProps }: SharedWithMeTemplateProps) {
   const [query, setQuery] = useState("");
-  const [filters, setFilters] = useState(() => ({ ...createEmptyDubSearchFilters(), distributions: ["worldwide", "private", "alist"] as NonNullable<Dub["distribution"]>[] }));
-  const defaults: NonNullable<Dub["distribution"]>[] = ["worldwide", "private", "alist"];
-  const invalidRange = Boolean((filters.minBpm && filters.maxBpm && Number(filters.minBpm) > Number(filters.maxBpm)) || (filters.minBitrate && filters.maxBitrate && Number(filters.minBitrate) > Number(filters.maxBitrate)));
+  const [filters, setFilters] = useState(() => ({ ...createEmptyDubSearchFilters(), distributions: [...allDistributions] }));
+  const invalidRange = hasInvalidDubSearchRange(filters);
   const filteredDubs = useMemo(() => {
     if (invalidRange) return [];
-    const needle = query.trim().toLocaleLowerCase();
-    return dubs.filter((dub) => {
-      const tags = dub.tags ?? [];
-      const format = (dub.audioFormat ?? dub.audioFileName?.split(".").pop() ?? "").toLocaleUpperCase();
-      const searchable = [dub.title, dub.artist, dub.uploader, dub.uploaderDisplayName, dub.genre, dub.message, format, ...tags].filter(Boolean).join(" ").toLocaleLowerCase();
-      return filters.distributions.includes(dub.distribution ?? "worldwide")
-        && (!needle || searchable.includes(needle))
-        && (!filters.tags.length || filters.tags.some((tag) => tags.includes(tag)))
-        && (!filters.fileType || format === filters.fileType)
-        && (!filters.minBpm || dub.bpm >= Number(filters.minBpm))
-        && (!filters.maxBpm || dub.bpm <= Number(filters.maxBpm))
-        && (!filters.minBitrate || (dub.bitrateKbps !== undefined && dub.bitrateKbps >= Number(filters.minBitrate)))
-        && (!filters.maxBitrate || (dub.bitrateKbps !== undefined && dub.bitrateKbps <= Number(filters.maxBitrate)));
-    });
+    return dubs.filter((dub) => matchesDubSearch(dub, query, filters));
   }, [dubs, filters, invalidRange, query]);
   const pagination = usePagination(filteredDubs, `${query}|${JSON.stringify(filters)}`);
   return (
@@ -41,10 +29,12 @@ export function SharedWithMeTemplate({ dubs, ...cardProps }: SharedWithMeTemplat
           <p>Dubs shared with you in Messenger.</p></div>
         <Badge>{dubs.length} shared {dubs.length === 1 ? "dub" : "dubs"}</Badge>
       </section>
-      <DubSearch query={query} onQueryChange={setQuery} filters={filters} onFiltersChange={setFilters}
-        defaultDistributions={defaults} distributionHint="Filter the dubs shared with you by distribution."
-        fileTypes={[...new Set(dubs.map((dub) => (dub.audioFormat ?? dub.audioFileName?.split(".").pop())?.toLocaleUpperCase()).filter((value): value is string => Boolean(value)))].sort()}
-        resultCount={filteredDubs.length} error={invalidRange ? "Minimum values must be less than or equal to maximum values." : null} />
+      <DubSearchToolbar filterCount={getDubSearchFilterCount(filters, allDistributions)} query={query}>
+        <DubSearch query={query} onQueryChange={setQuery} filters={filters} onFiltersChange={setFilters}
+          defaultDistributions={allDistributions} distributionHint="Filter the dubs shared with you by distribution."
+          fileTypes={[...new Set(dubs.map(dubFileType).filter(Boolean))].sort()}
+          resultCount={filteredDubs.length} error={invalidRange ? "Minimum values must be less than or equal to maximum values." : null} />
+      </DubSearchToolbar>
       {filteredDubs.length ? (
         <>
           <DubCardList {...cardProps} entries={pagination.items.map((dub) => ({ dub }))} label="Dubs shared with me" />

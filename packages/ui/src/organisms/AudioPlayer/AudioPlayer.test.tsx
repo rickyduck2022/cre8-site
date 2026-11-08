@@ -7,6 +7,19 @@ afterEach(cleanup);
 const track = { title: "Night Drive", artist: "Amber" };
 
 describe("AudioPlayer playback indicator", () => {
+  it("offers a controlled minimize and expand action without affecting playback", () => {
+    const change = vi.fn();
+    const play = vi.fn();
+    const { rerender } = render(<AudioPlayer track={track} playing onPlayChange={play} minimized={false} onMinimizedChange={change} />);
+    fireEvent.click(screen.getByRole("button", { name: "Minimize audio player", expanded: true }));
+    expect(change).toHaveBeenCalledWith(true);
+    rerender(<AudioPlayer track={track} playing onPlayChange={play} minimized onMinimizedChange={change} />);
+    expect(screen.getByRole("region", { name: "Audio player: Night Drive" })).toHaveClass("audio-player--minimized");
+    fireEvent.click(screen.getByRole("button", { name: "Expand audio player", expanded: false }));
+    expect(change).toHaveBeenLastCalledWith(false);
+    expect(play).not.toHaveBeenCalled();
+  });
+
   it("updates its distribution surface as the track changes", () => {
     const { rerender } = render(<AudioPlayer track={track} distribution="alist" playing />);
     const player = screen.getByRole("region", { name: "Audio player: Night Drive" });
@@ -16,8 +29,9 @@ describe("AudioPlayer playback indicator", () => {
     expect(player).not.toHaveClass("audio-player--alist");
     rerender(<AudioPlayer track={track} distribution="worldwide" />);
     expect(player).not.toHaveClass("audio-player--private", "audio-player--alist");
+    expect(player).toHaveClass("audio-player--worldwide");
     rerender(<AudioPlayer track={track} />);
-    expect(player).not.toHaveClass("audio-player--private", "audio-player--alist");
+    expect(player).not.toHaveClass("audio-player--private", "audio-player--alist", "audio-player--worldwide");
   });
 
   it("only shows the indicator while the controlled player is playing", () => {

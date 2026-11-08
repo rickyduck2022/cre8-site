@@ -25,6 +25,11 @@
   grid-template-columns: minmax(0, 1fr);
 }
 
+.dashboard-template__body--unconstrained {
+  overflow: visible;
+  scrollbar-gutter: auto;
+}
+
 .dashboard-template__content {
   min-width: 0;
 }

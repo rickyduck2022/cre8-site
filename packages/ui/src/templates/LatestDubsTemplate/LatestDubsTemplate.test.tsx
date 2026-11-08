@@ -13,6 +13,22 @@ const dub: Dub = {
 };
 
 describe("LatestDubsTemplate ownership controls", () => {
+  it("shows a loading indicator in place of stale results and pagination while searching", () => {
+    const props = {
+      dubs: [dub], likedDubIds: new Set<string>(), nowPlayingId: null, isPlaying: false,
+      onDownload: vi.fn(), onOpenProfile: vi.fn(), onPlay: vi.fn(),
+    };
+    const { rerender } = render(<LatestDubsTemplate {...props} isSearching />);
+    const feed = screen.getByRole("region", { name: "Community uploads" });
+    expect(within(feed).getByRole("status")).toHaveTextContent("Searching dubs");
+    expect(feed.querySelector(".button__spinner")).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Audio player: My Dub" })).not.toBeInTheDocument();
+    expect(screen.queryByText("No dubs found")).not.toBeInTheDocument();
+    rerender(<LatestDubsTemplate {...props} isSearching={false} />);
+    expect(within(feed).queryByText("Searching dubs")).not.toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Audio player: My Dub" })).toBeVisible();
+  });
+
   it("prioritizes A-List dubs before pagination while sorting within each tier", () => {
     const dubs: Dub[] = [
       { ...dub, id: "public", title: "Public", distribution: "worldwide", uploadedAt: "2026-11-08T12:00:00Z", likes: 100 },
@@ -49,6 +65,20 @@ describe("LatestDubsTemplate ownership controls", () => {
       onDownload={vi.fn()} onOpenProfile={vi.fn()} onPlay={vi.fn()}
     />);
     expect(screen.getByRole("region", { name: "Audio player: My Dub" })).toBeVisible();
+  });
+
+  it("keeps the priority explanation outside the toolbar and sort above search", () => {
+    render(<LatestDubsTemplate
+      dubs={[{ ...dub, distribution: "alist" }]} prioritizeAList
+      likedDubIds={new Set()} nowPlayingId={null} isPlaying={false}
+      onDownload={vi.fn()} onOpenProfile={vi.fn()} onPlay={vi.fn()}
+    />);
+    const priority = screen.getByText(/A-List dubs appear first/);
+    const sort = screen.getByRole("tablist", { name: "Sort dubs" });
+    const search = screen.getByRole("region", { name: "Search dubs" });
+    expect(priority.closest(".dub-search-toolbar")).toBeNull();
+    expect(sort.closest(".dub-search-toolbar")).toBe(search.closest(".dub-search-toolbar"));
+    expect(sort.compareDocumentPosition(search) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it("shares a feed dub through the friend-sharing action", () => {

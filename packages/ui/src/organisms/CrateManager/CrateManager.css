@@ -194,26 +194,21 @@
   flex: 1 1 100%;
 }
 
-.crate-management-modal .modal__surface {
-  box-sizing: border-box;
-  max-width: min(48rem, calc(100vw - 2rem));
-  min-width: min(36.5rem, calc(100vw - 2rem));
-  width: max-content;
-}
+@media (min-width: 761px) {
+  .crate-management-modal .modal__surface {
+    box-sizing: border-box;
+    max-width: min(48rem, calc(100vw - 2rem));
+    min-width: min(36.5rem, calc(100vw - 2rem));
+    width: max-content;
+  }
 
-.crate-management-modal {
-  max-width: min(48rem, calc(100vw - 2rem));
-  width: max-content;
+  .crate-management-modal {
+    max-width: min(48rem, calc(100vw - 2rem));
+    width: max-content;
+  }
 }
 
 @media (max-width: 38rem) {
-  .crate-management-modal,
-  .crate-management-modal .modal__surface {
-    max-width: calc(100vw - 1.5rem);
-    min-width: 0;
-    width: calc(100vw - 1.5rem);
-  }
-
   .crate-manager {
     min-width: 0;
     width: 100%;

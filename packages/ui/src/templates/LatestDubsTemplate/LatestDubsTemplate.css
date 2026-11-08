@@ -8,6 +8,21 @@
   margin: 0;
 }
 
+.latest-dubs-template__loading {
+  align-items: center;
+  color: var(--text-secondary);
+  display: flex;
+  gap: 0.75rem;
+  justify-content: center;
+  min-height: 6rem;
+}
+
+.latest-dubs-template__loading .button__spinner {
+  flex: none;
+  height: 1.25rem;
+  width: 1.25rem;
+}
+
 .latest-dubs-template__intro {
   align-items: center;
   display: grid;

@@ -1,11 +1,92 @@
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { MessengerTemplate } from "./MessengerTemplate";
 import type { Dub } from "../communityTypes";
 
-afterEach(cleanup);
+beforeAll(() => {
+  HTMLDialogElement.prototype.showModal = function () { this.setAttribute("open", ""); };
+  HTMLDialogElement.prototype.close = function () { this.removeAttribute("open"); };
+});
+afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
 describe("MessengerTemplate shared dubs", () => {
+  it("uses the mobile modal and preserves its search when switching layout", () => {
+    let mobile = true;
+    let listener: (() => void) | undefined;
+    vi.stubGlobal("matchMedia", vi.fn(() => ({
+      matches: mobile,
+      addEventListener: (_event: string, callback: () => void) => { listener = callback; },
+      removeEventListener: vi.fn(),
+    })));
+    render(<MessengerTemplate
+      buddies={[{ id: "friend", username: "amber", displayName: "Amber", presence: "online", genre: "Jungle", role: "DJ", bio: "", groups: [] }]}
+      conversations={[]} dubs={[]} initialBuddyId="friend" chatConnectionStatus="connected" nowPlayingId={null} isPlaying={false}
+      onOpenProfile={vi.fn()} onPlay={vi.fn()} onStartConversation={vi.fn()} onSelectConversation={vi.fn()}
+      onLoadOlderMessages={vi.fn(async () => null)} onSendMessage={vi.fn(async () => true)}
+    />);
+    const trigger = screen.getByRole("button", { name: "Share one of My Dubs" });
+    expect(trigger).toHaveAttribute("aria-haspopup", "dialog");
+    fireEvent.click(trigger);
+    const dialog = screen.getByRole("dialog", { name: "Share one of My Dubs" });
+    fireEvent.change(within(dialog).getByRole("searchbox", { name: "Search My Dubs to share" }), { target: { value: "jungle" } });
+    act(() => { mobile = false; listener?.(); });
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "My Dubs available to share" })).toBeVisible();
+    expect(screen.getByRole("searchbox", { name: "Search My Dubs to share" })).toHaveValue("jungle");
+    act(() => { mobile = true; listener?.(); });
+    const reopened = screen.getByRole("dialog", { name: "Share one of My Dubs" });
+    expect(within(reopened).getByRole("searchbox")).toHaveValue("jungle");
+    fireEvent(reopened, new Event("cancel", { bubbles: false, cancelable: true }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(trigger).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(trigger);
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Close" }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("navigates between the mobile list and thread, preserving drafts per conversation", async () => {
+    const select = vi.fn();
+    const start = vi.fn();
+    const send = vi.fn(async () => true);
+    const buddies = [
+      { id: "friend", username: "amber", displayName: "Amber", presence: "online" as const, genre: "Jungle", role: "DJ", bio: "", groups: [] },
+      { id: "other", username: "ben", displayName: "Ben", presence: "offline" as const, genre: "Jungle", role: "DJ", bio: "", groups: [], unread: 2 },
+    ];
+    const props = {
+      buddies, conversations: [], dubs: [], initialBuddyId: "", chatConnectionStatus: "connected" as const,
+      nowPlayingId: null, isPlaying: false, onOpenProfile: vi.fn(), onPlay: vi.fn(),
+      onStartConversation: start, onSelectConversation: select, onLoadOlderMessages: vi.fn(async () => null), onSendMessage: send,
+    };
+    const { container, rerender } = render(<MessengerTemplate {...props} />);
+    const messenger = container.querySelector(".messenger");
+    expect(screen.getByRole("heading", { name: "Messages" })).toBeVisible();
+    expect(screen.queryByText("PRIVATE CONVERSATIONS")).not.toBeInTheDocument();
+    expect(messenger).not.toHaveClass("messenger--thread-open");
+    fireEvent.click(screen.getByRole("button", { name: "Start a conversation" }));
+    expect(start).toHaveBeenCalledOnce();
+    fireEvent.click(screen.getByRole("button", { name: "Open conversation with Amber" }));
+    expect(messenger).toHaveClass("messenger--thread-open");
+    expect(select).toHaveBeenCalledWith("friend");
+    fireEvent.change(screen.getByLabelText("Message Amber"), { target: { value: "Amber draft" } });
+    fireEvent.click(screen.getByRole("button", { name: "Back" }));
+    expect(messenger).not.toHaveClass("messenger--thread-open");
+    fireEvent.click(screen.getByRole("button", { name: "Open conversation with Ben" }));
+    expect(screen.getByLabelText("Message Ben")).toHaveValue("");
+    fireEvent.change(screen.getByLabelText("Message Ben"), { target: { value: "Hello Ben" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+    await waitFor(() => expect(send).toHaveBeenCalledWith("other", "Hello Ben"));
+    await waitFor(() => expect(screen.getByLabelText("Message Ben")).toHaveValue(""));
+    fireEvent.click(screen.getByRole("button", { name: "Back" }));
+    fireEvent.click(screen.getByRole("button", { name: "Open conversation with Amber" }));
+    expect(screen.getByLabelText("Message Amber")).toHaveValue("Amber draft");
+    rerender(<MessengerTemplate {...props} initialBuddyId="other" navigationKey={1} />);
+    expect(messenger).toHaveClass("messenger--thread-open");
+    expect(screen.getByLabelText("Message Ben")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Back" }));
+    rerender(<MessengerTemplate {...props} initialBuddyId="other" navigationKey={2} />);
+    expect(messenger).toHaveClass("messenger--thread-open");
+  });
+
   it("only offers restricted A-List dubs to approved recipients, while public A-List dubs remain shareable", () => {
     const dub: Dub = { id: "restricted", title: "Restricted", artist: "You", uploader: "you", uploaderDisplayName: "You", uploadedAt: "", bpm: 0, genre: "Jungle", duration: "1:00", likes: 0, downloads: 0, artwork: "", message: "", distribution: "alist" };
     const publicDub = { ...dub, id: "public", title: "Public", aListPublic: true };
@@ -121,6 +202,10 @@ describe("MessengerTemplate shared dubs", () => {
     await waitFor(() => expect(trigger).toHaveAttribute("aria-expanded", "false"));
 
     fireEvent.click(trigger);
+    fireEvent.click(trigger);
+    expect(trigger).toHaveAttribute("aria-expanded", "false");
+
+    fireEvent.click(trigger);
     fireEvent.keyDown(document, { key: "Escape" });
     expect(trigger).toHaveAttribute("aria-expanded", "false");
 
@@ -172,6 +257,10 @@ describe("MessengerTemplate shared dubs", () => {
       expect(within(details).getByText(tag)).toHaveClass("track-tag--dark");
     }
     expect(within(details).getByLabelText("Audio file details")).toHaveClass("track-file-metadata--inline");
+    const download = within(player).getByRole("button", { name: "Download Jungle Drop" });
+    expect(download.parentElement).toBe(details.parentElement);
+    expect(details.nextElementSibling).toBe(download);
+    expect(player.querySelector(".audio-player__end-action")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Pause" }));
     fireEvent.click(screen.getByRole("button", { name: "Download Jungle Drop" }));
     const inlineControls = screen

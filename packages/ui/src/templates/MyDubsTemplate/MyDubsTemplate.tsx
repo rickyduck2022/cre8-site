@@ -4,6 +4,7 @@ import { Badge } from "../../atoms/Badge/Badge";
 import { Button } from "../../atoms/Button/Button";
 import { Pagination, usePagination } from "../../molecules/Pagination/Pagination";
 import { SearchField } from "../../molecules/SearchField/SearchField";
+import { ShareDubIcon } from "../../molecules/ShareDubIcon/ShareDubIcon";
 import { DubCard } from "../../organisms/DubCard/DubCard";
 import { DubStatistics } from "../../organisms/DubStatistics/DubStatistics";
 import type { Dub } from "../communityTypes";
@@ -85,7 +86,7 @@ export function MyDubsTemplate({
         </div>
         <div className="my-dubs-template__intro-actions">
           <Badge dot variant="audio">{dubs.length} {dubs.length === 1 ? "dub" : "dubs"}</Badge>
-          <Button leadingIcon={<AudioLines aria-hidden="true" />} onClick={onShareDub}>
+          <Button aria-label="Share a dub" hideLabelOnMobile leadingIcon={<ShareDubIcon desktopIcon={<AudioLines />} />} onClick={onShareDub}>
             Share a dub
           </Button>
         </div>
@@ -127,10 +128,7 @@ export function MyDubsTemplate({
               onShareWithFriend={onShareWithFriend}
               manageable
             />
-            <p className="my-dubs-template__distribution">
-              Distribution: {dub.distribution === "private" ? "Private" : dub.distribution === "alist" ? "A-List" : "Worldwide"}
-            </p>
-            <details className="my-dubs-template__statistics">
+            <details className={`my-dubs-template__statistics my-dubs-template__statistics--${dub.distribution ?? "worldwide"}`}>
               <summary>Statistics for {dub.title}</summary>
               <DubStatistics dub={dub} onRevokeGrant={onRevokeGrant} onOpenProfile={onOpenProfile} />
             </details>
@@ -141,7 +139,7 @@ export function MyDubsTemplate({
             <Search aria-hidden="true" />
             <strong>{dubs.length ? "No dubs found" : "Your first dub starts here"}</strong>
             <span>{dubs.length ? "Try another track, tag, or genre." : "Share a dub to add it to your collection."}</span>
-            {!dubs.length && <Button onClick={onShareDub}>Share a dub</Button>}
+            {!dubs.length && <Button aria-label="Share a dub" hideLabelOnMobile leadingIcon={<ShareDubIcon desktopIcon={<AudioLines />} />} onClick={onShareDub}>Share a dub</Button>}
           </div>
         )}
       </section>

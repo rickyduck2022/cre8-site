@@ -54,7 +54,7 @@ export function Button({
         )
       )}
       {children !== undefined && children !== null && children !== false && (
-        <span>{children}</span>
+        <span className="button__label">{children}</span>
       )}
     </button>
   );

@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import { Heart, Upload } from "@craft/icons";
 import { Avatar } from "../../atoms/Avatar/Avatar";
 import { Button } from "../../atoms/Button/Button";
+import { ShareDubIcon } from "../ShareDubIcon/ShareDubIcon";
 import "../Molecules.css";
 
 export interface ShareEntryProps {
@@ -64,8 +65,10 @@ export function ShareEntry({
           Upload dub
         </Button>
         <Button
+          aria-label="Share a dub"
           disabled={!message.trim()}
-          leadingIcon={<Heart />}
+          hideLabelOnMobile
+          leadingIcon={<ShareDubIcon desktopIcon={<Heart />} />}
           size="small"
           type="submit"
         >

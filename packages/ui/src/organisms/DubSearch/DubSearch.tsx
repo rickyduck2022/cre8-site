@@ -1,9 +1,12 @@
 import { useId, useState } from "react";
+import { Settings2 } from "@craft/icons";
 import { Badge } from "../../atoms/Badge/Badge";
 import { Button } from "../../atoms/Button/Button";
 import { SearchField } from "../../molecules/SearchField/SearchField";
 import { TagSelector } from "../../molecules/TagSelector/TagSelector";
 import type { Dub } from "../../types/domain";
+import { useMobileLayout } from "../../utils/useMobileLayout";
+import { Modal } from "../Modal/Modal";
 import "./DubSearch.css";
 
 type Distribution = NonNullable<Dub["distribution"]>;
@@ -136,11 +139,109 @@ export function DubSearch({
   const panelId = useId();
   const [expanded, setExpanded] = useState(false);
   const [draft, setDraft] = useState(filters);
+  const mobile = useMobileLayout();
   const filterCount = getDubSearchFilterCount(filters, defaultDistributions);
   const updateFilter = <K extends keyof DubSearchFilters>(
     key: K,
     value: DubSearchFilters[K],
   ) => setDraft((current) => ({ ...current, [key]: value }));
+
+  const panel = (
+    <form className="dub-search__panel" id={panelId} onSubmit={(event) => {
+      event.preventDefault();
+      onFiltersChange(draft);
+      setExpanded(false);
+    }}>
+      {showDistributionFilter && (
+        <fieldset className="dub-search__distributions">
+          <legend>Distribution · match any</legend>
+          <div className="dub-search__distribution-options">
+            {([
+              ["worldwide", "Worldwide"],
+              ["private", "Private"],
+              ["alist", "A-List"],
+            ] as const).map(([value, label]) => (
+              <label className={`dub-search__distribution dub-search__distribution--${value}`} key={value}>
+                <input
+                  checked={draft.distributions.includes(value)}
+                  onChange={(event) => updateFilter("distributions", event.target.checked
+                    ? [...draft.distributions, value]
+                    : draft.distributions.filter((item) => item !== value))}
+                  type="checkbox"
+                />
+                {label}
+              </label>
+            ))}
+          </div>
+          <span className="dub-search__distribution-hint">{distributionHint}</span>
+        </fieldset>
+      )}
+      <TagSelector
+        label="Tags · match any"
+        options={DUB_SEARCH_TAGS}
+        value={draft.tags}
+        onChange={(value) => updateFilter("tags", value)}
+      />
+      <div className="dub-search__controls">
+        <RangeInput
+          label="BPM"
+          unit="BPM"
+          minValue={draft.minBpm}
+          maxValue={draft.maxBpm}
+          max={300}
+          onMinChange={(value) => updateFilter("minBpm", value)}
+          onMaxChange={(value) => updateFilter("maxBpm", value)}
+        />
+        <label className="dub-search__select">
+          <span>File type</span>
+          <select
+            aria-label="File type"
+            onChange={(event) => updateFilter("fileType", event.target.value)}
+            value={draft.fileType}
+          >
+            <option value="">Any format</option>
+            {fileTypes.map((type) => (
+              <option key={type} value={type}>
+                {type}
+              </option>
+            ))}
+          </select>
+        </label>
+        <RangeInput
+          label="Bitrate"
+          unit="kbps"
+          minValue={draft.minBitrate}
+          maxValue={draft.maxBitrate}
+          max={1000}
+          onMinChange={(value) => updateFilter("minBitrate", value)}
+          onMaxChange={(value) => updateFilter("maxBitrate", value)}
+        />
+      </div>
+      <div className="dub-search__footer">
+        <span aria-live="polite">
+          {isSearching
+            ? "Searching…"
+            : `${resultCount} ${resultCount === 1 ? "dub" : "dubs"} found`}
+        </span>
+        <div className="dub-search__actions">
+          {(filterCount > 0 || getDubSearchFilterCount(draft, defaultDistributions) > 0 || query) && (
+            <Button
+              onClick={() => {
+                onQueryChange("");
+                const empty = { ...createEmptyDubSearchFilters(), distributions: [...defaultDistributions] };
+                setDraft(empty);
+                onFiltersChange(empty);
+              }}
+              variant="tertiary"
+            >
+              Clear search
+            </Button>
+          )}
+          <Button type="submit">Apply filters</Button>
+        </div>
+      </div>
+    </form>
+  );
 
   return (
     <section aria-label="Search dubs" className="dub-search">
@@ -152,114 +253,26 @@ export function DubSearch({
           value={query}
         />
         <Button
-          aria-controls={panelId}
+          aria-label={filterCount ? `Filters, ${filterCount} active` : "Filters"}
+          aria-controls={expanded ? panelId : undefined}
           aria-expanded={expanded}
+          aria-haspopup={mobile ? "dialog" : undefined}
           className="dub-search__toggle"
+          leadingIcon={<Settings2 />}
           onClick={() => {
             if (!expanded) setDraft(filters);
             setExpanded(!expanded);
           }}
           variant="secondary"
         >
-          Filters {filterCount > 0 && <Badge>{filterCount}</Badge>}
+          <span className="dub-search__toggle-label">Filters</span> {filterCount > 0 && <Badge className="dub-search__count">{filterCount}</Badge>}
         </Button>
       </div>
-      {expanded && (
-        <form className="dub-search__panel" id={panelId} onSubmit={(event) => {
-          event.preventDefault();
-          onFiltersChange(draft);
-          setExpanded(false);
-        }}>
-          {showDistributionFilter && (
-            <fieldset className="dub-search__distributions">
-              <legend>Distribution · match any</legend>
-              <div className="dub-search__distribution-options">
-                {([
-                  ["worldwide", "Worldwide"],
-                  ["private", "Private"],
-                  ["alist", "A-List"],
-                ] as const).map(([value, label]) => (
-                  <label className={`dub-search__distribution dub-search__distribution--${value}`} key={value}>
-                    <input
-                      checked={draft.distributions.includes(value)}
-                      onChange={(event) => updateFilter("distributions", event.target.checked
-                        ? [...draft.distributions, value]
-                        : draft.distributions.filter((item) => item !== value))}
-                      type="checkbox"
-                    />
-                    {label}
-                  </label>
-                ))}
-              </div>
-              <span className="dub-search__distribution-hint">{distributionHint}</span>
-            </fieldset>
-          )}
-          <TagSelector
-            label="Tags · match any"
-            options={DUB_SEARCH_TAGS}
-            value={draft.tags}
-            onChange={(value) => updateFilter("tags", value)}
-          />
-          <div className="dub-search__controls">
-            <RangeInput
-              label="BPM"
-              unit="BPM"
-              minValue={draft.minBpm}
-              maxValue={draft.maxBpm}
-              max={300}
-              onMinChange={(value) => updateFilter("minBpm", value)}
-              onMaxChange={(value) => updateFilter("maxBpm", value)}
-            />
-            <label className="dub-search__select">
-              <span>File type</span>
-              <select
-                aria-label="File type"
-                onChange={(event) => updateFilter("fileType", event.target.value)}
-                value={draft.fileType}
-              >
-                <option value="">Any format</option>
-                {fileTypes.map((type) => (
-                  <option key={type} value={type}>
-                    {type}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <RangeInput
-              label="Bitrate"
-              unit="kbps"
-              minValue={draft.minBitrate}
-              maxValue={draft.maxBitrate}
-              max={1000}
-              onMinChange={(value) => updateFilter("minBitrate", value)}
-              onMaxChange={(value) => updateFilter("maxBitrate", value)}
-            />
-          </div>
-          <div className="dub-search__footer">
-            <span aria-live="polite">
-              {isSearching
-                ? "Searching…"
-                : `${resultCount} ${resultCount === 1 ? "dub" : "dubs"} found`}
-            </span>
-            <div className="dub-search__actions">
-              {(filterCount > 0 || getDubSearchFilterCount(draft, defaultDistributions) > 0 || query) && (
-                <Button
-                  onClick={() => {
-                    onQueryChange("");
-                    const empty = { ...createEmptyDubSearchFilters(), distributions: [...defaultDistributions] };
-                    setDraft(empty);
-                    onFiltersChange(empty);
-                  }}
-                  variant="tertiary"
-                >
-                  Clear search
-                </Button>
-              )}
-              <Button type="submit">Apply filters</Button>
-            </div>
-          </div>
-        </form>
-      )}
+      {expanded && (mobile ? (
+        <Modal className="dub-search__dialog" isOpen onClose={() => setExpanded(false)} title="Filter dubs">
+          {panel}
+        </Modal>
+      ) : panel)}
       {error && (
         <p className="dub-search__error" role="alert">
           {error}

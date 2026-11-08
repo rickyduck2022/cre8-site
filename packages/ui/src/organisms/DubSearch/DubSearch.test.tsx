@@ -1,8 +1,17 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { createEmptyDubSearchFilters, DubSearch, getDubSearchFilterCount } from "./DubSearch";
 
-afterEach(cleanup);
+beforeAll(() => {
+  HTMLDialogElement.prototype.showModal = function () { this.open = true; };
+  HTMLDialogElement.prototype.close = function () { this.open = false; };
+});
+
+afterEach(() => {
+  cleanup();
+  vi.unstubAllGlobals();
+  vi.restoreAllMocks();
+});
 
 describe("DubSearch", () => {
   it("applies selected distribution, tag, BPM, format, and bitrate filters only on submit", () => {
@@ -71,5 +80,54 @@ describe("DubSearch", () => {
   it("keeps search errors visible when the filter panel is collapsed", () => {
     render(<DubSearch query="" onQueryChange={vi.fn()} filters={createEmptyDubSearchFilters()} onFiltersChange={vi.fn()} resultCount={0} error="Adjust the BPM range." />);
     expect(screen.getByRole("alert")).toHaveTextContent("Adjust the BPM range.");
+  });
+
+  it("uses one search icon and exposes the active filter count accessibly", () => {
+    const { container } = render(<DubSearch query="" onQueryChange={vi.fn()} filters={{ ...createEmptyDubSearchFilters(), tags: ["Jungle"] }} onFiltersChange={vi.fn()} resultCount={0} />);
+    expect(container.querySelectorAll(".search-field svg")).toHaveLength(1);
+    expect(screen.getByRole("button", { name: "Filters, 1 active" })).toHaveTextContent("1");
+    expect(container.querySelector(".dub-search__toggle .button__icon svg")).toBeInTheDocument();
+  });
+
+  it("uses a mobile dialog, discards closed drafts, and applies filters", () => {
+    vi.stubGlobal("matchMedia", vi.fn().mockReturnValue({
+      matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn(),
+    }));
+    const onFiltersChange = vi.fn();
+    render(<DubSearch query="" onQueryChange={vi.fn()} filters={createEmptyDubSearchFilters()} onFiltersChange={onFiltersChange} resultCount={3} />);
+    const toggle = screen.getByRole("button", { name: "Filters" });
+    expect(toggle).toHaveAttribute("aria-haspopup", "dialog");
+    fireEvent.click(toggle);
+    const dialog = screen.getByRole("dialog", { name: "Filter dubs" });
+    fireEvent.click(within(dialog).getByRole("checkbox", { name: "Private" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Close" }));
+    expect(onFiltersChange).not.toHaveBeenCalled();
+    fireEvent.click(toggle);
+    expect(within(screen.getByRole("dialog")).getByRole("checkbox", { name: "Private" })).not.toBeChecked();
+    fireEvent(screen.getByRole("dialog"), new Event("cancel", { bubbles: false, cancelable: true }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    fireEvent.click(toggle);
+    fireEvent.click(screen.getByRole("checkbox", { name: "Private" }));
+    fireEvent.click(screen.getByRole("button", { name: "Apply filters" }));
+    expect(onFiltersChange).toHaveBeenCalledWith({ ...createEmptyDubSearchFilters(), distributions: ["worldwide", "alist", "private"] });
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("preserves the draft when switching between desktop and mobile layouts", () => {
+    let mobile = false;
+    let listener: (() => void) | undefined;
+    vi.stubGlobal("matchMedia", vi.fn(() => ({
+      matches: mobile,
+      addEventListener: (_event: string, callback: () => void) => { listener = callback; },
+      removeEventListener: vi.fn(),
+    })));
+    render(<DubSearch query="" onQueryChange={vi.fn()} filters={createEmptyDubSearchFilters()} onFiltersChange={vi.fn()} resultCount={0} />);
+    fireEvent.click(screen.getByRole("button", { name: "Filters" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Private" }));
+    act(() => { mobile = true; listener?.(); });
+    expect(within(screen.getByRole("dialog", { name: "Filter dubs" })).getByRole("checkbox", { name: "Private" })).toBeChecked();
+    act(() => { mobile = false; listener?.(); });
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: "Private" })).toBeChecked();
   });
 });

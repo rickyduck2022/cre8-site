@@ -30,6 +30,38 @@ function renderPage() {
 }
 
 describe("MyDubsTemplate", () => {
+  it("uses accessible mobile icon buttons for both upload entry points", () => {
+    const share = vi.fn();
+    render(<MyDubsTemplate
+      dubs={[]} likedDubIds={new Set()} nowPlayingId={null} isPlaying={false}
+      onDownload={vi.fn()} onPlay={vi.fn()} onShareDub={share} onEditDub={vi.fn()} onDeleteDub={vi.fn()}
+    />);
+    const buttons = screen.getAllByRole("button", { name: "Share a dub" });
+    expect(buttons).toHaveLength(2);
+    for (const button of buttons) {
+      expect(button).toHaveClass("button--hide-label-mobile");
+      expect(button.querySelector(".share-dub-icon__mobile svg")).toBeInTheDocument();
+      fireEvent.click(button);
+    }
+    expect(share).toHaveBeenCalledTimes(2);
+  });
+
+  it.each(["worldwide", "private", "alist", undefined] as const)(
+    "attaches %s statistics directly to the matching card",
+    (distribution) => {
+      render(<MyDubsTemplate
+        dubs={[{ ...dub, distribution }]} likedDubIds={new Set()} nowPlayingId={null} isPlaying={false}
+        onDownload={vi.fn()} onPlay={vi.fn()} onShareDub={vi.fn()} onEditDub={vi.fn()} onDeleteDub={vi.fn()}
+      />);
+      const summary = screen.getByText("Statistics for Night Drive");
+      const details = summary.closest("details")!;
+      expect(details).toHaveClass(`my-dubs-template__statistics--${distribution ?? "worldwide"}`);
+      expect(details.previousElementSibling).toHaveClass("dub-card");
+      expect(details.parentElement?.querySelector(".my-dubs-template__distribution")).toBeNull();
+      fireEvent.click(summary);
+      expect(screen.getByText("Performance")).toBeVisible();
+    },
+  );
   it("lets owners revoke private access from a named recipient", () => {
     const onRevokeGrant = vi.fn();
     render(<MyDubsTemplate
@@ -45,7 +77,7 @@ describe("MyDubsTemplate", () => {
       onRevokeGrant={onRevokeGrant}
     />);
     fireEvent.click(screen.getByText("Statistics for Night Drive"));
-    expect(screen.getByText("Distribution: Private")).toBeVisible();
+    expect(screen.queryByText("Distribution: Private")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Revoke access for Meladee" }));
     expect(onRevokeGrant).toHaveBeenCalledWith("dub-1", "friend");
   });

@@ -10,6 +10,28 @@ function withIconColor(props: IconProps): IconProps {
   };
 }
 
+export const Mail: IconComponent = (props) =>
+  React.createElement(IconBase, {
+    ...withIconColor(props),
+    children: React.createElement("path", {
+      d: "M4 5h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Zm-2 2 10 7L22 7",
+      strokeWidth: 1.7,
+      strokeLinecap: "round",
+      strokeLinejoin: "round",
+    }),
+  });
+
+export const Send: IconComponent = (props) =>
+  React.createElement(IconBase, {
+    ...withIconColor(props),
+    children: React.createElement("path", {
+      d: "M22 2 9.5 14.5M22 2l-7.5 20-5-7.5L2 9.5 22 2Z",
+      strokeWidth: 1.7,
+      strokeLinecap: "round",
+      strokeLinejoin: "round",
+    }),
+  });
+
 export const AudioLines: IconComponent = (props) => {
   const icon = React.createElement(
     "g",

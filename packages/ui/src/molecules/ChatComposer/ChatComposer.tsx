@@ -1,6 +1,8 @@
 import type { FormEvent } from "react";
+import { Send } from "@craft/icons";
 import { Button } from "../../atoms/Button/Button";
 import "../Molecules.css";
+import "./ChatComposer.css";
 
 export interface ChatComposerProps {
   recipientName: string;
@@ -31,7 +33,10 @@ export function ChatComposer({
       />
       <Button
         aria-label="Send message"
+        className="chat-compose__send"
         disabled={disabled || !value.trim()}
+        hideLabelOnMobile
+        leadingIcon={<Send />}
         size="small"
         type="submit"
       >

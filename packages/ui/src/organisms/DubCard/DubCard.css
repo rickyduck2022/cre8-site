@@ -2,6 +2,7 @@
   background: var(--surface-raised);
   border: 1px solid var(--border-default);
   border-radius: 0.75rem;
+  box-shadow: inset 0 0 0.25rem rgb(0 0 0 / 25%);
   display: grid;
   gap: 0.875rem;
   min-width: 0;
@@ -11,6 +12,11 @@
 
 .dub-card:hover {
   border-color: color-mix(in srgb, var(--text-secondary) 55%, var(--border-default));
+}
+
+.dub-card--alist .alist-badge {
+  --alist-badge-background: var(--color-orange-500);
+  --alist-badge-foreground: var(--color-neutral-950);
 }
 
 .dub-card__topline {
@@ -60,7 +66,9 @@
   padding-left: 0.75rem;
   padding-right: 0.75rem;
 }
-.dub-card--private .organism-card.audio-player {
+.dub-card--private .organism-card.audio-player,
+.dub-card--alist .organism-card.audio-player,
+.dub-card .organism-card.audio-player--worldwide {
   background: var(--surface-canvas);
 }
 .dub-card__timestamp { color: var(--audio-active); font-family: var(--font-mono); font-size: var(--type-size-micro); }
@@ -69,7 +77,13 @@
 .dub-card__distribution { cursor: default; justify-self: end; }
 .dub-card__distribution--worldwide, .dub-card__distribution--worldwide:hover { background: color-mix(in srgb, var(--link-default) 16%, transparent); color: color-mix(in srgb, var(--link-default) 75%, var(--text-primary)); }
 .dub-card__distribution--private, .dub-card__distribution--private:hover { background: color-mix(in srgb, var(--audio-active) 12%, transparent); color: var(--audio-active); }
-.dub-card__distribution--alist, .dub-card__distribution--alist:hover { background: color-mix(in srgb, var(--action-primary) 12%, transparent); color: var(--action-primary-hover); }
+.dub-card__distribution--alist, .dub-card__distribution--alist:hover {
+  background: var(--surface-inverse);
+  color: var(--text-inverse);
+  font-size: var(--type-size-label);
+  font-weight: var(--type-weight-strong);
+  padding: 0.3rem 0.625rem;
+}
 
 .dub-card__footer { align-items: center; display: flex; flex-wrap: wrap; gap: 0.625rem; }
 .dub-card__likes,
@@ -89,7 +103,7 @@
   .dub-card {
     border-radius: 0;
     gap: 0.5rem;
-    padding: 0.625rem;
+    padding: 1rem 0.625rem;
   }
 
   .dub-card__track {
@@ -98,8 +112,8 @@
   }
 
   .dub-card .organism-card.audio-player {
-    padding-bottom: 0;
-    padding-top: 0;
+    padding-bottom: 0.5rem;
+    padding-top: 0.5rem;
   }
 
   .dub-card__track-info {

@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from "react";
-import { Volume2 } from "@craft/icons";
+import { ChevronDown, Volume2 } from "@craft/icons";
+import { Button } from "../../atoms/Button/Button";
 import type { NowPlayingProps } from "../../molecules/NowPlaying/NowPlaying";
 import { NowPlaying } from "../../molecules/NowPlaying/NowPlaying";
 import { TransportControls } from "../../molecules/TransportControls/TransportControls";
@@ -35,6 +36,8 @@ export interface AudioPlayerProps {
   onPrevious?: () => void;
   onNext?: () => void;
   className?: string;
+  minimized?: boolean;
+  onMinimizedChange?: (minimized: boolean) => void;
 }
 
 function formatTime(seconds: number) {
@@ -59,6 +62,8 @@ export function AudioPlayer({
   distribution,
   endAction,
   metadata,
+  minimized = false,
+  onMinimizedChange,
   onNext,
   onPlayChange,
   onPrevious,
@@ -105,6 +110,8 @@ export function AudioPlayer({
         `audio-player--${variant}`,
         distribution === "alist" && "audio-player--alist",
         distribution === "private" && "audio-player--private",
+        distribution === "worldwide" && "audio-player--worldwide",
+        minimized && "audio-player--minimized",
         className,
       ]
         .filter(Boolean)
@@ -171,6 +178,17 @@ export function AudioPlayer({
         <span className="audio-player__error" role="status">
           {playbackError}
         </span>
+      )}
+      {onMinimizedChange && (
+        <Button
+          aria-expanded={!minimized}
+          aria-label={minimized ? "Expand audio player" : "Minimize audio player"}
+          className="audio-player__minimize"
+          leadingIcon={<ChevronDown />}
+          onClick={() => onMinimizedChange(!minimized)}
+          size="small"
+          variant="tertiary"
+        />
       )}
     </section>
   );

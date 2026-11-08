@@ -1,4 +1,6 @@
-import type { ReactNode } from "react";
+import { useLayoutEffect, useRef, type ReactNode } from "react";
+import { ScrollViewport } from "../../atoms/ScrollViewport/ScrollViewport";
+import "../../atoms/ScrollViewport/ScrollViewport.css";
 import { AppHeader } from "../../organisms/AppHeader/AppHeader";
 import { AudioPlayer } from "../../organisms/AudioPlayer/AudioPlayer";
 import { CommunityPanel } from "../../organisms/CommunityPanel/CommunityPanel";
@@ -18,6 +20,8 @@ export interface DashboardTemplateProps {
   children?: ReactNode;
   community?: ReactNode;
   audioPlayer?: ReactNode;
+  scrollContent?: boolean;
+  scrollResetKey?: string;
 }
 
 export function DashboardTemplate({
@@ -28,8 +32,15 @@ export function DashboardTemplate({
   navigation,
   posts = templatePosts,
   audioPlayer,
+  scrollContent = false,
+  scrollResetKey,
   userName = "Meladee",
 }: DashboardTemplateProps) {
+  const contentRef = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    if (scrollContent && contentRef.current) contentRef.current.scrollTop = 0;
+  }, [scrollContent, scrollResetKey]);
+
   const hasCustomContent = children !== undefined;
   const communityContent =
     community !== undefined
@@ -55,13 +66,16 @@ export function DashboardTemplate({
       )}
       <div className="dashboard-template__main">
         {header ?? <AppHeader userName={userName} variant="compact" />}
-        <div
+        <ScrollViewport
+          aria-label={scrollContent ? "Page content" : undefined}
           className={[
             "dashboard-template__body",
             !communityContent && "dashboard-template__body--single",
-          ]
-            .filter(Boolean)
-            .join(" ")}
+            !scrollContent && "dashboard-template__body--unconstrained",
+          ].filter(Boolean).join(" ")}
+          role={scrollContent ? "region" : undefined}
+          ref={contentRef}
+          tabIndex={scrollContent ? 0 : undefined}
         >
           <div className="dashboard-template__content">
             {hasCustomContent ? (
@@ -78,7 +92,7 @@ export function DashboardTemplate({
               {communityContent}
             </aside>
           )}
-        </div>
+        </ScrollViewport>
         {audioPlayer ?? (
           <AudioPlayer
             track={{ title: "Alien", artist: "Malaa", duration: "03:42" }}

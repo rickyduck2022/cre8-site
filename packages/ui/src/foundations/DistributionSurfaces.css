@@ -1,24 +1,9 @@
 .dub-card--private,
-.audio-player--private {
+.dub-card--alist,
+.audio-player--private,
+.audio-player--alist,
+.audio-player--worldwide,
+.my-dubs-template__statistics--private,
+.my-dubs-template__statistics--alist {
   --surface-raised: var(--color-background);
-}
-
-.dub-card.dub-card--alist,
-.organism-card.audio-player--alist {
-  --surface-canvas: var(--surface-inverse);
-  --surface-raised: var(--surface-inverse-raised);
-  --surface-control: var(--surface-inverse-control);
-  --border-default: var(--border-inverse);
-  --text-primary: var(--text-inverse);
-  --text-secondary: var(--text-inverse-secondary);
-  --audio-active: var(--audio-inverse-active);
-  --audio-inactive: var(--audio-inverse-inactive);
-  --action-primary: var(--action-inverse);
-  --action-primary-hover: var(--action-inverse-hover);
-  --action-primary-pressed: var(--action-inverse-pressed);
-  --text-on-accent: var(--text-on-inverse-accent);
-  --focus-ring: var(--audio-inverse-active);
-  --status-error: var(--status-inverse-error);
-  background: var(--surface-canvas);
-  color: var(--text-primary);
 }

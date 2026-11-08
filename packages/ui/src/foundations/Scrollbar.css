@@ -31,6 +31,22 @@
   background: transparent;
 }
 
+@media (max-width: 760px) {
+  * {
+    scrollbar-width: none;
+  }
+
+  .scroll-viewport {
+    scrollbar-gutter: auto;
+  }
+
+  ::-webkit-scrollbar {
+    display: none;
+    height: 0;
+    width: 0;
+  }
+}
+
 @media (prefers-reduced-motion: no-preference) {
   ::-webkit-scrollbar-thumb {
     transition: background-color 140ms ease;

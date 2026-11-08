@@ -1,4 +1,4 @@
-import { Upload } from "@craft/icons";
+import { Mail, Upload } from "@craft/icons";
 import { Button } from "../../atoms/Button/Button";
 import { AccountMenu } from "../../molecules/AccountMenu/AccountMenu";
 import { Brand } from "../../molecules/Brand/Brand";
@@ -16,6 +16,8 @@ export interface AppHeaderProps {
   onEditProfile?: () => void;
   onLogout?: () => void;
   onNotifications?: () => void;
+  onMessages?: () => void;
+  unreadMessageCount?: number;
   notifications?: NotificationMessage[];
   unreadNotificationCount?: number;
   onDismissNotification?: (id: string) => void;
@@ -33,9 +35,11 @@ export function AppHeader({
   onCreate,
   onEditProfile,
   onLogout,
+  onMessages,
   onNotifications,
   notifications = [],
   unreadNotificationCount = 0,
+  unreadMessageCount = 0,
   onDismissNotification,
   onClearNotifications,
   onActivateNotification,
@@ -67,6 +71,23 @@ export function AppHeader({
         value={searchValue}
       />
       <div className="app-header__actions">
+        {onMessages && (
+          <button
+            aria-label={unreadMessageCount > 0
+              ? `Messages, ${unreadMessageCount} unread`
+              : "Messages"}
+            className="app-header__messages"
+            onClick={onMessages}
+            type="button"
+          >
+            <Mail aria-hidden="true" />
+            {unreadMessageCount > 0 && (
+              <span aria-hidden="true" className="app-header__messages-count">
+                {unreadMessageCount > 9 ? "9+" : unreadMessageCount}
+              </span>
+            )}
+          </button>
+        )}
         <NotificationCenter
           notifications={notifications}
           unreadCount={unreadNotificationCount}
@@ -76,14 +97,12 @@ export function AppHeader({
           onOpen={onNotifications ?? (() => undefined)}
         />
         <Button
+          aria-label="Share a dub"
           compactOnMobile
           leadingIcon={<Upload aria-hidden="true" />}
-          hideLabelOnMobile
           onClick={onCreate}
           size="small"
-        >
-          Share a dub
-        </Button>
+        />
         {onEditProfile && onLogout && (
           <AccountMenu
             onEditProfile={onEditProfile}

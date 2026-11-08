@@ -1,0 +1,24 @@
+.share-dub-icon__desktop,
+.share-dub-icon__mobile {
+  display: inline-flex;
+}
+
+.share-dub-icon__desktop svg,
+.share-dub-icon__mobile svg {
+  height: 1.125rem;
+  width: 1.125rem;
+}
+
+.share-dub-icon__mobile {
+  display: none;
+}
+
+@media (max-width: 760px) {
+  .share-dub-icon__desktop {
+    display: none;
+  }
+
+  .share-dub-icon__mobile {
+    display: inline-flex;
+  }
+}

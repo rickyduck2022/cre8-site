@@ -4,6 +4,7 @@ import { ModalFooterOutlet } from "../../molecules/ModalFooter/ModalFooter";
 import { cn } from "../../utils/cn";
 import "../Organisms.css";
 
+/** Modal dialogs fill the viewport at mobile widths and keep their content scrollable. */
 export interface ModalProps {
   title: string;
   isOpen: boolean;

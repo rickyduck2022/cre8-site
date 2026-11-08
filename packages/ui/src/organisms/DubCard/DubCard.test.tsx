@@ -22,7 +22,7 @@ describe("DubCard actions", () => {
     expect(onOpenProfile).toHaveBeenCalledTimes(2);
     expect(onOpenProfile).toHaveBeenCalledWith("amber");
   });
-  it("uses the inverted card only for A-List distribution and badges approval independently", () => {
+  it("marks A-List distribution and badges approval independently", () => {
     const { rerender, container } = render(<DubCard dub={{ ...dub, distribution: "alist" }} onDownload={vi.fn()} onPlay={vi.fn()} />);
     expect(container.querySelector("article")).toHaveClass("dub-card--alist");
     expect(screen.queryByRole("img", { name: "A-List approved" })).not.toBeInTheDocument();
@@ -44,6 +44,15 @@ describe("DubCard actions", () => {
     expect(container.querySelector("article")).toHaveClass("dub-card--alist");
     expect(container.querySelector("article")).not.toHaveClass("dub-card--private");
   });
+
+  it.each(["worldwide", "private", "alist", undefined] as const)(
+    "passes %s distribution to the embedded player",
+    (distribution) => {
+      render(<DubCard dub={{ ...dub, distribution }} onDownload={vi.fn()} onPlay={vi.fn()} />);
+      expect(screen.getByRole("region", { name: "Audio player: Night Drive" }))
+        .toHaveClass(`audio-player--${distribution ?? "worldwide"}`);
+    },
+  );
 
   it.each([
     ["worldwide", "Worldwide"],

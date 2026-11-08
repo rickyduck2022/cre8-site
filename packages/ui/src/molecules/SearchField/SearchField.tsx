@@ -33,7 +33,6 @@ export function SearchField({
         type="search"
       />
       {shortcut && <kbd className="search-field__shortcut">{shortcut}</kbd>}
-      <Search className="search-field__trailing" aria-hidden="true" />
     </label>
   );
 }
