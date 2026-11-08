@@ -18,9 +18,10 @@ export interface LibraryTemplateProps {
   onEditDub?: (dub: LibraryDownload["dub"]) => void;
   onDeleteDub?: (dub: LibraryDownload["dub"]) => void;
   onShareWithFriend?: (dub: LibraryDownload["dub"]) => void;
+  onOpenProfile?: (username: string) => void;
 }
 
-export function LibraryTemplate({ downloads, onDownload, currentUsername, onEditDub, onDeleteDub, onShareWithFriend }: LibraryTemplateProps) {
+export function LibraryTemplate({ downloads, onDownload, currentUsername, onEditDub, onDeleteDub, onShareWithFriend, onOpenProfile }: LibraryTemplateProps) {
   return (
     <div className="library-template">
       <section className="page-intro">
@@ -34,7 +35,7 @@ export function LibraryTemplate({ downloads, onDownload, currentUsername, onEdit
             <li key={`${dub.id}-${downloadedAt}-${index}`}>
               <TrackArtwork dub={dub} />
               <div className="library-list__details">
-                <strong>{dub.title}</strong><span>{dub.artist}{dub.artistAListApproved && <AListBadge />}</span>
+                <strong>{dub.title}</strong>{onOpenProfile ? <button className="now-playing__artist now-playing__artist-button" onClick={() => onOpenProfile(dub.uploader)} type="button">{dub.artist}{dub.artistAListApproved && <AListBadge />}</button> : <span>{dub.artist}{dub.artistAListApproved && <AListBadge />}</span>}
                 <div>
                   {(dub.tags?.length ? dub.tags : [dub.genre]).map((tag) => <TrackTag key={tag}>{tag}</TrackTag>)}
                   <TrackFileMetadata

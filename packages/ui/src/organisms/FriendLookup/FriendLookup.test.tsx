@@ -14,9 +14,9 @@ describe("FriendLookup", () => {
       onQueryChange={vi.fn()}
     />);
     expect(screen.getByText("@amber · ID: user-1 · Artist: artist-user-1")).toBeTruthy();
-    expect(screen.getByRole("img", { name: "Amber" })).toHaveClass("avatar", "friend-lookup__avatar");
+    expect(screen.getByRole("img", { name: "Amber" })).toHaveClass("avatar");
     expect(screen.getByRole("img", { name: "Amber" }).querySelector("img")).toHaveAttribute("src", "/amber.png");
-    expect(screen.getByText("@amber · ID: user-1 · Artist: artist-user-1").parentElement).toHaveClass("friend-lookup__result-copy");
+    expect(screen.getByText("@amber · ID: user-1 · Artist: artist-user-1").parentElement).toHaveClass("artist-card__identity");
     fireEvent.click(screen.getByRole("button", { name: "Add Amber" }));
     await waitFor(() => expect(onAdd).toHaveBeenCalledWith(expect.objectContaining({ id: "user-1", artistId: "artist-user-1" })));
   });

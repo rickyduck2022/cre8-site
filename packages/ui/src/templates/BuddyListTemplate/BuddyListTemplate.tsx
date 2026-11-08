@@ -6,6 +6,7 @@ import { Badge } from "../../atoms/Badge/Badge";
 import { Button } from "../../atoms/Button/Button";
 import { Pagination, usePagination } from "../../molecules/Pagination/Pagination";
 import { SearchField } from "../../molecules/SearchField/SearchField";
+import { ArtistCard } from "../../molecules/ArtistCard/ArtistCard";
 import { FriendLookup } from "../../organisms/FriendLookup/FriendLookup";
 import type { Buddy, MemberSearchResult, Presence } from "../communityTypes";
 import { PresenceIndicator } from "../shared/PresenceIndicator";
@@ -103,6 +104,7 @@ export function BuddyListTemplate({
       <FriendLookup
         isSearching={isSearchingMembers}
         onAdd={(member) => onAddMatchedMember?.(member)}
+        onOpenProfile={onSelectProfile}
         onQueryChange={onMemberSearchQueryChange ?? (() => undefined)}
         query={memberSearchQuery}
         results={memberSearchResults}
@@ -225,11 +227,7 @@ export function BuddyListTemplate({
         <div className="discover-buddies__grid">
           {suggestionPagination.items.map((suggestion) => (
               <article className="suggestion-card" key={suggestion.username}>
-                <Avatar name={suggestion.displayName} size="medium" src={suggestion.avatarUrl} />
-                <div>
-                  <strong>{suggestion.displayName}{suggestion.aListApproved && <AListBadge />}</strong>
-                  <span>@{suggestion.username} · {suggestion.genre}</span>
-                </div>
+                <ArtistCard name={suggestion.displayName} username={suggestion.username} avatarUrl={suggestion.avatarUrl} aListApproved={suggestion.aListApproved} detail={suggestion.genre} onOpenProfile={onSelectProfile} size="medium" action={
                 <Button
                   aria-label={`Add ${suggestion.displayName}`}
                   leadingIcon={<UserPlus />}
@@ -247,7 +245,7 @@ export function BuddyListTemplate({
                   variant="secondary"
                 >
                   Add
-                </Button>
+                </Button>} />
               </article>
           ))}
         </div>

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { getDubSearchFilterCount } from "@craft/ui";
 import type { Dub, DubSearchFilters } from "@craft/ui";
 
 interface DubSearchResponse {
@@ -44,14 +45,7 @@ export function useDubSearch(
       query: string;
     };
     const hasCriteria = Boolean(
-      criteria.query ||
-        criteria.distributions.length ||
-        criteria.tags.length ||
-        criteria.fileType ||
-        criteria.minBpm ||
-        criteria.maxBpm ||
-        criteria.minBitrate ||
-        criteria.maxBitrate,
+      criteria.query || getDubSearchFilterCount(criteria),
     );
     if (!hasCriteria) {
       setState({ results: null, isSearching: false, error: null });
@@ -72,6 +66,10 @@ export function useDubSearch(
         isSearching: false,
         error: "Minimum values must be less than or equal to maximum values.",
       });
+      return;
+    }
+    if (distribution === "feed" && criteria.distributions.length === 0) {
+      setState({ results: [], isSearching: false, error: null });
       return;
     }
 

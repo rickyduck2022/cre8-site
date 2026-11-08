@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { BuddyListTemplate } from "./BuddyListTemplate";
 
@@ -6,6 +6,7 @@ afterEach(cleanup);
 
 describe("BuddyListTemplate profile pictures", () => {
   it("shows pictures for friends and suggestions, with initials when absent", () => {
+    const onSelectProfile = vi.fn();
     render(<BuddyListTemplate
       buddies={[
         { id: "a", username: "amber", displayName: "Amber", avatarUrl: "/amber.png", presence: "online", genre: "Jungle", role: "DJ", bio: "", groups: [] },
@@ -15,10 +16,14 @@ describe("BuddyListTemplate profile pictures", () => {
       onAddFriend={vi.fn()}
       onOpenChat={vi.fn()}
       onRemoveFriend={vi.fn()}
-      onSelectProfile={vi.fn()}
+      onSelectProfile={onSelectProfile}
     />);
     expect(screen.getByRole("img", { name: "Amber" }).querySelector("img")).toHaveAttribute("src", "/amber.png");
     expect(screen.getByRole("img", { name: "Chris" }).querySelector("img")).toHaveAttribute("src", "/chris.png");
     expect(screen.getByRole("img", { name: "Ben" })).toHaveTextContent("B");
+    fireEvent.click(screen.getByRole("button", { name: "View Chris's profile" }));
+    fireEvent.click(screen.getByRole("button", { name: "Chris @chris · Jungle" }));
+    expect(onSelectProfile).toHaveBeenCalledTimes(2);
+    expect(onSelectProfile).toHaveBeenCalledWith("chris");
   });
 });

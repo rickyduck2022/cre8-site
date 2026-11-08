@@ -6,6 +6,21 @@ import type { Dub } from "../communityTypes";
 afterEach(cleanup);
 
 describe("MessengerTemplate shared dubs", () => {
+  it("opens profiles from conversation identities while preserving conversation selection", () => {
+    const open = vi.fn();
+    const select = vi.fn();
+    render(<MessengerTemplate
+      buddies={[{ id: "friend", username: "amber", displayName: "Amber", presence: "online", genre: "Jungle", role: "DJ", bio: "", groups: [] }]}
+      conversations={[]} dubs={[]} initialBuddyId="friend" chatConnectionStatus="connected" nowPlayingId={null} isPlaying={false}
+      onOpenProfile={open} onPlay={vi.fn()} onStartConversation={vi.fn()} onSelectConversation={select} onLoadOlderMessages={vi.fn(async () => null)} onSendMessage={vi.fn(async () => true)}
+    />);
+    fireEvent.click(screen.getAllByRole("button", { name: "View Amber's profile" })[0]);
+    fireEvent.click(screen.getAllByRole("button", { name: "Amber" })[0]);
+    expect(open).toHaveBeenCalledTimes(2);
+    expect(open).toHaveBeenCalledWith("amber");
+    fireEvent.click(screen.getByRole("button", { name: "Open conversation with Amber" }));
+    expect(select).toHaveBeenCalledWith("friend");
+  });
   it("offers an explicit share again action for dubs already sent to the selected friend", async () => {
     const dub: Dub = {
       id: "dub", title: "My Release", artist: "You", uploader: "you", uploaderDisplayName: "You",

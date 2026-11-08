@@ -14,6 +14,7 @@ export * from "./InfiniteScroll/InfiniteScroll";
 export * from "./Brand/Brand";
 export * from "./ModalFooter/ModalFooter";
 export * from "./MemberIdentity/MemberIdentity";
+export * from "./ArtistCard/ArtistCard";
 export * from "./PostAuthor/PostAuthor";
 export * from "./TrackMetadata/TrackMetadata";
 export * from "./Waveform/Waveform";

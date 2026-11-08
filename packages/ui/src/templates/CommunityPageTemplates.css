@@ -495,21 +495,7 @@ button {
   padding: 0.75rem;
 }
 
-.suggestion-card > div {
-  display: grid;
-  flex: 1;
-  gap: 0.2rem;
-  min-width: 0;
-}
-
-.suggestion-card > div strong {
-  font-size: var(--type-size-label);
-}
-
-.suggestion-card > div span {
-  color: var(--text-secondary);
-  font-size: var(--type-size-micro);
-}
+.suggestion-card > .artist-card { flex: 1; }
 
 .messenger {
   background: var(--surface-raised);
@@ -553,7 +539,6 @@ button {
   background: none;
   border: 0;
   border-radius: 0.5rem;
-  cursor: pointer;
   display: flex;
   gap: 0.625rem;
   min-width: 0;
@@ -583,6 +568,20 @@ button {
 }
 
 .conversation-link__copy > span {
+  color: var(--text-secondary);
+  font-size: var(--type-size-micro);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.conversation-link__profile,
+.conversation-link__preview {
+  min-width: 0;
+  text-align: left;
+}
+
+.conversation-link__preview {
   color: var(--text-secondary);
   font-size: var(--type-size-micro);
   overflow: hidden;

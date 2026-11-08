@@ -1,7 +1,6 @@
 import { UserPlus } from "@craft/icons";
-import { Avatar } from "../../atoms/Avatar/Avatar";
-import { AListBadge } from "../../atoms/AListBadge/AListBadge";
 import { Button } from "../../atoms/Button/Button";
+import { ArtistCard } from "../../molecules/ArtistCard/ArtistCard";
 import { SearchField } from "../../molecules/SearchField/SearchField";
 import type { MemberSearchResult } from "../../templates/communityTypes";
 import "../Organisms.css";
@@ -12,9 +11,10 @@ export interface FriendLookupProps {
   isSearching?: boolean;
   onQueryChange: (query: string) => void;
   onAdd: (member: MemberSearchResult) => void;
+  onOpenProfile?: (username: string) => void;
 }
 
-export function FriendLookup({ isSearching = false, onAdd, onQueryChange, query, results }: FriendLookupProps) {
+export function FriendLookup({ isSearching = false, onAdd, onOpenProfile, onQueryChange, query, results }: FriendLookupProps) {
   return (
     <section aria-label="Find an artist" className="friend-lookup">
       <SearchField
@@ -31,23 +31,13 @@ export function FriendLookup({ isSearching = false, onAdd, onQueryChange, query,
           <ul className="friend-lookup__results" aria-label="Matching artists">
             {results.map((member) => (
               <li key={member.id}>
-                <Avatar
-                  className="friend-lookup__avatar"
-                  name={member.displayName}
-                  size="small"
-                  src={member.avatarUrl}
-                />
-                <span className="friend-lookup__result-copy">
-                  <strong>{member.displayName}{member.aListApproved && <AListBadge />}</strong>
-                  <small>@{member.username} · ID: {member.id}{member.artistId ? ` · Artist: ${member.artistId}` : ""}</small>
-                </span>
-                <Button
+                <ArtistCard name={member.displayName} username={member.username} avatarUrl={member.avatarUrl} aListApproved={member.aListApproved} detail={`ID: ${member.id}${member.artistId ? ` · Artist: ${member.artistId}` : ""}`} onOpenProfile={onOpenProfile} action={<Button
                   aria-label={`Add ${member.displayName}`}
                   leadingIcon={<UserPlus />}
                   onClick={() => onAdd(member)}
                   size="small"
                   variant="secondary"
-                >Add friend</Button>
+                >Add friend</Button>} />
               </li>
             ))}
           </ul>

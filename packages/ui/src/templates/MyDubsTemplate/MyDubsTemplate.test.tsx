@@ -46,11 +46,12 @@ describe("MyDubsTemplate", () => {
     />);
     fireEvent.click(screen.getByText("Statistics for Night Drive"));
     expect(screen.getByText("Distribution: Private")).toBeVisible();
-    fireEvent.click(screen.getByRole("button", { name: "Revoke access" }));
+    fireEvent.click(screen.getByRole("button", { name: "Revoke access for Meladee" }));
     expect(onRevokeGrant).toHaveBeenCalledWith("dub-1", "friend");
   });
 
   it("shows owner statistics with separate download and unique supporter counts", () => {
+    const onOpenProfile = vi.fn();
     render(<MyDubsTemplate
       dubs={[{ ...dub, downloads: 3, likes: 1, downloaders: [{ username: "meladee", displayName: "Meladee", downloadedAt: "2026-11-01T12:00:00Z" }] }]}
       likedDubIds={new Set()}
@@ -61,11 +62,20 @@ describe("MyDubsTemplate", () => {
       onShareDub={vi.fn()}
       onEditDub={vi.fn()}
       onDeleteDub={vi.fn()}
+      onOpenProfile={onOpenProfile}
     />);
     fireEvent.click(screen.getByText("Statistics for Night Drive"));
-    expect(screen.getByText("Manual download requests: 3")).toBeVisible();
-    expect(screen.getByText("Unique supporters: 1")).toBeVisible();
-    expect(screen.getByRole("list", { name: "Supporters of Night Drive" })).toHaveTextContent("Meladee (@meladee)");
+    expect(screen.getByText("Downloads")).toBeVisible();
+    expect(screen.getByText("3")).toBeVisible();
+    expect(screen.getByText("Unique Supporters")).toBeVisible();
+    expect(screen.getByRole("list", { name: "Supporters of Night Drive" })).toHaveTextContent("Meladee@meladee");
+    fireEvent.click(screen.getByRole("button", { name: "View Meladee's profile" }));
+    fireEvent.click(screen.getByRole("button", { name: "Meladee @meladee" }));
+    expect(onOpenProfile).toHaveBeenCalledTimes(2);
+    expect(onOpenProfile).toHaveBeenCalledWith("meladee");
+    const statistics = screen.getByText("Performance").closest(".dub-statistics")!;
+    expect(statistics.querySelector(".dub-statistics__chart-column")?.parentElement).toHaveClass("dub-statistics__layout");
+    expect(statistics.querySelector(".dub-statistics__people")?.parentElement).toHaveClass("dub-statistics__layout");
   });
 
   it("renders the shared dub card and filters the user's tracks", () => {

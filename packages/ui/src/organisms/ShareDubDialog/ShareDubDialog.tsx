@@ -19,13 +19,14 @@ export interface ShareDubDialogProps {
   onClose: () => void;
   onFindFriends: () => void;
   onOpenChat: (buddyId: string) => void;
+  onOpenProfile?: (username: string) => void;
   onSendMessage: (buddyId: string, text: string, dubId: string) => boolean | Promise<boolean>;
   initialBuddyIds?: string[];
   initiallySentIds?: string[];
   initialFailure?: boolean;
 }
 
-export function ShareDubDialog({ dub, buddies, onClose, onFindFriends, onOpenChat, onSendMessage, initialBuddyIds = [], initiallySentIds = [], initialFailure = false }: ShareDubDialogProps) {
+export function ShareDubDialog({ dub, buddies, onClose, onFindFriends, onOpenChat, onOpenProfile, onSendMessage, initialBuddyIds = [], initiallySentIds = [], initialFailure = false }: ShareDubDialogProps) {
   const formId = useId();
   const [buddyIds, setBuddyIds] = useState<string[]>(initialBuddyIds);
   const [message, setMessage] = useState("");
@@ -72,7 +73,7 @@ export function ShareDubDialog({ dub, buddies, onClose, onFindFriends, onOpenCha
           <div className="share-dub-dialog__track">
             <span>SHARING</span>
             <strong>{dub.title}</strong>
-            <span>{dub.artist}{dub.artistAListApproved && <AListBadge />}</span>
+            {onOpenProfile ? <button className="now-playing__artist now-playing__artist-button" onClick={() => onOpenProfile(dub.uploader)} type="button">{dub.artist}{dub.artistAListApproved && <AListBadge />}</button> : <span>{dub.artist}{dub.artistAListApproved && <AListBadge />}</span>}
           </div>
           <p className="share-dub-dialog__hint">
             {dub.distribution === "private"

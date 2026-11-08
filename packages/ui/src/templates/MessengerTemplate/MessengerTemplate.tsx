@@ -240,14 +240,11 @@ export function MessengerTemplate({
               );
               const latest = conversation?.messages.at(-1);
               return (
-                <button
-                  aria-current={selectedBuddy?.id === buddy.id ? "true" : undefined}
+                <div
                   className={`conversation-link${selectedBuddy?.id === buddy.id ? " is-selected" : ""}`}
                   key={buddy.id}
-                  onClick={() => selectConversation(buddy.id)}
-                  type="button"
                 >
-                  <span className={`buddy-row__avatar buddy-row__avatar--${buddy.presence}`}>
+                  <button aria-label={`View ${buddy.displayName}'s profile`} className={`buddy-row__avatar buddy-row__avatar--${buddy.presence}`} onClick={() => onOpenProfile(buddy.username)} type="button">
                     <Avatar
                       name={buddy.displayName}
                       size="medium"
@@ -255,13 +252,13 @@ export function MessengerTemplate({
                       status={buddy.presence === "offline" ? "inactive" : "active"}
                     />
                     <PresenceIndicator presence={buddy.presence} />
-                  </span>
+                  </button>
                   <span className="conversation-link__copy">
-                    <strong>{buddy.displayName}{buddy.aListApproved && <AListBadge />}</strong>
-                    <span>{latest?.unsent ? "This message was unsent." : latest?.text ?? "Start a conversation"}</span>
+                    <button className="text-button conversation-link__profile" onClick={() => onOpenProfile(buddy.username)} type="button"><strong>{buddy.displayName}{buddy.aListApproved && <AListBadge />}</strong></button>
+                    <button aria-current={selectedBuddy?.id === buddy.id ? "true" : undefined} aria-label={`Open conversation with ${buddy.displayName}`} className="text-button conversation-link__preview" onClick={() => selectConversation(buddy.id)} type="button">{latest?.unsent ? "This message was unsent." : latest?.text ?? "Start a conversation"}</button>
                   </span>
                   {buddy.unread && <Badge>{buddy.unread}</Badge>}
-                </button>
+                </div>
               );
             })}
           </InfiniteScroll>
@@ -270,9 +267,9 @@ export function MessengerTemplate({
         {selectedBuddy ? (
           <div className="chat-panel">
             <header className="chat-panel__header">
-              <Avatar name={selectedBuddy.displayName} size="small" src={selectedBuddy.avatarUrl} />
+              <button aria-label={`View ${selectedBuddy.displayName}'s profile`} className="buddy-row__avatar" onClick={() => onOpenProfile(selectedBuddy.username)} type="button"><Avatar name={selectedBuddy.displayName} size="small" src={selectedBuddy.avatarUrl} /></button>
               <div>
-                <strong>{selectedBuddy.displayName}{selectedBuddy.aListApproved && <AListBadge />}</strong>
+                <button className="text-button conversation-link__profile" onClick={() => onOpenProfile(selectedBuddy.username)} type="button"><strong>{selectedBuddy.displayName}{selectedBuddy.aListApproved && <AListBadge />}</strong></button>
                 <span>
                   <PresenceIndicator presence={selectedBuddy.presence} />
                   {selectedBuddy.presence}
@@ -386,6 +383,7 @@ export function MessengerTemplate({
                               track={{
                                 artist: sharedDub.artist,
                                 artistAListApproved: sharedDub.artistAListApproved,
+                                onArtistClick: () => onOpenProfile(sharedDub.uploader),
                                 artworkContent: <TrackArtwork dub={sharedDub} />,
                                 duration: sharedDub.duration,
                                 title: sharedDub.title,
@@ -465,7 +463,7 @@ export function MessengerTemplate({
                       <div className="share-a-dub__entry share-a-dub__entry--shared" key={dub.id}>
                         <div>
                           <strong>{dub.title}</strong>
-                          <span>{dub.artist}{dub.artistAListApproved && <AListBadge />} · Shared</span>
+                          <button className="text-button now-playing__artist" onClick={() => onOpenProfile(dub.uploader)} type="button">{dub.artist}{dub.artistAListApproved && <AListBadge />} · Shared</button>
                         </div>
                         <Button
                           aria-label={`Share ${dub.title} again with ${selectedBuddy.displayName}`}
@@ -476,20 +474,16 @@ export function MessengerTemplate({
                         >Share again</Button>
                       </div>
                     ) : (
-                      <button
-                        aria-label={`Share ${dub.title} with ${selectedBuddy.displayName}`}
+                      <div
                         className="share-a-dub__entry"
-                        disabled={sharing}
                         key={dub.id}
-                        onClick={() => void shareDub(dub)}
-                        type="button"
                       >
                         <div>
                           <strong>{dub.title}</strong>
-                          <span>{dub.artist}{dub.artistAListApproved && <AListBadge />}</span>
+                          <button className="text-button now-playing__artist" onClick={() => onOpenProfile(dub.uploader)} type="button">{dub.artist}{dub.artistAListApproved && <AListBadge />}</button>
                         </div>
-                        <Link aria-hidden="true" />
-                      </button>
+                        <Button aria-label={`Share ${dub.title} with ${selectedBuddy.displayName}`} disabled={sharing} leadingIcon={<Link />} onClick={() => void shareDub(dub)} size="small" variant="tertiary">Share</Button>
+                      </div>
                     ))}
                     {shareableDubs.length === 0 && (
                       <p className="share-a-dub__empty">You have not shared a dub yet. Upload one to send it here.</p>

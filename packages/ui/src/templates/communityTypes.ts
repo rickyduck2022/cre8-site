@@ -77,11 +77,11 @@ export interface Dub {
   bitrateKbps?: number;
   artworkUrl?: string;
   likedByCurrentUser?: boolean;
-  downloaders?: Array<{ username: string; displayName: string; downloadedAt: string }>;
+  downloaders?: Array<{ username: string; displayName: string; downloadedAt: string; avatarUrl?: string; aListApproved?: boolean }>;
   distribution?: "worldwide" | "private" | "alist";
   version?: number;
   sharedBuddyIds?: string[];
-  grants?: Array<{ id: string; username: string; displayName: string }>;
+  grants?: Array<{ id: string; username: string; displayName: string; avatarUrl?: string; aListApproved?: boolean }>;
 }
 
 export interface LibraryDownload {

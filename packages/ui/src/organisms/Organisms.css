@@ -792,7 +792,11 @@
 }
 
 .friend-lookup__results li:last-child { border-bottom: 0; }
+.friend-lookup__results .artist-card { flex: 1; }
 .friend-lookup__results .friend-lookup__avatar { flex: none; }
 .friend-lookup__results .friend-lookup__result-copy { display: grid; flex: 1; min-width: 0; }
 .friend-lookup__results small { color: var(--text-secondary); overflow-wrap: anywhere; }
 .friend-lookup__empty { color: var(--text-secondary); margin: 0; }
+.navigation__profile-avatar { background: transparent; border: 0; cursor: pointer; display: inline-flex; padding: 0; }
+.navigation__profile-name { text-align: left; }
+.navigation__profile-avatar:focus-visible, .navigation__profile-name:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 3px; }

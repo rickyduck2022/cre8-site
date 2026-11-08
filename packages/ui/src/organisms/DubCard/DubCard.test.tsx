@@ -13,6 +13,15 @@ const dub: Dub = {
 };
 
 describe("DubCard actions", () => {
+  it("opens the uploader profile from their avatar and artist name", () => {
+    const onOpenProfile = vi.fn();
+    render(<DubCard dub={dub} onDownload={vi.fn()} onPlay={vi.fn()} onOpenProfile={onOpenProfile} />);
+    fireEvent.click(screen.getByRole("button", { name: "View Amber's profile" }));
+    const player = screen.getByRole("region", { name: "Audio player: Night Drive" });
+    fireEvent.click(player.querySelector(".now-playing__artist-button")!);
+    expect(onOpenProfile).toHaveBeenCalledTimes(2);
+    expect(onOpenProfile).toHaveBeenCalledWith("amber");
+  });
   it("uses the inverted card only for A-List distribution and badges approval independently", () => {
     const { rerender, container } = render(<DubCard dub={{ ...dub, distribution: "alist" }} onDownload={vi.fn()} onPlay={vi.fn()} />);
     expect(container.querySelector("article")).toHaveClass("dub-card--alist");

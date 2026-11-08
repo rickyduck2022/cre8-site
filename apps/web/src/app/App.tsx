@@ -9,6 +9,7 @@ import {
 } from "@craft/icons";
 import {
   AppHeader,
+  ArtistCard,
   AudioPlayer,
   ArtistRegistrationForm,
   BuddyListTemplate,
@@ -29,6 +30,7 @@ import {
   shareDubToFriends,
   TrackArtwork,
   createEmptyDubSearchFilters,
+  getDubSearchFilterCount,
   type DubSearchFilters,
   type Dub,
   type NotificationMessage,
@@ -147,7 +149,7 @@ export function App() {
   const dubSearchFilters = activeSection === "alist" ? aListFilters : feedFilters;
   const setDubSearchFilters = activeSection === "alist" ? setAListFilters : setFeedFilters;
   const dubSearch = useDubSearch(searchQuery, dubSearchFilters, activeSection === "dubs" || (activeSection === "alist" && state.member?.aListApproved === true), activeSection === "alist" ? "alist" : "feed");
-  const isDubSearchActive = Boolean(searchQuery.trim() || dubSearchFilters.distributions.length || dubSearchFilters.tags.length || dubSearchFilters.fileType || dubSearchFilters.minBpm || dubSearchFilters.maxBpm || dubSearchFilters.minBitrate || dubSearchFilters.maxBitrate);
+  const isDubSearchActive = Boolean(searchQuery.trim() || getDubSearchFilterCount(dubSearchFilters));
   const [memberSearchQuery, setMemberSearchQuery] = useState("");
   const { members: memberSearchResults, isSearching: isSearchingMembers } = useMemberSearch(memberSearchQuery);
   const [isUploadOpen, setIsUploadOpen] = useState(false);
@@ -177,7 +179,8 @@ export function App() {
     profileUsername === state.member?.username || !profileUsername
       ? state.member
       : state.buddies.find((buddy) => buddy.username === profileUsername) ??
-        state.member;
+        state.suggestedMembers.find((member) => member.username === profileUsername) ??
+        null;
   const isOwnProfile = profile?.username === state.member?.username;
   const profileUploads = state.dubs.filter((dub) => dub.uploader === profile?.username && dub.distribution === "worldwide");
   const myDubs = state.member
@@ -423,10 +426,11 @@ export function App() {
           className="app-sidebar"
           hideOnMobile
           logoSrc={cre8LogoSrc}
-          sections={navigationSections}
+          sections={navigationSections.map((section) => ({ ...section, items: section.items.map((item) => item.label === "My Profile" ? { ...item, onClick: () => setProfileUsername("") } : item) }))}
           userDetail={state.member.role}
           userName={state.member.displayName}
           userAvatarUrl={state.member.avatarUrl}
+          onUserProfile={() => { if (state.member) openProfile(state.member.username); }}
         />
       }
       audioPlayer={
@@ -457,6 +461,7 @@ export function App() {
               title: previewTrack.title,
               artist: previewTrack.artist,
               artistAListApproved: previewTrack.artistAListApproved,
+              onArtistClick: () => openProfile(previewTrack.uploader),
               artworkContent: <TrackArtwork dub={previewTrack} />,
               duration: previewTrack.duration,
             }}
@@ -545,6 +550,7 @@ export function App() {
           <LibraryTemplate
             downloads={state.library}
             onDownload={downloadDub}
+            onOpenProfile={openProfile}
             currentUsername={state.member.username}
             onEditDub={beginDubEdit}
             onDeleteDub={beginDubDelete}
@@ -576,6 +582,7 @@ export function App() {
             onEditDub={beginDubEdit}
             onDeleteDub={beginDubDelete}
             onRevokeGrant={revokeDubGrant}
+            onOpenProfile={openProfile}
             onShareWithFriend={beginSharingDub}
           />
         )}
@@ -636,7 +643,7 @@ export function App() {
             onPrevious={playPreviousDub}
             onNext={playNextDub}
             onEditProfile={() => setIsProfileEditOpen(true)}
-            onMessage={() => profileBuddy && openChat(profileBuddy.id)}
+            onMessage={() => profileBuddy ? openChat(profileBuddy.id) : void startConversation(profile.username)}
             onPlay={togglePlayback}
             playingDubId={state.nowPlayingId}
             onDownload={downloadDub}
@@ -647,6 +654,7 @@ export function App() {
             onShareWithFriend={beginSharingDub}
           />
         )}
+        {activeSection === "profile" && !profile && <p role="status">This profile is no longer available.</p>}
       </div>
       <nav className="mobile-tabs" aria-label="Main sections">
         {sections.filter((section) => section !== "alist" || state.member?.aListApproved).map((section) => (
@@ -654,7 +662,7 @@ export function App() {
             aria-current={activeSection === section ? "page" : undefined}
             className={activeSection === section ? "is-active" : ""}
             key={section}
-            onClick={() => navigateTo(section)}
+            onClick={() => { if (section === "profile") setProfileUsername(""); navigateTo(section); }}
             type="button"
           >
             {sectionIcons[section]}
@@ -676,6 +684,7 @@ export function App() {
           initiallySentIds={sharingDub.sentIds}
           initialFailure={Boolean(sharingDub.failedIds?.length)}
           onClose={() => setSharingDub(null)}
+          onOpenProfile={(username) => { setSharingDub(null); openProfile(username); }}
           onFindFriends={() => {
             setSharingDub(null);
             navigateTo("buddies");
@@ -736,14 +745,16 @@ export function App() {
         <div className="start-conversation-list">
           {state.suggestedMembers.length > 0 ? (
             state.suggestedMembers.map((member) => (
-              <Button
+              <ArtistCard
                 key={member.username}
-                onClick={() => void startConversation(member.username)}
-                type="button"
-                variant="tertiary"
-              >
-                {member.displayName} · {member.genre}
-              </Button>
+                name={member.displayName}
+                username={member.username}
+                avatarUrl={member.avatarUrl}
+                aListApproved={member.aListApproved}
+                detail={member.genre}
+                onOpenProfile={(username) => { setIsStartConversationOpen(false); openProfile(username); }}
+                action={<Button onClick={() => void startConversation(member.username)} size="small" variant="secondary">Message</Button>}
+              />
             ))
           ) : (
             <p className="empty-state">You’re already connected with everyone.</p>

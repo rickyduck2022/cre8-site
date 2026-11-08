@@ -9,6 +9,9 @@ describe("DubSearch", () => {
     const onFiltersChange = vi.fn();
     render(<DubSearch query="" onQueryChange={vi.fn()} filters={createEmptyDubSearchFilters()} onFiltersChange={onFiltersChange} fileTypes={["MP3", "WAV"]} resultCount={12} />);
     fireEvent.click(screen.getByRole("button", { name: "Filters" }));
+    expect(screen.getByRole("checkbox", { name: "Worldwide" })).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: "A-List" })).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: "Private" })).not.toBeChecked();
     fireEvent.click(screen.getByRole("checkbox", { name: "Private" }));
     fireEvent.click(screen.getByRole("checkbox", { name: "Worldwide" }));
     fireEvent.click(screen.getByRole("button", { name: "Jungle" }));
@@ -21,14 +24,17 @@ describe("DubSearch", () => {
     expect(onFiltersChange).toHaveBeenCalledOnce();
     expect(onFiltersChange).toHaveBeenCalledWith({
       ...createEmptyDubSearchFilters(),
-      distributions: ["private", "worldwide"],
+      distributions: ["alist", "private"],
       tags: ["Jungle"], minBpm: "170", fileType: "WAV", maxBitrate: "320",
     });
     expect(screen.queryByRole("checkbox", { name: "Private" })).not.toBeInTheDocument();
   });
 
   it("counts selected filter groups", () => {
-    expect(getDubSearchFilterCount({ ...createEmptyDubSearchFilters(), distributions: ["private", "alist"], tags: ["Jungle", "Liquid"], minBpm: "170", fileType: "WAV" })).toBe(6);
+    expect(getDubSearchFilterCount(createEmptyDubSearchFilters())).toBe(0);
+    expect(getDubSearchFilterCount({ ...createEmptyDubSearchFilters(), distributions: ["alist", "worldwide"] })).toBe(0);
+    expect(getDubSearchFilterCount({ ...createEmptyDubSearchFilters(), distributions: [] })).toBe(1);
+    expect(getDubSearchFilterCount({ ...createEmptyDubSearchFilters(), distributions: ["private", "alist"], tags: ["Jungle", "Liquid"], minBpm: "170", fileType: "WAV" })).toBe(5);
   });
 
   it("discards unsaved edits when the panel is closed and reopened", () => {
@@ -52,7 +58,8 @@ describe("DubSearch", () => {
     expect(onQueryChange).toHaveBeenCalledWith("");
     expect(onFiltersChange).toHaveBeenCalledWith(createEmptyDubSearchFilters());
     expect(screen.getByRole("checkbox", { name: "Private" })).not.toBeChecked();
-    expect(screen.getByRole("checkbox", { name: "Worldwide" })).not.toBeChecked();
+    expect(screen.getByRole("checkbox", { name: "Worldwide" })).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: "A-List" })).toBeChecked();
   });
 
   it("can hide distribution choices for a fixed-distribution feed", () => {

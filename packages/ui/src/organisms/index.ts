@@ -6,6 +6,7 @@ export * from "./DubPost/DubPost";
 export * from "./DubCard/DubCard";
 export * from "./DubSearch/DubSearch";
 export * from "./DubManagementDialogs/DubManagementDialogs";
+export * from "./DubStatistics/DubStatistics";
 export * from "./Feed/Feed";
 export * from "./FriendDiscovery/FriendDiscovery";
 export * from "./FriendLookup/FriendLookup";

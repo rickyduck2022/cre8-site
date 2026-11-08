@@ -967,6 +967,12 @@ test("distribution permissions protect discovery, media, messaging and revocatio
     const ownerProfile = await snapshot(owner);
     const approvedProfile = await snapshot(approved);
     assert.equal(ownerProfile.suggestedMembers.find((member) => member.username === "holik").aListApproved, true);
+    const suggestedProfile = ownerProfile.suggestedMembers.find((member) => member.username === "holik");
+    assert.equal(suggestedProfile.id, approvedProfile.member.id);
+    assert.equal(suggestedProfile.role, approvedProfile.member.role);
+    assert.equal(suggestedProfile.bio, approvedProfile.member.bio);
+    assert.deepEqual(suggestedProfile.groups, []);
+    assert.equal(suggestedProfile.passwordHash, undefined);
     assert.equal((await (await request(owner, "/api/members?q=holik")).json()).members[0].aListApproved, true);
     const makeDub = async (cookie, artistId, distribution, title) => {
       const uploadId = await upload(cookie, "audio", `${title}.wav`);
@@ -1034,6 +1040,9 @@ test("distribution permissions protect discovery, media, messaging and revocatio
     assert.equal((await request(outsider, `/api/dubs/${privateDub.id}/artwork`)).status, 200);
     assert.equal((await (await request(outsider, "/api/dubs/search?q=Secret")).json()).dubs.length, 0);
     assert.equal((await request(outsider, `/api/dubs/${privateDub.id}/download`, "POST")).status, 200);
+    const ownerPrivate = (await snapshot(owner)).dubs.find((dub) => dub.id === privateDub.id);
+    assert.equal(ownerPrivate.downloaders[0].username, "outsider");
+    assert.equal(ownerPrivate.downloaders[0].aListApproved, false);
     assert.equal((await request(outsider, "/api/playback", "PUT", { dubId: privateDub.id, positionSeconds: 1 })).status, 200);
     assert.equal((await request(outsider, `/api/crates/${crate.id}/dubs/${privateDub.id}`, "PUT")).status, 200);
     assert.equal((await request(outsider, `/api/conversations/${outsiderBuddy.id}/messages`, "POST", { text: "Forward", dubId: privateDub.id })).status, 404);

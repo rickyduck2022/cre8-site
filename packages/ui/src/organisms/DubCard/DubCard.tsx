@@ -76,7 +76,11 @@ export function DubCard({
   return (
     <article className={`dub-card${dub.distribution === "alist" ? " dub-card--alist" : dub.distribution === "private" ? " dub-card--private" : ""}`}>
       <div className="dub-card__topline">
-        <Avatar name={dub.uploaderDisplayName} size="medium" src={dub.uploaderAvatarUrl} status="active" />
+        {onOpenProfile ? (
+          <button aria-label={`View ${dub.uploaderDisplayName}'s profile`} className="dub-card__avatar" onClick={() => onOpenProfile(dub.uploader)} type="button">
+            <Avatar name={dub.uploaderDisplayName} size="medium" src={dub.uploaderAvatarUrl} status="active" />
+          </button>
+        ) : <Avatar name={dub.uploaderDisplayName} size="medium" src={dub.uploaderAvatarUrl} status="active" />}
         <div className="dub-card__author">
           {onOpenProfile ? (
             <button

@@ -5,6 +5,7 @@ import { Button } from "../../atoms/Button/Button";
 import { Pagination, usePagination } from "../../molecules/Pagination/Pagination";
 import { SearchField } from "../../molecules/SearchField/SearchField";
 import { DubCard } from "../../organisms/DubCard/DubCard";
+import { DubStatistics } from "../../organisms/DubStatistics/DubStatistics";
 import type { Dub } from "../communityTypes";
 import "../CommunityPageTemplates.css";
 import "./MyDubsTemplate.css";
@@ -34,6 +35,7 @@ export interface MyDubsTemplateProps {
   onEditDub: (dub: Dub) => void;
   onDeleteDub: (dub: Dub) => void;
   onRevokeGrant?: (dubId: string, userId: string) => void;
+  onOpenProfile?: (username: string) => void;
 }
 
 export function MyDubsTemplate({
@@ -61,6 +63,7 @@ export function MyDubsTemplate({
   onEditDub,
   onDeleteDub,
   onRevokeGrant,
+  onOpenProfile,
 }: MyDubsTemplateProps) {
   const [query, setQuery] = useState("");
   const filteredDubs = useMemo(() => {
@@ -117,6 +120,7 @@ export function MyDubsTemplate({
               onShuffleChange={onShuffleChange}
               onRepeatChange={onRepeatChange}
               onDownload={onDownload}
+              onOpenProfile={onOpenProfile}
               onPlay={onPlay}
               onEdit={onEditDub}
               onDelete={onDeleteDub}
@@ -128,34 +132,7 @@ export function MyDubsTemplate({
             </p>
             <details className="my-dubs-template__statistics">
               <summary>Statistics for {dub.title}</summary>
-              <p>Manual download requests: {dub.downloads.toLocaleString()}</p>
-              <p>Unique supporters: {dub.likes.toLocaleString()}</p>
-              <p>Downloads are counted when requested, not when the file transfer completes.</p>
-              {dub.downloaders === undefined ? (
-                <p>Supporter details are unavailable.</p>
-              ) : dub.downloaders.length > 0 ? (
-                <ul aria-label={`Supporters of ${dub.title}`}>
-                  {dub.downloaders.map((supporter) => (
-                    <li key={supporter.username}>{supporter.displayName} (@{supporter.username})</li>
-                  ))}
-                </ul>
-              ) : <p>No supporters yet.</p>}
-              {dub.distribution === "private" && (
-                <div>
-                  <p>Share this dub with a friend to grant access in Messenger.</p>
-                  <p>Revoking access cannot remove files already downloaded.</p>
-                  {dub.grants?.length ? (
-                    <ul aria-label={`Private access to ${dub.title}`}>
-                      {dub.grants.map((grant) => (
-                        <li key={grant.id}>
-                          {grant.displayName} (@{grant.username}){" "}
-                          {onRevokeGrant && <Button size="small" variant="secondary" onClick={() => onRevokeGrant(dub.id, grant.id)}>Revoke access</Button>}
-                        </li>
-                      ))}
-                    </ul>
-                  ) : <p>No friends currently have access.</p>}
-                </div>
-              )}
+              <DubStatistics dub={dub} onRevokeGrant={onRevokeGrant} onOpenProfile={onOpenProfile} />
             </details>
           </div>
         ))}

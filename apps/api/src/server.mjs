@@ -453,6 +453,8 @@ function publicDub(data, dub, currentUserId) {
       downloaderByUser.set(download.userId, {
         username: downloader?.username ?? "artist",
         displayName: downloader?.displayName ?? "Artist",
+        avatarUrl: downloader?.avatarUrl,
+        aListApproved: downloader?.aListApproved === true,
         downloadedAt: download.downloadedAt,
       });
     }
@@ -462,7 +464,7 @@ function publicDub(data, dub, currentUserId) {
         .filter((grant) => grant.dubId === dub.id)
         .map((grant) => data.users.find((item) => item.id === grant.userId))
         .filter(Boolean)
-        .map(({ id, username, displayName }) => ({ id, username, displayName }));
+        .map(({ id, username, displayName, avatarUrl, aListApproved }) => ({ id, username, displayName, avatarUrl, aListApproved: aListApproved === true }));
     }
   }
   return result;
@@ -549,7 +551,10 @@ function communitySnapshot(data, user) {
     likedDubIds: data.likes.filter((like) => like.userId === user.id && canAccessDub(data, data.dubs.find((dub) => dub.id === like.dubId), user)).map((like) => like.dubId),
     suggestedMembers: data.users
       .filter((other) => other.id !== user.id && !friendUserIds.has(other.id))
-      .map(({ id, username, displayName, genre, avatarUrl, aListApproved }) => ({ id, username, displayName, genre, avatarUrl, aListApproved: aListApproved === true })),
+      .map(({ id, username, displayName, genre, avatarUrl, bannerUrl, aListApproved, presence, role, bio, links }) => ({
+        id, username, displayName, genre, avatarUrl, bannerUrl, presence, role, bio,
+        links: links ?? [], groups: [], aListApproved: aListApproved === true,
+      })),
     crates: publicCrates(data, user.id),
     library: data.downloads
       .filter((download) => download.userId === user.id)

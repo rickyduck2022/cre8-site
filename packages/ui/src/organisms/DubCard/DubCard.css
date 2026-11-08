@@ -20,6 +20,14 @@
   min-width: 0;
 }
 
+.dub-card__avatar {
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  display: inline-flex;
+  padding: 0;
+}
+.dub-card__avatar:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 3px; }
 .dub-card__author { display: grid; gap: 0.125rem; min-width: 0; }
 .dub-card__username { font-size: var(--type-size-compact); font-weight: 700; }
 .dub-card__username:hover { color: var(--action-primary-hover); }

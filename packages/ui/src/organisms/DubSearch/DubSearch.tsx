@@ -36,7 +36,7 @@ export const DUB_SEARCH_TAGS = [
 export function createEmptyDubSearchFilters(): DubSearchFilters {
   return {
     tags: [],
-    distributions: [],
+    distributions: ["worldwide", "alist"],
     minBpm: "",
     maxBpm: "",
     fileType: "",
@@ -48,7 +48,11 @@ export function createEmptyDubSearchFilters(): DubSearchFilters {
 export function getDubSearchFilterCount(filters: DubSearchFilters): number {
   return (
     filters.tags.length +
-    filters.distributions.length +
+    Number(
+      filters.distributions.length !== 2 ||
+      !filters.distributions.includes("worldwide") ||
+      !filters.distributions.includes("alist"),
+    ) +
     Number(Boolean(filters.minBpm || filters.maxBpm)) +
     Number(Boolean(filters.fileType)) +
     Number(Boolean(filters.minBitrate || filters.maxBitrate))
@@ -184,7 +188,7 @@ export function DubSearch({
                   </label>
                 ))}
               </div>
-              <span className="dub-search__distribution-hint">By default, the feed shows Worldwide and eligible A-List dubs. Select Private to include your own and shared private dubs.</span>
+              <span className="dub-search__distribution-hint">A-List dubs require approval. Select Private to include your own and shared private dubs.</span>
             </fieldset>
           )}
           <TagSelector

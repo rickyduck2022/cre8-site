@@ -35,7 +35,7 @@ interface CommunitySnapshot {
   buddies: Buddy[];
   conversations: Conversation[];
   likedDubIds: string[];
-  suggestedMembers: Array<{ username: string; displayName: string; genre: string; avatarUrl?: string; aListApproved?: boolean }>;
+  suggestedMembers: MemberProfile[];
   crates: Crate[];
   library: LibraryDownload[];
   aListApplication: AListApplication | null;

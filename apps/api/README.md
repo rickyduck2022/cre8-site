@@ -76,7 +76,10 @@ The API checks access independently for media, search, snapshots,
 messages, playback, crates, library and admin overview.
 Artist approval indicators reflect the linked account's current A-List status,
 independently of a dub's distribution; approval and revocation update connected
-community snapshots.
+community snapshots. Member discovery snapshots include public profile details
+so artist links can open profiles for members who are not yet friends.
+Owner-only supporter and private-access lists include the member's avatar and
+approval status for their profile cards.
 
 Share history is tracked per sender, friend, dub and current version, independently
 of paginated messages. A friend already sent that version is marked Shared and

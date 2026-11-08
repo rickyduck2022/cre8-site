@@ -8,6 +8,7 @@ export interface NavigationItem {
   icon: ReactNode;
   href?: string;
   badge?: string;
+  onClick?: () => void;
 }
 
 export interface NavigationSection {
@@ -26,6 +27,7 @@ export interface NavigationProps {
   hideOnMobile?: boolean;
   className?: string;
   logoSrc?: string;
+  onUserProfile?: () => void;
 }
 
 export function Navigation({
@@ -36,6 +38,7 @@ export function Navigation({
   userDetail = "Member",
   userName,
   userAvatarUrl,
+  onUserProfile,
   variant = "sidebar",
   hideOnMobile = false,
 }: NavigationProps) {
@@ -68,9 +71,9 @@ export function Navigation({
       {userName && (
         <div className="navigation__footer">
           <div className="member-identity">
-            <Avatar name={userName} size="small" src={userAvatarUrl} />
+            {onUserProfile ? <button aria-label={`View ${userName}'s profile`} className="navigation__profile-avatar" onClick={onUserProfile} type="button"><Avatar name={userName} size="small" src={userAvatarUrl} /></button> : <Avatar name={userName} size="small" src={userAvatarUrl} />}
             <span className="member-identity__copy">
-              <span className="member-identity__name">{userName}</span>
+              {onUserProfile ? <button className="text-button member-identity__name navigation__profile-name" onClick={onUserProfile} type="button">{userName}</button> : <span className="member-identity__name">{userName}</span>}
               <span className="member-identity__detail">{userDetail}</span>
             </span>
           </div>
@@ -104,6 +107,7 @@ function NavigationSectionView({
             className="navigation__item"
             href={item.href ?? "#"}
             key={item.label}
+            onClick={item.onClick}
             title={variant === "icons" ? item.label : undefined}
           >
             <span aria-hidden="true" className="navigation__icon">
