@@ -443,7 +443,21 @@ export function App() {
       </main>
     );
   }
-
+  const track = previewTrack ? {
+              title: previewTrack.title,
+              artist: previewTrack.artist,
+              artistAListApproved: previewTrack.artistAListApproved,
+              onArtistClick: () => openProfile(previewTrack.uploader),
+              artworkContent: <TrackArtwork dub={previewTrack} />,
+              duration: previewTrack.duration,
+            } : {
+              title: "",
+              artist: "",
+              artistAListApproved: false,
+              onArtistClick: () => {},
+              artworkContent: null,
+              duration: "00:00"
+            }
   return (
     <DashboardTemplate
       className={`community-dashboard-template${previewTrack ? " community-dashboard-template--has-player" : ""}${isPlayerMinimized ? " community-dashboard-template--player-minimized" : ""}${activeSection === "messenger" ? " community-dashboard-template--messenger" : ""}`}
@@ -524,17 +538,15 @@ export function App() {
             onRepeatChange={setRepeat}
             onPrevious={playPreviousDub}
             onNext={playNextDub}
-            track={{
-              title: previewTrack.title,
-              artist: previewTrack.artist,
-              artistAListApproved: previewTrack.artistAListApproved,
-              onArtistClick: () => openProfile(previewTrack.uploader),
-              artworkContent: <TrackArtwork dub={previewTrack} />,
-              duration: previewTrack.duration,
-            }}
+            track={track}
             variant="full"
           />
-        ) : null
+        ) : <AudioPlayer
+            track={{ title: "", artist: "", duration: "00:00" }}
+            variant="full"
+            minimized={isPlayerMinimized}
+            onMinimizedChange={(minimized) => setPlayerMinimized((current) => ({ ...current, [playerContext]: minimized }))}
+          />
       }
     >
       <div className={`app-content${activeSection === "messenger" ? " app-content--messenger" : ""}`}>
