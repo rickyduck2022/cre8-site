@@ -56,7 +56,7 @@ function hashPassword(password, salt = randomBytes(16).toString("hex")) {
   };
 }
 
-function createSeedState() {
+export function createSeedState() {
   const meladeeCredentials = hashPassword("meladee");
   const meladee = {
     id: "user-meladee",
@@ -318,6 +318,7 @@ function serveWebRequest(request, response, route, webDirectory) {
     ".jpg": "image/jpeg",
     ".js": "text/javascript; charset=utf-8",
     ".json": "application/json; charset=utf-8",
+    ".webmanifest": "application/manifest+json; charset=utf-8",
     ".png": "image/png",
     ".svg": "image/svg+xml",
     ".txt": "text/plain; charset=utf-8",
@@ -327,7 +328,7 @@ function serveWebRequest(request, response, route, webDirectory) {
   })[extension] ?? "application/octet-stream";
   const file = statSync(filePath);
   response.writeHead(200, {
-    "cache-control": filePath === indexPath
+    "cache-control": filePath === indexPath || requestedPath === "/sw.js"
       ? "no-cache"
       : requestedPath.startsWith("/assets/") ? "public, max-age=31536000, immutable" : "public, max-age=3600",
     "content-length": file.size,

@@ -68,4 +68,19 @@ describe("AudioPlayer playback indicator", () => {
     expect(within(inactive).queryByRole("status", { name: "Now playing" })).not.toBeInTheDocument();
     expect(within(active).getByRole("status", { name: "Now playing" })).toBeVisible();
   });
+  it("shows a placeholder when no track is provided", () => {
+    const change = vi.fn();
+    const { rerender } = render(<AudioPlayer variant="full" onMinimizedChange={change} />);
+    expect(screen.getByText("No track loaded")).toBeInTheDocument();
+    expect(screen.getByText("Select a dub to get started")).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Audio player" })).toHaveClass("audio-player--empty");
+    expect(screen.queryByRole("button", { name: "Play" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Minimize audio player" }));
+    expect(change).toHaveBeenCalledWith(true);
+    rerender(<AudioPlayer track={track} />);
+    expect(screen.queryByText("No track loaded")).not.toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Audio player: Night Drive" })).toBeInTheDocument();
+    rerender(<AudioPlayer track={null} />);
+    expect(screen.getByText("No track loaded")).toBeInTheDocument();
+  });
 });

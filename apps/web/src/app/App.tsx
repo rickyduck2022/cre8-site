@@ -109,7 +109,7 @@ function createNavigationSections(unreadCount: number, aListApproved: boolean, s
   ];
 }
 
-export function App() {
+export function App({ appStatus }: { appStatus?: ReactNode } = {}) {
   const {
     state,
     chatConnectionStatus,
@@ -125,6 +125,7 @@ export function App() {
     clearNotifications,
     markNotificationsRead,
     login,
+    retryConnection,
     registerArtist,
     logout,
     downloadDub,
@@ -201,8 +202,7 @@ export function App() {
       return item;
     }),
   }));
-  const nowPlaying = state.dubs.find((dub) => dub.id === state.nowPlayingId) ?? null;
-  const previewTrack = nowPlaying ?? state.dubs.find((dub) => dub.distribution === "worldwide");
+  const previewTrack = state.dubs.find((dub) => dub.id === state.nowPlayingId) ?? null;
   const dubsById = new Map(state.dubs.map((dub) => [dub.id, dub]));
   const suggestedByUsername = new Map(state.suggestedMembers.map((member) => [member.username, member]));
   const profile =
@@ -377,6 +377,7 @@ export function App() {
     return (
       <main className="app-login">
         <section className="app-login__card">
+          {appStatus}
           <img className="app-login__logo" src={cre8LogoSrc} alt="Cre8 Messenger · Wear Cre8 DnB" />
           <span className="eyebrow">{isRegistering ? "JOIN THE COMMUNITY" : "WELCOME BACK"}</span>
           <h1>{isRegistering ? "Create your artist account" : "Sign in to cre8"}</h1>
@@ -400,6 +401,7 @@ export function App() {
               {(loginError || error) && (
                 <p className="app-login__error" role="alert">{loginError || error}</p>
               )}
+              {error && <Button onClick={() => void retryConnection()} type="button" variant="secondary">Retry connection</Button>}
               <form className="app-login__form" onSubmit={handleLogin}>
                 <label>
                   <span>Username</span>
@@ -443,27 +445,13 @@ export function App() {
       </main>
     );
   }
-  const track = previewTrack ? {
-              title: previewTrack.title,
-              artist: previewTrack.artist,
-              artistAListApproved: previewTrack.artistAListApproved,
-              onArtistClick: () => openProfile(previewTrack.uploader),
-              artworkContent: <TrackArtwork dub={previewTrack} />,
-              duration: previewTrack.duration,
-            } : {
-              title: "",
-              artist: "",
-              artistAListApproved: false,
-              onArtistClick: () => {},
-              artworkContent: null,
-              duration: "00:00"
-            }
   return (
     <DashboardTemplate
-      className={`community-dashboard-template${previewTrack ? " community-dashboard-template--has-player" : ""}${isPlayerMinimized ? " community-dashboard-template--player-minimized" : ""}${activeSection === "messenger" ? " community-dashboard-template--messenger" : ""}`}
+      className={`community-dashboard-template community-dashboard-template--has-player${isPlayerMinimized ? " community-dashboard-template--player-minimized" : ""}${activeSection === "messenger" ? " community-dashboard-template--messenger" : ""}`}
       scrollContent
       scrollResetKey={activeSection}
       header={
+        <div>
         <AppHeader
           className="app-topbar"
           logoSrc={cre8LogoSrc}
@@ -498,6 +486,8 @@ export function App() {
           userAvatarUrl={state.member.avatarUrl}
           variant="compact"
         />
+        {appStatus}
+        </div>
       }
       navigation={
         <Navigation
@@ -538,11 +528,18 @@ export function App() {
             onRepeatChange={setRepeat}
             onPrevious={playPreviousDub}
             onNext={playNextDub}
-            track={track}
+            track={{
+              title: previewTrack.title,
+              artist: previewTrack.artist,
+              artistAListApproved: previewTrack.artistAListApproved,
+              onArtistClick: () => openProfile(previewTrack.uploader),
+              artworkContent: <TrackArtwork dub={previewTrack} />,
+              duration: previewTrack.duration,
+            }}
             variant="full"
           />
         ) : <AudioPlayer
-            track={{ title: "", artist: "", duration: "00:00" }}
+            className="app-player"
             variant="full"
             minimized={isPlayerMinimized}
             onMinimizedChange={(minimized) => setPlayerMinimized((current) => ({ ...current, [playerContext]: minimized }))}

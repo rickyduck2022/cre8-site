@@ -93,12 +93,7 @@ export function DashboardTemplate({
             </aside>
           )}
         </ScrollViewport>
-        {audioPlayer ?? (
-          <AudioPlayer
-            track={{ title: "Alien", artist: "Malaa", duration: "03:42" }}
-            variant="full"
-          />
-        )}
+        {audioPlayer ?? <AudioPlayer variant="full" />}
       </div>
     </main>
   );

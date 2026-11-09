@@ -101,7 +101,6 @@
 
 @media (max-width: 760px) {
   .dub-card {
-    border-radius: 0;
     gap: 0.5rem;
     padding: 1rem 0.625rem;
   }

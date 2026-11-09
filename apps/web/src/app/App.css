@@ -92,6 +92,14 @@
   justify-content: flex-start;
 }
 
+@media (max-width: 760px), (pointer: coarse) {
+  input:not([type="button"]):not([type="submit"]):not([type="reset"]):not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="color"]):not([type="hidden"]),
+  select,
+  textarea {
+    font-size: max(16px, 1em) !important;
+  }
+}
+
 @media (max-width: 760px) {
   .community-dashboard-template {
     display: block;

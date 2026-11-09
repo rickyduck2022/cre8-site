@@ -7,6 +7,7 @@
     "build": "turbo run build",
     "dev": "node scripts/dev.mjs",
     "dev:api": "pnpm --filter @craft/api dev",
+    "dev:purge": "node apps/api/scripts/purge.mjs",
     "dev:web": "node scripts/dev.mjs",
     "storybook": "pnpm --filter @craft/ui storybook",
     "test": "turbo run test",

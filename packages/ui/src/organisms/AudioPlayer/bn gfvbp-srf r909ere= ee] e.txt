@@ -1,0 +1,1 @@
+Use these as the example "dubs".  Make the audio player functionality work throughout the app. Add a modal with the seperate of concerns that adhere to the atomic principles, within the component library monorepo and use this to allow the add du  

@@ -584,7 +584,20 @@
 .organism-card.audio-player.app-player {
   border-radius: 0;
 }
+.audio-player__empty-state {
+  color: var(--text-secondary);
+  grid-column: 1 / -1;
+  text-align: center;
+}
 
+.audio-player__empty-state p {
+  margin: 0.25rem 0;
+}
+
+.audio-player__empty-state-subtitle {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
 .audio-player__timeline {
   align-items: center;
   display: flex;

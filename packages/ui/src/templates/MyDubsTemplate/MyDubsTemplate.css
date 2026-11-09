@@ -60,3 +60,10 @@
   background: transparent;
   border-radius: 0;
 }
+
+@media (max-width: 760px) {
+  .my-dubs-template__track > .dub-card {
+    border-bottom-left-radius: 0.75rem;
+    border-bottom-right-radius: 0.75rem;
+  }
+}

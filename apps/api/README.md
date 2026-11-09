@@ -6,6 +6,31 @@ proxies `/api` requests to it.
 During development, the web app loads the UI package from source so player and
 other component changes are reflected without rebuilding the UI bundle.
 
+## Installable web app and offline behavior
+
+The production web build is an installable PWA. Serve it over HTTPS (or
+localhost); service workers are disabled in the Vite development server.
+Supported browsers can offer an Install app button. On iPhone and iPad, use the
+browser's Share menu and choose Add to Home Screen. Installation and available
+browser controls vary by browser and operating system.
+
+The service worker caches the versioned app shell and static assets, not API
+responses, messages, profiles, uploaded artwork or audio. After a successful
+online visit and service-worker installation, the app can open offline and
+explains that online features are unavailable. It does not queue changes,
+send messages, upload, download, or stream while offline. Browser storage may
+be cleared or evicted, so the shell may need another online visit. A failed
+initial connection can be retried, and the app retries when connectivity
+returns. A waiting update can be applied with Update app, which reloads the app
+and stops playback; it can also activate after all older app tabs are closed.
+
+This PWA cache is not persistent file sharing or offline media storage. Shared
+files and access controls remain server-side; installation does not make uploads
+durable or provide background transfers. The persistent disk described below
+survives service restarts, subject to its capacity and provider limitations, but
+production sharing still needs reliable durable storage, backups, access
+controls, and a suitable transfer/retry design.
+
 ## Render demo
 
 The root `render.yaml` and `Dockerfile` configure a single Render web service.
@@ -128,6 +153,12 @@ track. Replacing or deleting the audio clears saved positions for that dub.
 The seeded demo accounts are `meladee` / `meladee` and `holik` / `holik`.
 Passwords are stored as salted scrypt hashes. On a local run, community records,
 uploaded audio, and optional dub artwork are stored under `apps/api/data/`;
-remove that directory to reset the local seed. New accounts start without
+to reset the local database, stop the API and run `pnpm dev:purge` from the
+repository root. Confirm by typing `PURGE`, or pass `--yes` for non-interactive
+use. This removes all other accounts and records, resets both demo accounts and
+their passwords to the seed, and leaves uploaded media files on disk. It only
+targets the default local database and refuses to run in production or when
+`COMMUNITY_DATA_PATH` is set. Restart the API afterward; it keeps data in memory
+and could otherwise overwrite the reset. New accounts start without
 tracks; artists can add tracks by uploading audio. Dubs without an uploaded
 image use the built-in whitelabel artwork.

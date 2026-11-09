@@ -15,7 +15,7 @@ export interface AudioPlayerTrack extends NowPlayingProps {
 }
 
 export interface AudioPlayerProps {
-  track: AudioPlayerTrack;
+  track?: AudioPlayerTrack | null;
   variant?: "full" | "compact" | "mini" | "docked" | "inline";
   distribution?: Dub["distribution"];
   endAction?: ReactNode;
@@ -55,6 +55,15 @@ function durationFromLabel(duration?: string) {
     : 0;
 }
 
+function EmptyPlayerPlaceholder() {
+  return (
+    <div className="audio-player__empty-state">
+      <p>No track loaded</p>
+      <p className="audio-player__empty-state-subtitle">Select a dub to get started</p>
+    </div>
+  );
+}
+
 export function AudioPlayer({
   className,
   currentTimeSeconds = 0,
@@ -85,7 +94,13 @@ export function AudioPlayer({
   const isControlled = playing !== undefined;
   const currentPlaying = isControlled ? playing : internalPlaying;
   const volumeLevel = volume ?? internalVolume;
-  const trackDuration = durationSeconds && durationSeconds > 0 ? durationSeconds : durationFromLabel(track.duration);
+
+  const hasTrack = track != null;
+  const trackDuration = hasTrack
+    ? durationSeconds && durationSeconds > 0
+      ? durationSeconds
+      : durationFromLabel(track.duration)
+    : 0;
   const progress =
     trackDuration > 0
       ? Math.max(0, Math.min(1, currentTimeSeconds / trackDuration))
@@ -103,77 +118,84 @@ export function AudioPlayer({
 
   return (
     <section
-      aria-label={`Audio player: ${track.title}`}
+      aria-label={hasTrack ? `Audio player: ${track.title}` : "Audio player"}
       className={[
         "organism-card",
         "audio-player",
         `audio-player--${variant}`,
-        distribution === "alist" && "audio-player--alist",
-        distribution === "private" && "audio-player--private",
-        distribution === "worldwide" && "audio-player--worldwide",
+        hasTrack && distribution === "alist" && "audio-player--alist",
+        hasTrack && distribution === "private" && "audio-player--private",
+        hasTrack && distribution === "worldwide" && "audio-player--worldwide",
         minimized && "audio-player--minimized",
+        !hasTrack && "audio-player--empty",
         className,
       ]
         .filter(Boolean)
         .join(" ")}
     >
-      <NowPlaying
-        artist={track.artist}
-        artistAListApproved={track.artistAListApproved}
-        artwork={track.artwork}
-        artworkContent={track.artworkContent}
-        isPlaying={currentPlaying}
-        onArtistClick={track.onArtistClick}
-        title={track.title}
-      />
-      <TransportControls
-        onNext={onNext}
-        onPlayChange={handlePlayChange}
-        onPrevious={onPrevious}
-        onRepeatChange={onRepeatChange}
-        onShuffleChange={onShuffleChange}
-        playing={currentPlaying}
-        repeat={repeat}
-        shuffle={shuffle}
-      />
-      <div className="audio-player__timeline">
-        <span className="audio-player__time">{formatTime(currentTimeSeconds)}</span>
-        <Waveform
-          className="audio-player__waveform"
-          durationSeconds={trackDuration}
-          label={`${track.title} playback progress`}
-          onSeek={onSeekProgress ?? (
-            onSeek && trackDuration > 0
-              ? (nextProgress) => onSeek(nextProgress * trackDuration)
-              : undefined
+      {hasTrack ? (
+        <>
+          <NowPlaying
+            artist={track.artist || "Artist"}
+            artistAListApproved={track.artistAListApproved}
+            artwork={track.artwork}
+            artworkContent={track.artworkContent}
+            isPlaying={currentPlaying}
+            onArtistClick={track.onArtistClick}
+            title={track.title}
+          />
+          <TransportControls
+            onNext={onNext}
+            onPlayChange={handlePlayChange}
+            onPrevious={onPrevious}
+            onRepeatChange={onRepeatChange}
+            onShuffleChange={onShuffleChange}
+            playing={currentPlaying}
+            repeat={repeat}
+            shuffle={shuffle}
+          />
+          <div className="audio-player__timeline">
+            <span className="audio-player__time">{formatTime(currentTimeSeconds)}</span>
+            <Waveform
+              className="audio-player__waveform"
+              durationSeconds={trackDuration}
+              label={`${track.title} playback progress`}
+              onSeek={onSeekProgress ?? (
+                onSeek && trackDuration > 0
+                  ? (nextProgress) => onSeek(nextProgress * trackDuration)
+                  : undefined
+              )}
+              peaks={track.peaks}
+              progress={progress}
+            />
+            <span className="audio-player__time">
+              {durationSeconds !== undefined && durationSeconds > 0
+                ? formatTime(durationSeconds)
+                : track.duration ?? "00:00"}
+            </span>
+          </div>
+          <label className="audio-player__volume">
+            <span className="sr-only">Volume</span>
+            <Volume2 aria-hidden="true" />
+            <input
+              aria-label="Volume"
+              max="100"
+              min="0"
+              onChange={(event) =>
+                handleVolumeChange(Number(event.currentTarget.value) / 100)
+              }
+              type="range"
+              value={Math.round(volumeLevel * 100)}
+            />
+          </label>
+          {endAction && (
+            <div className="audio-player__end-action">{endAction}</div>
           )}
-          peaks={track.peaks}
-          progress={progress}
-        />
-        <span className="audio-player__time">
-          {durationSeconds !== undefined && durationSeconds > 0
-            ? formatTime(durationSeconds)
-            : track.duration ?? "00:00"}
-        </span>
-      </div>
-      <label className="audio-player__volume">
-        <span className="sr-only">Volume</span>
-        <Volume2 aria-hidden="true" />
-        <input
-          aria-label="Volume"
-          max="100"
-          min="0"
-          onChange={(event) =>
-            handleVolumeChange(Number(event.currentTarget.value) / 100)
-          }
-          type="range"
-          value={Math.round(volumeLevel * 100)}
-        />
-      </label>
-      {endAction && (
-        <div className="audio-player__end-action">{endAction}</div>
+          {metadata && <div className="audio-player__metadata">{metadata}</div>}
+        </>
+      ) : (
+        <EmptyPlayerPlaceholder />
       )}
-      {metadata && <div className="audio-player__metadata">{metadata}</div>}
       {playbackError && (
         <span className="audio-player__error" role="status">
           {playbackError}

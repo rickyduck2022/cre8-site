@@ -30,6 +30,8 @@ test("the production server serves the web app and its static assets", async () 
   mkdirSync(join(webDirectory, "assets"), { recursive: true });
   writeFileSync(join(webDirectory, "index.html"), "<main>cre8</main>");
   writeFileSync(join(webDirectory, "assets", "app.js"), "console.log('cre8');");
+  writeFileSync(join(webDirectory, "sw.js"), "/* service worker */");
+  writeFileSync(join(webDirectory, "manifest.webmanifest"), "{}");
   const server = await startTestServer(join(directory, "data"), webDirectory);
   try {
     const page = await fetch(server.baseUrl);
@@ -41,6 +43,12 @@ test("the production server serves the web app and its static assets", async () 
     assert.equal(asset.status, 200);
     assert.match(asset.headers.get("content-type"), /text\/javascript/);
     assert.equal(await asset.text(), "console.log('cre8');");
+
+    const worker = await fetch(`${server.baseUrl}/sw.js`);
+    assert.match(worker.headers.get("content-type"), /text\/javascript/);
+    assert.equal(worker.headers.get("cache-control"), "no-cache");
+    const manifest = await fetch(`${server.baseUrl}/manifest.webmanifest`);
+    assert.match(manifest.headers.get("content-type"), /application\/manifest\+json/);
 
     const appRoute = await fetch(`${server.baseUrl}/crates/my-crate`);
     assert.equal(appRoute.status, 200);

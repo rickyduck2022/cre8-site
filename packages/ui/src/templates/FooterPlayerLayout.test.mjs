@@ -40,6 +40,15 @@ function mobileRuleFor(css, selector) {
 }
 
 describe("footer player tab layout", () => {
+  it("keeps the expanded empty player aligned with the reserved footer space", () => {
+    const css = readFileSync(resolve("src", "templates", "CommunityPageTemplates.css"), "utf8");
+    const player = ruleFor(css, ".community-dashboard-template .app-player.audio-player--empty:not(.audio-player--minimized)");
+    expect(player.getPropertyValue("box-sizing")).toBe("border-box");
+    expect(player.getPropertyValue("min-height")).toBe("var(--app-player-height)");
+    const organismCss = readFileSync(resolve("src", "organisms", "Organisms.css"), "utf8");
+    expect(ruleFor(organismCss, ".audio-player__empty-state").getPropertyValue("grid-column")).toBe("1 / -1");
+  });
+
   it("floats the minimized desktop player without reserving the footer and keeps the message composer accessible", () => {
     const shellCss = readFileSync(resolve("src", "templates", "CommunityPageTemplates.css"), "utf8");
     const messengerCss = readFileSync(resolve("src", "templates", "MessengerTemplate", "MessengerTemplate.css"), "utf8");

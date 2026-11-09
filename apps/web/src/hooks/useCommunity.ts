@@ -116,6 +116,7 @@ export function useCommunity() {
   const [uploadError, setUploadError] = useState("");
   const [error, setError] = useState("");
   const seenMessageIds = useRef(new Set<string>());
+  const initialLoadFailed = useRef(false);
   const notificationState = useNotifications();
   const { notify } = notificationState;
   const playback = useAudioPlayback(state.dubs, notify, state.member?.id, state.lastPlayback, async (position) => {
@@ -216,15 +217,35 @@ export function useCommunity() {
     () => { playback.reset(); setState(initialState); },
   );
 
-  useEffect(() => {
-    void refreshCommunity()
-      .catch((loadError: unknown) => {
-        if (loadError instanceof Error && !loadError.message.includes("Sign in")) {
-          setError(loadError.message);
-        }
-      })
-      .finally(() => setLoading(false));
+  async function retryConnection() {
+    try {
+      await refreshCommunity();
+      initialLoadFailed.current = false;
+      setError("");
+    } catch (loadError: unknown) {
+      if (loadError instanceof Error && loadError.message.includes("Sign in")) {
+        initialLoadFailed.current = false;
+        setError("");
+      } else {
+        initialLoadFailed.current = true;
+        setError(loadError instanceof TypeError
+          ? "Unable to connect. Check your connection and try again. Your messages and dubs require a connection."
+          : loadError instanceof Error ? loadError.message : "Unable to connect.");
+      }
+    }
+  }
 
+  useEffect(() => {
+    void retryConnection().finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    function reconnect() {
+      if (!initialLoadFailed.current) return;
+      void retryConnection();
+    }
+    window.addEventListener("online", reconnect);
+    return () => window.removeEventListener("online", reconnect);
   }, []);
 
   async function login(username: string, password: string) {
@@ -653,6 +674,7 @@ export function useCommunity() {
     login,
     registerArtist,
     logout,
+    retryConnection,
     refreshCommunity,
     downloadDub,
     togglePlayback: playback.togglePlayback,

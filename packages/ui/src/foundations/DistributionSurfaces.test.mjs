@@ -70,13 +70,14 @@ describe("A-List distribution surface", () => {
 });
 
 describe("mobile distribution layouts", () => {
-  it("uses compact, square cards and controls for every distribution", () => {
+  it("uses rounded cards and compact controls for every distribution", () => {
     const cardCss = readFileSync(resolve("src", "organisms", "DubCard", "DubCard.css"), "utf8");
     const searchCss = readFileSync(resolve("src", "organisms", "DubSearch", "DubSearch.css"), "utf8");
     const card = mobileRuleFor(cardCss, ".dub-card", "760px");
     const track = mobileRuleFor(cardCss, ".dub-card__track", "760px");
     const distribution = mobileRuleFor(searchCss, ".dub-search__distribution", "520px");
-    expect(card.getPropertyValue("border-radius")).toBe("0");
+    expect(ruleFor(cardCss, ".dub-card").getPropertyValue("border-radius")).toBe("0.75rem");
+    expect(card.getPropertyValue("border-radius")).toBe("");
     expect(card.getPropertyValue("padding")).toBe("1rem 0.625rem");
     expect(ruleFor(cardCss, ".dub-card").getPropertyValue("box-shadow")).toBe("inset 0 0 0.25rem rgb(0 0 0 / 25%)");
     expect(track.getPropertyValue("padding")).toBe("0.5rem 0");
@@ -128,15 +129,17 @@ describe("mobile distribution layouts", () => {
     expect(ruleFor(css, ".my-dubs-template__statistics .dub-statistics").getPropertyValue("border-radius")).toBe("0");
   });
 
-  it("joins cards in all lists with a single border and retains library download dates", () => {
+  it("retains desktop card spacing and library download dates on mobile", () => {
     const css = readFileSync(resolve("src", "templates", "CommunityPageTemplates.css"), "utf8");
     expect(ruleFor(css, ".feed-list").getPropertyValue("gap")).toBe("1rem");
-    expect(mobileRuleFor(css, ".feed-list", "760px").getPropertyValue("gap")).toBe("0");
-    expect(mobileRuleFor(css, ".feed-list > .dub-card + .dub-card, .dub-card-list > li + li > .dub-card, .my-dubs-template__track + .my-dubs-template__track > .dub-card", "760px").getPropertyValue("border-top")).toBe("0");
+    expect(css).not.toMatch(/\.feed-list\s*>\s*\.dub-card\s*\+\s*\.dub-card/);
+    expect(css).not.toMatch(/\.app-content:not\(\.app-content--messenger\)\s+\.feed-list/);
+    expect(css).not.toMatch(/\.feed-list\s*\{\s*gap:\s*0\s*;/);
     expect(ruleFor(css, ".dub-card-list__downloaded").getPropertyValue("margin")).toBe("0");
-    const downloaded = mobileRuleFor(css, ".dub-card-list__downloaded", "760px");
-    expect(downloaded.getPropertyValue("margin")).toBe("0");
-    expect(downloaded.getPropertyValue("border-top")).toBe("0");
+    const myDubs = readFileSync(resolve("src", "templates", "MyDubsTemplate", "MyDubsTemplate.css"), "utf8");
+    const card = mobileRuleFor(myDubs, ".my-dubs-template__track > .dub-card", "760px");
+    expect(card.getPropertyValue("border-bottom-left-radius")).toBe("0.75rem");
+    expect(card.getPropertyValue("border-bottom-right-radius")).toBe("0.75rem");
   });
 
   it("keeps mobile search and navigation compact", () => {
