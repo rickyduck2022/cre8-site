@@ -1,9 +1,19 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import type { Dub } from "../../types/domain";
 import { DubCard } from "./DubCard";
 
-afterEach(cleanup);
+beforeAll(() => {
+  HTMLDialogElement.prototype.showModal = function () { this.open = true; };
+  HTMLDialogElement.prototype.close = function () { this.open = false; };
+});
+
+afterEach(() => {
+  cleanup();
+  vi.unstubAllGlobals();
+});
 
 const dub: Dub = {
   id: "dub-1", title: "Night Drive", artist: "Amber", uploader: "amber",
@@ -13,14 +23,122 @@ const dub: Dub = {
 };
 
 describe("DubCard actions", () => {
+  it("uses equal player padding on all sides at mobile widths", () => {
+    const style = document.createElement("style");
+    style.textContent = readFileSync(resolve("src", "organisms", "DubCard", "DubCard.css"), "utf8");
+    document.head.append(style);
+    try {
+      const base = Array.from(style.sheet?.cssRules ?? []).find(
+        (rule) => rule instanceof CSSStyleRule && rule.selectorText === ".dub-card .organism-card.audio-player",
+      ) as CSSStyleRule;
+      const mobile = Array.from(style.sheet?.cssRules ?? []).find(
+        (rule) => rule instanceof CSSMediaRule && rule.conditionText === "(max-width: 760px)",
+      ) as CSSMediaRule;
+      const player = Array.from(mobile.cssRules).find(
+        (rule) => rule instanceof CSSStyleRule && rule.selectorText === ".dub-card .organism-card.audio-player",
+      ) as CSSStyleRule;
+      expect(base.style.getPropertyValue("padding-left")).toBe("0.75rem");
+      expect(base.style.getPropertyValue("padding-right")).toBe("0.75rem");
+      expect(player.style.getPropertyValue("padding-top")).toBe("0.75rem");
+      expect(player.style.getPropertyValue("padding-bottom")).toBe("0.75rem");
+    } finally {
+      style.remove();
+    }
+  });
+
+  it("places owner actions beneath the upload time and opens a mobile dialog", () => {
+    vi.stubGlobal("matchMedia", vi.fn().mockReturnValue({
+      matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn(),
+    }));
+    const onEdit = vi.fn();
+    const onDelete = vi.fn();
+    const { container } = render(<DubCard dub={dub} manageable onDownload={vi.fn()} onPlay={vi.fn()} onEdit={onEdit} onDelete={onDelete} />);
+    const trigger = screen.getByRole("button", { name: "Actions for Night Drive" });
+    const end = container.querySelector(".dub-card__topline-end")!;
+    expect(end).toContainElement(trigger);
+    expect(end.firstElementChild).toHaveClass("dub-card__uploaded");
+    expect(container.querySelector(".dub-card__footer")).not.toBeInTheDocument();
+    expect(trigger).toHaveAttribute("aria-haspopup", "dialog");
+    fireEvent.click(trigger);
+    const dialog = screen.getByRole("dialog", { name: "Actions for Night Drive" });
+    expect(dialog).toHaveClass("modal", "dub-actions-menu__dialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Edit Night Drive" }));
+    expect(onEdit).toHaveBeenCalledWith(dub);
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    fireEvent.click(trigger);
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Delete Night Drive" }));
+    expect(onDelete).toHaveBeenCalledWith(dub);
+    fireEvent.click(trigger);
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Close" }));
+    expect(trigger).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("does not show owner actions on mobile for unmanageable dubs", () => {
+    vi.stubGlobal("matchMedia", vi.fn().mockReturnValue({
+      matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn(),
+    }));
+    render(<DubCard dub={dub} onDownload={vi.fn()} onPlay={vi.fn()} />);
+    expect(screen.queryByRole("button", { name: "Actions for Night Drive" })).not.toBeInTheDocument();
+  });
+
+  it("places icon-only download and share buttons below the distribution on mobile", () => {
+    vi.stubGlobal("matchMedia", vi.fn().mockReturnValue({
+      matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn(),
+    }));
+    const onDownload = vi.fn();
+    const onShareWithFriend = vi.fn();
+    const { container, rerender } = render(<DubCard dub={dub} onDownload={onDownload} onPlay={vi.fn()} onShareWithFriend={onShareWithFriend} />);
+    const tag = screen.getByLabelText("Distribution: Worldwide");
+    const actions = tag.parentElement?.querySelector(".dub-card__mobile-actions");
+    const download = screen.getByRole("button", { name: "Download and like" });
+    const share = screen.getByRole("button", { name: "Share Night Drive with a friend" });
+    expect(actions?.previousElementSibling).toBe(tag);
+    expect(actions).toContainElement(download);
+    expect(actions).toContainElement(share);
+    expect(download).not.toHaveTextContent("Download");
+    expect(share).not.toHaveTextContent("Share");
+    expect(container.querySelector(".dub-card__footer")).not.toBeInTheDocument();
+    const details = container.querySelector(".dub-card__mobile-details")!;
+    const timestamp = details.querySelector("time")!;
+    expect(details.firstElementChild).toHaveClass("dub-card__likes");
+    expect(details.lastElementChild).toBe(timestamp);
+    expect(timestamp).toHaveAttribute("datetime", dub.uploadedAt);
+    expect(timestamp).toHaveTextContent(new Intl.DateTimeFormat(undefined, { day: "numeric", month: "short", year: "numeric" }).format(new Date(dub.uploadedAt)));
+    expect(timestamp).not.toHaveTextContent("Uploaded:");
+    expect(container.querySelector(".dub-card__download-count")).not.toBeInTheDocument();
+    fireEvent.click(download);
+    fireEvent.click(share);
+    expect(onDownload).toHaveBeenCalledWith(dub);
+    expect(onShareWithFriend).toHaveBeenCalledWith(dub);
+    rerender(<DubCard dub={dub} hasLiked onDownload={onDownload} onPlay={vi.fn()} />);
+    expect(screen.getByRole("button", { name: "Download again" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Share Night Drive with a friend" })).not.toBeInTheDocument();
+  });
+
   it("opens the uploader profile from their avatar and artist name", () => {
     const onOpenProfile = vi.fn();
     render(<DubCard dub={dub} onDownload={vi.fn()} onPlay={vi.fn()} onOpenProfile={onOpenProfile} />);
     fireEvent.click(screen.getByRole("button", { name: "View Amber's profile" }));
     const player = screen.getByRole("region", { name: "Audio player: Night Drive" });
+    expect(player).not.toHaveClass("audio-player--playable");
     fireEvent.click(player.querySelector(".now-playing__artist-button")!);
     expect(onOpenProfile).toHaveBeenCalledTimes(2);
     expect(onOpenProfile).toHaveBeenCalledWith("amber");
+  });
+
+  it("marks the current dub whether playing or paused", () => {
+    const { rerender } = render(<DubCard dub={dub} isPlaying={false} onDownload={vi.fn()} onPlay={vi.fn()} />);
+    const player = screen.getByRole("region", { name: "Audio player: Night Drive" });
+    expect(player).not.toHaveClass("dub-card__player--current");
+    expect(screen.getByRole("button", { name: "Play" })).not.toHaveClass("is-playing");
+    rerender(<DubCard dub={dub} isCurrentTrack isPlaying onDownload={vi.fn()} onPlay={vi.fn()} />);
+    expect(player).toHaveClass("dub-card__player--current");
+    expect(screen.getByRole("button", { name: "Pause" })).toHaveClass("is-playing");
+    rerender(<DubCard dub={dub} isCurrentTrack isPlaying={false} onDownload={vi.fn()} onPlay={vi.fn()} />);
+    expect(player).toHaveClass("dub-card__player--current");
+    expect(screen.getByRole("button", { name: "Play" })).not.toHaveClass("is-playing");
+    rerender(<DubCard dub={dub} isPlaying={false} onDownload={vi.fn()} onPlay={vi.fn()} />);
+    expect(player).not.toHaveClass("dub-card__player--current");
   });
   it("marks A-List distribution and badges approval independently", () => {
     const { rerender, container } = render(<DubCard dub={{ ...dub, distribution: "alist" }} onDownload={vi.fn()} onPlay={vi.fn()} />);
@@ -34,7 +152,7 @@ describe("DubCard actions", () => {
     expect(screen.queryByRole("img", { name: "A-List approved" })).not.toBeInTheDocument();
   });
 
-  it("uses the darker card treatment only for private dubs", () => {
+  it("retains distribution-specific classes for card details", () => {
     const { container, rerender } = render(<DubCard dub={{ ...dub, distribution: "private" }} onDownload={vi.fn()} onPlay={vi.fn()} />);
     expect(container.querySelector("article")).toHaveClass("dub-card--private");
     expect(container.querySelector("article")).not.toHaveClass("dub-card--alist");
@@ -65,7 +183,7 @@ describe("DubCard actions", () => {
     expect(tag).toHaveTextContent(label);
     expect(tag).toHaveClass("track-tag--accent", "dub-card__distribution");
     expect(tag).toHaveClass(`dub-card__distribution--${distribution ?? "worldwide"}`);
-    const metadata = tag.parentElement!;
+    const metadata = tag.closest(".dub-card__metadata")!;
     expect(metadata).toHaveClass("dub-card__metadata");
     expect(metadata.querySelector(".dub-card__metadata-tags")).toHaveTextContent("Jungle");
     expect(metadata.querySelector(".dub-card__metadata-tags")).toHaveTextContent("WAV");

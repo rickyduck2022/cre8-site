@@ -17,11 +17,13 @@
 
 .badge--accent {
   background: color-mix(in srgb, var(--action-primary) 14%, transparent);
+  box-shadow: var(--shadow-control-accent);
   color: var(--action-primary-hover);
 }
 
 .badge--audio {
   background: color-mix(in srgb, var(--audio-active) 14%, transparent);
+  box-shadow: var(--shadow-control-audio);
   color: var(--audio-active);
 }
 

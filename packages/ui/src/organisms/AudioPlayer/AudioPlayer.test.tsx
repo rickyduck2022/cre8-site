@@ -20,6 +20,62 @@ describe("AudioPlayer playback indicator", () => {
     expect(play).not.toHaveBeenCalled();
   });
 
+  it("uses a smooth scalable waveform when minimized and expanded without changing seek behavior", () => {
+    const seek = vi.fn();
+    const { rerender } = render(<AudioPlayer track={{ ...track, peaks: [0.2, 0.8, 0.4] }} onSeekProgress={seek} currentTimeSeconds={30} durationSeconds={120} minimized />);
+    const waveform = screen.getByRole("slider", { name: "Night Drive playback progress" });
+    expect(waveform).toHaveAttribute("viewBox", "0 0 256 32");
+    expect(waveform).toHaveAttribute("preserveAspectRatio", "none");
+    expect(waveform.querySelectorAll("path")).toHaveLength(2);
+    expect(waveform.querySelector(".waveform__played")).toHaveAttribute("filter", expect.stringMatching(/^url\(#.+\)$/));
+    expect(waveform.querySelector("filter feFlood")).toHaveClass("waveform__shadow-color");
+    expect(waveform.querySelector(".waveform__unplayed")).not.toHaveAttribute("filter");
+    expect(waveform.querySelector("clipPath rect")).toHaveAttribute("width", "64");
+    vi.spyOn(waveform, "getBoundingClientRect").mockReturnValue({ left: 10, width: 80 } as DOMRect);
+    fireEvent.click(waveform, { clientX: 50 });
+    expect(seek).toHaveBeenCalledWith(0.5);
+    fireEvent.keyDown(waveform, { key: "End" });
+    expect(seek).toHaveBeenLastCalledWith(1);
+    rerender(<AudioPlayer track={{ ...track, peaks: [0.2, 0.8, 0.4] }} onSeekProgress={seek} currentTimeSeconds={60} durationSeconds={120} />);
+    const expandedWaveform = screen.getByRole("slider", { name: "Night Drive playback progress" });
+    expect(expandedWaveform).toHaveAttribute("viewBox", "0 0 256 32");
+    expect(expandedWaveform.querySelectorAll("path")).toHaveLength(2);
+    expect(expandedWaveform.querySelector("clipPath rect")).toHaveAttribute("width", "128");
+    fireEvent.keyDown(expandedWaveform, { key: "Home" });
+    expect(seek).toHaveBeenLastCalledWith(0);
+  });
+
+  it.each(["full", "compact", "mini", "docked", "inline"] as const)("uses the smooth waveform in the %s player", (variant) => {
+    render(<AudioPlayer track={track} variant={variant} onSeekProgress={vi.fn()} />);
+    const waveform = screen.getByRole("slider", { name: "Night Drive playback progress", hidden: true });
+    expect(waveform.querySelectorAll("path")).toHaveLength(2);
+    expect(waveform).toHaveAttribute("preserveAspectRatio", "none");
+  });
+
+  it("supports the opt-in playable color variant independently of layout and distribution", () => {
+    const { rerender } = render(<AudioPlayer track={track} colorVariant="playable" distribution="private" variant="inline" />);
+    const player = screen.getByRole("region", { name: "Audio player: Night Drive" });
+    expect(player).toHaveClass("audio-player--playable", "audio-player--private", "audio-player--inline");
+    rerender(<AudioPlayer track={track} distribution="private" variant="inline" />);
+    expect(player).not.toHaveClass("audio-player--playable");
+    rerender(<AudioPlayer track={track} variant="mini" />);
+    expect(player).not.toHaveClass("audio-player--playable");
+    rerender(<AudioPlayer track={track} variant="mini" colorVariant="playable" />);
+    expect(player).toHaveClass("audio-player--playable");
+  });
+
+  it("supports the controller color variant independently of layout and minimized state", () => {
+    const { rerender } = render(<AudioPlayer track={track} colorVariant="controller" variant="inline" minimized />);
+    const player = screen.getByRole("region", { name: "Audio player: Night Drive" });
+    expect(player).toHaveClass("audio-player--playable", "audio-player--controller", "audio-player--inline", "audio-player--minimized");
+    rerender(<AudioPlayer track={track} colorVariant="controller" variant="full" />);
+    expect(player).toHaveClass("audio-player--controller", "audio-player--full");
+    expect(player).not.toHaveClass("audio-player--minimized");
+    rerender(<AudioPlayer track={track} colorVariant="playable" />);
+    expect(player).toHaveClass("audio-player--playable");
+    expect(player).not.toHaveClass("audio-player--controller");
+  });
+
   it("updates its distribution surface as the track changes", () => {
     const { rerender } = render(<AudioPlayer track={track} distribution="alist" playing />);
     const player = screen.getByRole("region", { name: "Audio player: Night Drive" });
@@ -37,9 +93,11 @@ describe("AudioPlayer playback indicator", () => {
   it("only shows the indicator while the controlled player is playing", () => {
     const { rerender } = render(<AudioPlayer track={track} playing={false} />);
     expect(screen.queryByRole("status", { name: "Now playing" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Play" })).not.toHaveClass("is-playing");
 
     rerender(<AudioPlayer track={track} playing />);
     expect(screen.getByRole("status", { name: "Now playing" })).toHaveClass("badge--audio");
+    expect(screen.getByRole("button", { name: "Pause" })).toHaveClass("is-playing");
 
     rerender(<AudioPlayer track={track} playing={false} />);
     expect(screen.queryByRole("status", { name: "Now playing" })).not.toBeInTheDocument();
@@ -68,19 +126,15 @@ describe("AudioPlayer playback indicator", () => {
     expect(within(inactive).queryByRole("status", { name: "Now playing" })).not.toBeInTheDocument();
     expect(within(active).getByRole("status", { name: "Now playing" })).toBeVisible();
   });
-  it("shows a placeholder when no track is provided", () => {
+  it("renders nothing when no track is provided", () => {
     const change = vi.fn();
     const { rerender } = render(<AudioPlayer variant="full" onMinimizedChange={change} />);
-    expect(screen.getByText("No track loaded")).toBeInTheDocument();
-    expect(screen.getByText("Select a dub to get started")).toBeInTheDocument();
-    expect(screen.getByRole("region", { name: "Audio player" })).toHaveClass("audio-player--empty");
-    expect(screen.queryByRole("button", { name: "Play" })).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Minimize audio player" }));
-    expect(change).toHaveBeenCalledWith(true);
+    expect(screen.queryByRole("region", { name: /Audio player/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /audio player/i })).not.toBeInTheDocument();
     rerender(<AudioPlayer track={track} />);
-    expect(screen.queryByText("No track loaded")).not.toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Audio player: Night Drive" })).toBeInTheDocument();
     rerender(<AudioPlayer track={null} />);
-    expect(screen.getByText("No track loaded")).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: /Audio player/ })).not.toBeInTheDocument();
+    expect(change).not.toHaveBeenCalled();
   });
 });

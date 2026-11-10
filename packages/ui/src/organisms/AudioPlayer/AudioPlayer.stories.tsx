@@ -36,3 +36,11 @@ export const Compact: Story = {
 export const Mini: Story = {
   args: { variant: "mini" },
 };
+
+export const Controller: Story = {
+  args: { colorVariant: "controller", onMinimizedChange: () => {} },
+};
+
+export const ControllerMinimized: Story = {
+  args: { colorVariant: "controller", minimized: true, onMinimizedChange: () => {} },
+};

@@ -23,28 +23,36 @@
 .share-a-dub { grid-row: 3; }
 .chat-compose { grid-row: 4; }
 
-.community-dashboard-template--has-player.community-dashboard-template--messenger.community-dashboard-template--player-minimized .chat-compose {
+.community-dashboard-template--has-player.community-dashboard-template--messenger .chat-compose {
   padding-bottom: calc(0.75rem + var(--app-player-tab-height));
 }
 
-.community-dashboard-template--has-player.community-dashboard-template--messenger.community-dashboard-template--player-minimized .messenger__sidebar {
+.community-dashboard-template--has-player.community-dashboard-template--messenger .messenger__sidebar {
   padding-bottom: calc(0.75rem + var(--app-player-tab-height));
+}
+
+.community-dashboard-template--has-player.community-dashboard-template--messenger.community-dashboard-template--player-header .chat-compose,
+.community-dashboard-template--has-player.community-dashboard-template--messenger.community-dashboard-template--player-header .messenger__sidebar {
+  padding-bottom: 0.75rem;
 }
 
 .share-a-dub__search { margin: 0.625rem; }
-.share-a-dub__entry:disabled { cursor: wait; opacity: 0.6; }
-.share-a-dub__entry--shared { cursor: default; }
-.share-a-dub__entry--shared:hover { background: transparent; }
+.share-a-dub__label-compact { display: none; }
 .shared-dub-message > p { margin: 0 0 0.625rem; white-space: pre-wrap; overflow-wrap: anywhere; }
 .shared-dub__player.audio-player--inline .audio-player__timeline { grid-column: 2 / -1; }
 .shared-dub__details { align-items: center; display: flex; gap: 0.5rem; min-width: 0; }
 .shared-dub__metadata { flex: 1; }
 .shared-dub__download { flex: none; }
 
-@media (min-width: 761px) {
-  .community-dashboard-template--has-player.community-dashboard-template--messenger.community-dashboard-template--player-minimized .chat-compose {
-    padding-bottom: calc(0.75rem + 5.5rem + var(--app-player-tab-height));
+@media (min-width: 761px) and (max-width: 1050px) {
+  .community-dashboard-template--has-player.community-dashboard-template--messenger.community-dashboard-template--player-docked .chat-compose {
+    padding-bottom: calc(0.75rem + var(--measured-minimized-player-height, 6rem) + 1rem + var(--app-player-tab-height));
   }
+}
+
+.community-dashboard-template--has-player.community-dashboard-template--messenger.community-dashboard-template--player-minimized:not(.community-dashboard-template--player-docked) .chat-compose,
+.community-dashboard-template--has-player.community-dashboard-template--messenger.community-dashboard-template--player-minimized:not(.community-dashboard-template--player-docked) .messenger__sidebar {
+  padding-bottom: 0.75rem;
 }
 
 @media (max-width: 760px) {
@@ -71,15 +79,39 @@
   .chat-panel { grid-template-columns: minmax(0, 1fr); min-height: 0; position: relative; }
   .chat-compose { grid-row: 3; padding: 0.5rem 0.75rem 0; }
   .share-a-dub { border-top: 0; grid-row: 4; }
-  .share-a-dub__trigger { line-height: var(--type-leading-body); padding: 0.25rem 0.75rem; }
-  .community-dashboard-template--has-player.community-dashboard-template--messenger.community-dashboard-template--player-minimized .chat-compose {
+  .community-dashboard-template--has-player.community-dashboard-template--messenger .chat-compose {
     padding-bottom: 0;
+  }
+  .community-dashboard-template--has-player.community-dashboard-template--messenger .share-a-dub {
+    padding-bottom: calc(0.5rem + var(--app-player-tab-height));
+  }
+  .community-dashboard-template--has-player.community-dashboard-template--messenger.community-dashboard-template--player-header .share-a-dub {
+    padding-bottom: 0.5rem;
   }
   .community-dashboard-template--has-player.community-dashboard-template--messenger.community-dashboard-template--player-minimized .share-a-dub {
-    padding-bottom: 0;
+    padding: 0.5rem 0.75rem;
   }
-  .community-dashboard-template--has-player.community-dashboard-template--messenger.community-dashboard-template--player-minimized .share-a-dub__trigger {
-    min-height: calc(1.5em + 0.5rem + var(--app-player-tab-height));
+  .community-dashboard-template--has-player.community-dashboard-template--messenger.community-dashboard-template--player-docked .share-a-dub {
+    align-items: flex-end;
+    box-sizing: border-box;
+    display: flex;
+    min-height: var(--mobile-floating-player-clearance);
+    padding: 0.5rem calc(var(--mobile-floating-player-width) + 1rem) 0.5rem 0.75rem;
+  }
+  .community-dashboard-template--has-player.community-dashboard-template--messenger.community-dashboard-template--player-docked .share-a-dub__trigger {
+    gap: 0.25rem;
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+    white-space: nowrap;
+  }
+  .community-dashboard-template--has-player.community-dashboard-template--messenger.community-dashboard-template--player-docked .share-a-dub__label {
+    display: none;
+  }
+  .community-dashboard-template--has-player.community-dashboard-template--messenger.community-dashboard-template--player-docked .share-a-dub__label-compact {
+    display: inline;
+  }
+  .community-dashboard-template--has-player.community-dashboard-template--messenger.community-dashboard-template--player-docked .messenger__sidebar {
+    padding-bottom: calc(0.75rem + var(--mobile-floating-player-clearance));
   }
   .chat-panel__header { padding: 0.5rem; }
   .chat-panel__header > div { min-width: 0; }

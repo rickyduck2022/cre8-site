@@ -10,6 +10,19 @@
   min-width: 0;
 }
 
+.dashboard-template__content-overlay {
+  grid-column: 1;
+  grid-row: 2;
+  min-width: 0;
+  pointer-events: none;
+  position: relative;
+  z-index: 6;
+}
+
+.dashboard-template__content-overlay > * {
+  pointer-events: auto;
+}
+
 .dashboard-template__body {
   align-items: start;
   display: grid;

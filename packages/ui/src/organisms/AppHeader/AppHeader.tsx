@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { Mail, Upload } from "@craft/icons";
 import { Button } from "../../atoms/Button/Button";
 import { AccountMenu } from "../../molecules/AccountMenu/AccountMenu";
@@ -23,14 +24,17 @@ export interface AppHeaderProps {
   onDismissNotification?: (id: string) => void;
   onClearNotifications?: () => void;
   onActivateNotification?: (notification: NotificationMessage) => void;
+  pushSettings?: ReactNode;
   onSearchChange?: (query: string) => void;
   searchValue?: string;
   className?: string;
   logoSrc?: string;
+  leading?: ReactNode;
 }
 
 export function AppHeader({
   className,
+  leading,
   logoSrc,
   onCreate,
   onEditProfile,
@@ -43,6 +47,7 @@ export function AppHeader({
   onDismissNotification,
   onClearNotifications,
   onActivateNotification,
+  pushSettings,
   onSearchChange,
   searchPlaceholder = "Search dubs, people, or genres",
   searchValue,
@@ -61,6 +66,7 @@ export function AppHeader({
         .filter(Boolean)
         .join(" ")}
     >
+      {leading}
       <Brand logoSrc={logoSrc} />
       <SearchField
         aria-label={searchPlaceholder}
@@ -95,6 +101,7 @@ export function AppHeader({
           onDismiss={onDismissNotification ?? (() => undefined)}
           onActivate={onActivateNotification}
           onOpen={onNotifications ?? (() => undefined)}
+          pushSettings={pushSettings}
         />
         <Button
           aria-label="Share a dub"

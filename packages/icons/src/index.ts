@@ -501,6 +501,15 @@ export const Volume2: IconComponent = (props) => {
   );
   return React.createElement(IconBase, { ...withIconColor(props), children });
 };
+export const Minimize2: IconComponent = (props) =>
+  React.createElement(IconBase, {
+    ...withIconColor(props),
+    children: React.createElement("path", {
+      d: "M4 14h6v6M10 14l-7 7M20 10h-6V4M14 10l7-7",
+      strokeWidth: 1.7,
+    }),
+  });
+
 export const Maximize2: IconComponent = (props) => {
   const icon = React.createElement(
     "g",

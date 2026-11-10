@@ -1,5 +1,5 @@
-import { useState, type ReactNode } from "react";
-import { ChevronDown, Volume2 } from "@craft/icons";
+import { forwardRef, useState, type CSSProperties, type ReactNode } from "react";
+import { Maximize2, Minimize2, Volume2 } from "@craft/icons";
 import { Button } from "../../atoms/Button/Button";
 import type { NowPlayingProps } from "../../molecules/NowPlaying/NowPlaying";
 import { NowPlaying } from "../../molecules/NowPlaying/NowPlaying";
@@ -17,6 +17,7 @@ export interface AudioPlayerTrack extends NowPlayingProps {
 export interface AudioPlayerProps {
   track?: AudioPlayerTrack | null;
   variant?: "full" | "compact" | "mini" | "docked" | "inline";
+  colorVariant?: "default" | "playable" | "controller";
   distribution?: Dub["distribution"];
   endAction?: ReactNode;
   metadata?: ReactNode;
@@ -36,8 +37,13 @@ export interface AudioPlayerProps {
   onPrevious?: () => void;
   onNext?: () => void;
   className?: string;
+  style?: CSSProperties;
+  dragHandle?: ReactNode;
   minimized?: boolean;
   onMinimizedChange?: (minimized: boolean) => void;
+  minimizeLabel?: string;
+  minimizeIcon?: "maximize" | "minimize";
+  positionMenu?: ReactNode;
 }
 
 function formatTime(seconds: number) {
@@ -55,23 +61,18 @@ function durationFromLabel(duration?: string) {
     : 0;
 }
 
-function EmptyPlayerPlaceholder() {
-  return (
-    <div className="audio-player__empty-state">
-      <p>No track loaded</p>
-      <p className="audio-player__empty-state-subtitle">Select a dub to get started</p>
-    </div>
-  );
-}
-
-export function AudioPlayer({
+export const AudioPlayer = forwardRef<HTMLElement, AudioPlayerProps>(function AudioPlayer({
   className,
+  colorVariant = "default",
   currentTimeSeconds = 0,
   durationSeconds,
   distribution,
+  dragHandle,
   endAction,
   metadata,
   minimized = false,
+  minimizeLabel,
+  minimizeIcon,
   onMinimizedChange,
   onNext,
   onPlayChange,
@@ -82,21 +83,22 @@ export function AudioPlayer({
   onShuffleChange,
   onVolumeChange,
   playbackError,
+  positionMenu,
   playing,
   repeat,
   shuffle,
+  style,
   track,
   variant = "full",
   volume,
-}: AudioPlayerProps) {
+}, ref) {
   const [internalPlaying, setInternalPlaying] = useState(false);
   const [internalVolume, setInternalVolume] = useState(0.7);
   const isControlled = playing !== undefined;
   const currentPlaying = isControlled ? playing : internalPlaying;
   const volumeLevel = volume ?? internalVolume;
 
-  const hasTrack = track != null;
-  const trackDuration = hasTrack
+  const trackDuration = track
     ? durationSeconds && durationSeconds > 0
       ? durationSeconds
       : durationFromLabel(track.duration)
@@ -116,102 +118,105 @@ export function AudioPlayer({
     onVolumeChange?.(nextVolume);
   }
 
+  if (!track) return null;
+
   return (
     <section
-      aria-label={hasTrack ? `Audio player: ${track.title}` : "Audio player"}
+      ref={ref}
+      style={style}
+      aria-label={`Audio player: ${track.title}`}
       className={[
         "organism-card",
         "audio-player",
         `audio-player--${variant}`,
-        hasTrack && distribution === "alist" && "audio-player--alist",
-        hasTrack && distribution === "private" && "audio-player--private",
-        hasTrack && distribution === "worldwide" && "audio-player--worldwide",
+        colorVariant !== "default" && "audio-player--playable",
+        colorVariant === "controller" && "audio-player--controller",
+        distribution === "alist" && "audio-player--alist",
+        distribution === "private" && "audio-player--private",
+        distribution === "worldwide" && "audio-player--worldwide",
         minimized && "audio-player--minimized",
-        !hasTrack && "audio-player--empty",
         className,
       ]
         .filter(Boolean)
         .join(" ")}
     >
-      {hasTrack ? (
-        <>
-          <NowPlaying
-            artist={track.artist || "Artist"}
-            artistAListApproved={track.artistAListApproved}
-            artwork={track.artwork}
-            artworkContent={track.artworkContent}
-            isPlaying={currentPlaying}
-            onArtistClick={track.onArtistClick}
-            title={track.title}
-          />
-          <TransportControls
-            onNext={onNext}
-            onPlayChange={handlePlayChange}
-            onPrevious={onPrevious}
-            onRepeatChange={onRepeatChange}
-            onShuffleChange={onShuffleChange}
-            playing={currentPlaying}
-            repeat={repeat}
-            shuffle={shuffle}
-          />
-          <div className="audio-player__timeline">
-            <span className="audio-player__time">{formatTime(currentTimeSeconds)}</span>
-            <Waveform
-              className="audio-player__waveform"
-              durationSeconds={trackDuration}
-              label={`${track.title} playback progress`}
-              onSeek={onSeekProgress ?? (
-                onSeek && trackDuration > 0
-                  ? (nextProgress) => onSeek(nextProgress * trackDuration)
-                  : undefined
-              )}
-              peaks={track.peaks}
-              progress={progress}
-            />
-            <span className="audio-player__time">
-              {durationSeconds !== undefined && durationSeconds > 0
-                ? formatTime(durationSeconds)
-                : track.duration ?? "00:00"}
-            </span>
-          </div>
-          <label className="audio-player__volume">
-            <span className="sr-only">Volume</span>
-            <Volume2 aria-hidden="true" />
-            <input
-              aria-label="Volume"
-              max="100"
-              min="0"
-              onChange={(event) =>
-                handleVolumeChange(Number(event.currentTarget.value) / 100)
-              }
-              type="range"
-              value={Math.round(volumeLevel * 100)}
-            />
-          </label>
-          {endAction && (
-            <div className="audio-player__end-action">{endAction}</div>
+      {minimized && dragHandle}
+      <NowPlaying
+        artist={track.artist || "Artist"}
+        artistAListApproved={track.artistAListApproved}
+        artwork={track.artwork}
+        artworkContent={track.artworkContent}
+        isPlaying={currentPlaying}
+        onArtistClick={track.onArtistClick}
+        title={track.title}
+        />
+      <TransportControls
+        onNext={onNext}
+        onPlayChange={handlePlayChange}
+        onPrevious={onPrevious}
+        onRepeatChange={onRepeatChange}
+        onShuffleChange={onShuffleChange}
+        playing={currentPlaying}
+        repeat={repeat}
+        shuffle={shuffle}
+      />
+      <div className="audio-player__timeline">
+        <span className="audio-player__time">{formatTime(currentTimeSeconds)}</span>
+        <Waveform
+          className="audio-player__waveform"
+          durationSeconds={trackDuration}
+          label={`${track.title} playback progress`}
+          insetShadow
+          onSeek={onSeekProgress ?? (
+            onSeek && trackDuration > 0
+              ? (nextProgress) => onSeek(nextProgress * trackDuration)
+              : undefined
           )}
-          {metadata && <div className="audio-player__metadata">{metadata}</div>}
-        </>
-      ) : (
-        <EmptyPlayerPlaceholder />
+          peaks={track.peaks}
+          progress={progress}
+          variant="smooth"
+        />
+        <span className="audio-player__time">
+          {durationSeconds !== undefined && durationSeconds > 0
+            ? formatTime(durationSeconds)
+            : track.duration ?? "00:00"}
+        </span>
+      </div>
+      <label className="audio-player__volume">
+        <span className="sr-only">Volume</span>
+        <Volume2 aria-hidden="true" />
+        <input
+          aria-label="Volume"
+          max="100"
+          min="0"
+          onChange={(event) =>
+            handleVolumeChange(Number(event.currentTarget.value) / 100)
+          }
+          type="range"
+          value={Math.round(volumeLevel * 100)}
+          />
+      </label>
+      {endAction && (
+        <div className="audio-player__end-action">{endAction}</div>
       )}
+      {metadata && <div className="audio-player__metadata">{metadata}</div>}
       {playbackError && (
-        <span className="audio-player__error" role="status">
+        <span className="audio-player__error" role="status" title={playbackError}>
           {playbackError}
         </span>
       )}
       {onMinimizedChange && (
         <Button
           aria-expanded={!minimized}
-          aria-label={minimized ? "Expand audio player" : "Minimize audio player"}
+          aria-label={minimizeLabel ?? (minimized ? "Expand audio player" : "Minimize audio player")}
           className="audio-player__minimize"
-          leadingIcon={<ChevronDown />}
+          leadingIcon={minimizeIcon === "minimize" || (!minimizeIcon && !minimized) ? <Minimize2 aria-hidden="true" /> : <Maximize2 aria-hidden="true" />}
           onClick={() => onMinimizedChange(!minimized)}
           size="small"
           variant="tertiary"
         />
       )}
+      {positionMenu}
     </section>
   );
-}
+});

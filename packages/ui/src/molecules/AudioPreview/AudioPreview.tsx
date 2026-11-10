@@ -77,6 +77,7 @@ export function AudioPreview({
                 label={`${track.title} waveform`}
                 peaks={track.peaks}
                 progress={playing ? 0.48 : 0.12}
+                variant="smooth"
               />
             </div>
             <Button

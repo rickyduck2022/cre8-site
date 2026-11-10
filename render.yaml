@@ -10,6 +10,12 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
+      - key: ADMIN_USERNAMES
+        value: admin
+      - key: ADMIN_SEED_USERNAME
+        value: admin
+      - key: ADMIN_SEED_PASSWORD
+        sync: false
     disk:
       name: cre8-data
       mountPath: /var/data

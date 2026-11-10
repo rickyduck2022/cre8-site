@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { MouseEvent, ReactNode } from "react";
 import { Avatar } from "../../atoms/Avatar/Avatar";
 import { Brand } from "../../molecules/Brand/Brand";
 import "../Organisms.css";
@@ -9,7 +9,7 @@ export interface NavigationItem {
   href?: string;
   badge?: string;
   variant?: "alist" | "private";
-  onClick?: () => void;
+  onClick?: (event: MouseEvent<HTMLAnchorElement>) => void;
 }
 
 export interface NavigationSection {

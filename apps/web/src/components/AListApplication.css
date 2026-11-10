@@ -31,6 +31,7 @@
   background: var(--surface-canvas);
   border: 1px solid var(--border-default);
   border-radius: 0.5rem;
+  box-shadow: var(--shadow-input);
   color: var(--text-primary);
   font: inherit;
   font-size: var(--type-size-input);

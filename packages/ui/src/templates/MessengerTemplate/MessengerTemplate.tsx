@@ -19,6 +19,7 @@ import { TrackFileMetadata } from "../../molecules/TrackFileMetadata/TrackFileMe
 import { InfiniteScroll } from "../../molecules/InfiniteScroll/InfiniteScroll";
 import { SearchField } from "../../molecules/SearchField/SearchField";
 import { AudioPlayer } from "../../organisms/AudioPlayer/AudioPlayer";
+import { CompactDubCard } from "../../organisms/DubCard/DubCard";
 import { Modal } from "../../organisms/Modal/Modal";
 import { useMobileLayout } from "../../utils/useMobileLayout";
 import { TrackArtwork } from "../shared/TrackArtwork";
@@ -64,6 +65,7 @@ export interface MessengerTemplateProps {
   onStartConversation: () => void;
   onCreateAndShareDub?: (buddyId: string) => void;
   onSelectConversation: (buddyId: string) => void;
+  onShowConversations?: () => void;
   onLoadOlderMessages: (buddyId: string, beforeId: string) => Promise<unknown>;
   onSendMessage: (
     buddyId: string,
@@ -102,6 +104,7 @@ export function MessengerTemplate({
   onStartConversation,
   onCreateAndShareDub,
   onSelectConversation,
+  onShowConversations,
   onLoadOlderMessages,
   onSendMessage,
   onUnsendMessage,
@@ -190,6 +193,7 @@ export function MessengerTemplate({
   function showConversations() {
     setMobileThreadOpen(false);
     setIsShareMenuOpen(false);
+    onShowConversations?.();
     if (selectedBuddy) {
       requestAnimationFrame(() => conversationButtonsRef.current.get(selectedBuddy.id)?.focus({ preventScroll: true }));
     }
@@ -453,18 +457,21 @@ export function MessengerTemplate({
             />
 
             <div className="share-a-dub" ref={shareMenuRef}>
-              <button
+              <Button
+                aria-label="Share one of My Dubs"
                 aria-controls="share-a-dub-menu"
                 aria-expanded={isShareMenuOpen}
                 aria-haspopup={mobile ? "dialog" : undefined}
                 className="share-a-dub__trigger"
+                leadingIcon={<Disc3 />}
                 onClick={() => setIsShareMenuOpen((open) => !open)}
                 ref={shareMenuTriggerRef}
-                type="button"
+                size="small"
+                variant="primary"
               >
-                <Disc3 aria-hidden="true" />
-                Share one of My Dubs
-              </button>
+                <span className="share-a-dub__label">Share one of My Dubs</span>
+                <span aria-hidden="true" className="share-a-dub__label-compact">Share dub</span>
+              </Button>
               {isShareMenuOpen && (
                 <SharePickerContainer mobile={mobile} onClose={() => setIsShareMenuOpen(false)}>
                   <div className="share-a-dub__popover-header">
@@ -503,32 +510,25 @@ export function MessengerTemplate({
                         />
                       </div>
                     )}
-                    {visibleDubs.map((dub) => dub.sharedBuddyIds?.includes(selectedBuddy.id) ? (
-                      <div className="share-a-dub__entry share-a-dub__entry--shared" key={dub.id}>
-                        <div>
-                          <strong>{dub.title}</strong>
-                          <button className="text-button now-playing__artist" onClick={() => onOpenProfile(dub.uploader)} type="button">{dub.artist}{dub.artistAListApproved && <AListBadge />} · Shared</button>
-                        </div>
-                        <Button
-                          aria-label={`Share ${dub.title} again with ${selectedBuddy.displayName}`}
-                          disabled={sharing}
-                          onClick={() => void shareDub(dub)}
-                          size="small"
-                          variant="secondary"
-                        >Share again</Button>
-                      </div>
-                    ) : (
-                      <div
-                        className="share-a-dub__entry"
-                        key={dub.id}
-                      >
-                        <div>
-                          <strong>{dub.title}</strong>
-                          <button className="text-button now-playing__artist" onClick={() => onOpenProfile(dub.uploader)} type="button">{dub.artist}{dub.artistAListApproved && <AListBadge />}</button>
-                        </div>
-                        <Button aria-label={`Share ${dub.title} with ${selectedBuddy.displayName}`} disabled={sharing} leadingIcon={<Link />} onClick={() => void shareDub(dub)} size="small" variant="tertiary">Share</Button>
-                      </div>
-                    ))}
+                    {visibleDubs.map((dub) => {
+                      const shared = dub.sharedBuddyIds?.includes(selectedBuddy.id) ?? false;
+                      return (
+                        <CompactDubCard
+                          key={dub.id}
+                          dub={dub}
+                          onOpenProfile={onOpenProfile}
+                          shared={shared}
+                          action={<Button
+                            aria-label={`Share ${dub.title}${shared ? " again" : ""} with ${selectedBuddy.displayName}`}
+                            disabled={sharing}
+                            leadingIcon={shared ? undefined : <Link />}
+                            onClick={() => void shareDub(dub)}
+                            size="small"
+                            variant={shared ? "secondary" : "tertiary"}
+                          >{shared ? "Share again" : "Share"}</Button>}
+                        />
+                      );
+                    })}
                     {shareableDubs.length === 0 && (
                       <p className="share-a-dub__empty">You have not shared a dub yet. Upload one to send it here.</p>
                     )}

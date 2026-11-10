@@ -3,6 +3,7 @@
   background: var(--surface-control);
   border: 1px solid transparent;
   border-radius: 0.375rem;
+  box-shadow: var(--shadow-control);
   color: var(--text-primary);
   cursor: pointer;
   display: inline-flex;
@@ -15,7 +16,7 @@
   line-height: 1;
   min-height: 1.5rem;
   padding: 0.3125rem 0.5rem;
-  transition: background-color 120ms ease, color 120ms ease;
+  transition: background-color 120ms ease, box-shadow 120ms ease, color 120ms ease;
 }
 
 .action:hover:not(:disabled) {
@@ -47,11 +48,13 @@
 
 .action--primary {
   background: var(--action-primary);
+  box-shadow: var(--shadow-control-accent);
   color: var(--text-on-accent);
 }
 
 .action--primary:hover:not(:disabled) {
   background: var(--action-primary-hover);
+  box-shadow: var(--shadow-control-accent-hover);
 }
 
 .action--primary:active:not(:disabled) {
@@ -59,7 +62,12 @@
 }
 
 .action--audio {
+  box-shadow: var(--shadow-control-audio);
   color: var(--audio-active);
+}
+
+.action--audio:hover:not(:disabled) {
+  box-shadow: var(--shadow-control-audio-hover);
 }
 
 @media (prefers-reduced-motion: reduce) {

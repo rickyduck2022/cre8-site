@@ -1,11 +1,13 @@
 import { LockKeyhole } from "@craft/icons";
-import { useMemo, useState } from "react";
+import { useContext, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { Badge } from "../../atoms/Badge/Badge";
 import { Pagination, usePagination } from "../../molecules/Pagination/Pagination";
-import { DubSearch, createEmptyDubSearchFilters, getDubSearchFilterCount } from "../../organisms/DubSearch/DubSearch";
+import { DubSearch, createEmptyDubSearchFilters } from "../../organisms/DubSearch/DubSearch";
 import type { Dub } from "../communityTypes";
 import { DubCardList, type DubCardListProps } from "../shared/DubCardList";
 import { DubSearchToolbar } from "../shared/DubSearchToolbar";
+import { CollectionHeaderContext } from "../shared/CollectionHeaderContext";
 import { allDistributions, dubFileType, hasInvalidDubSearchRange, matchesDubSearch } from "../shared/dubSearchFilters";
 import "../CommunityPageTemplates.css";
 
@@ -15,6 +17,7 @@ export interface SharedWithMeTemplateProps extends Omit<DubCardListProps, "entri
 
 export function SharedWithMeTemplate({ dubs, ...cardProps }: SharedWithMeTemplateProps) {
   const [query, setQuery] = useState("");
+  const headerTarget = useContext(CollectionHeaderContext);
   const [filters, setFilters] = useState(() => ({ ...createEmptyDubSearchFilters(), distributions: [...allDistributions] }));
   const invalidRange = hasInvalidDubSearchRange(filters);
   const filteredDubs = useMemo(() => {
@@ -22,19 +25,24 @@ export function SharedWithMeTemplate({ dubs, ...cardProps }: SharedWithMeTemplat
     return dubs.filter((dub) => matchesDubSearch(dub, query, filters));
   }, [dubs, filters, invalidRange, query]);
   const pagination = usePagination(filteredDubs, `${query}|${JSON.stringify(filters)}`);
-  return (
-    <div className="library-template">
+  const collectionHeader = (
+    <>
       <section className="page-intro">
         <div><span className="eyebrow">YOUR SHARED DUBS</span><h1>Shared With Me</h1>
           <p>Dubs shared with you in Messenger.</p></div>
         <Badge>{dubs.length} shared {dubs.length === 1 ? "dub" : "dubs"}</Badge>
       </section>
-      <DubSearchToolbar filterCount={getDubSearchFilterCount(filters, allDistributions)} query={query}>
-        <DubSearch query={query} onQueryChange={setQuery} filters={filters} onFiltersChange={setFilters}
+      <DubSearchToolbar query={query}>
+        {(onSearch) => <DubSearch query={query} onQueryChange={setQuery} filters={filters} onFiltersChange={setFilters} onSearch={onSearch}
           defaultDistributions={allDistributions} distributionHint="Filter the dubs shared with you by distribution."
           fileTypes={[...new Set(dubs.map(dubFileType).filter(Boolean))].sort()}
-          resultCount={filteredDubs.length} error={invalidRange ? "Minimum values must be less than or equal to maximum values." : null} />
+          resultCount={filteredDubs.length} error={invalidRange ? "Minimum values must be less than or equal to maximum values." : null} />}
       </DubSearchToolbar>
+    </>
+  );
+  return (
+    <div className="library-template">
+      {headerTarget ? createPortal(<div className="library-template collection-header">{collectionHeader}</div>, headerTarget) : collectionHeader}
       {filteredDubs.length ? (
         <>
           <DubCardList {...cardProps} entries={pagination.items.map((dub) => ({ dub }))} label="Dubs shared with me" />

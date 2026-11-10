@@ -10,6 +10,38 @@ beforeAll(() => {
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
 describe("MessengerTemplate shared dubs", () => {
+  it.each([false, true])("uses compact dub cards in the share picker (mobile: %s)", (mobile) => {
+    vi.stubGlobal("matchMedia", vi.fn().mockReturnValue({
+      matches: mobile, addEventListener: vi.fn(), removeEventListener: vi.fn(),
+    }));
+    const dub: Dub = {
+      id: "dub", title: "My Release", artist: "You", uploader: "you", uploaderDisplayName: "You",
+      uploadedAt: "2026-11-01T12:00:00Z", bpm: 174, genre: "Jungle", duration: "03:30",
+      likes: 0, downloads: 0, artwork: "whitelabel", message: "", distribution: "private",
+      sharedBuddyIds: ["friend"],
+    };
+    const open = vi.fn();
+    render(<MessengerTemplate
+      buddies={[{ id: "friend", username: "amber", displayName: "Amber", presence: "online", genre: "Jungle", role: "DJ", bio: "", groups: [] }]}
+      conversations={[]} dubs={[dub]} shareableDubs={[dub]} initialBuddyId="friend"
+      chatConnectionStatus="connected" nowPlayingId={null} isPlaying={false}
+      onOpenProfile={open} onPlay={vi.fn()} onStartConversation={vi.fn()}
+      onSelectConversation={vi.fn()} onLoadOlderMessages={vi.fn(async () => null)} onSendMessage={vi.fn(async () => true)}
+    />);
+    fireEvent.click(screen.getByRole("button", { name: "Share one of My Dubs" }));
+    const picker = mobile
+      ? screen.getByRole("dialog", { name: "Share one of My Dubs" })
+      : screen.getByRole("region", { name: "My Dubs available to share" });
+    const card = within(picker).getByRole("article");
+    expect(card).toHaveClass("dub-card", "dub-card--compact", "dub-card--private");
+    expect(within(card).getByLabelText("Distribution: Private")).toHaveClass("dub-card__distribution--private");
+    expect(within(card).getByText("Shared")).toBeInTheDocument();
+    expect(within(card).getByRole("button", { name: "Share My Release again with Amber" })).toBeEnabled();
+    expect(within(card).queryByRole("button", { name: "Play" })).not.toBeInTheDocument();
+    fireEvent.click(within(card).getByRole("button", { name: "You" }));
+    expect(open).toHaveBeenCalledWith("you");
+  });
+
   it("uses the mobile modal and preserves its search when switching layout", () => {
     let mobile = true;
     let listener: (() => void) | undefined;
@@ -25,6 +57,7 @@ describe("MessengerTemplate shared dubs", () => {
       onLoadOlderMessages={vi.fn(async () => null)} onSendMessage={vi.fn(async () => true)}
     />);
     const trigger = screen.getByRole("button", { name: "Share one of My Dubs" });
+    expect(trigger).toHaveClass("button", "button--primary", "button--small");
     expect(trigger).toHaveAttribute("aria-haspopup", "dialog");
     fireEvent.click(trigger);
     const dialog = screen.getByRole("dialog", { name: "Share one of My Dubs" });
@@ -46,6 +79,7 @@ describe("MessengerTemplate shared dubs", () => {
 
   it("navigates between the mobile list and thread, preserving drafts per conversation", async () => {
     const select = vi.fn();
+    const showConversations = vi.fn();
     const start = vi.fn();
     const send = vi.fn(async () => true);
     const buddies = [
@@ -55,7 +89,7 @@ describe("MessengerTemplate shared dubs", () => {
     const props = {
       buddies, conversations: [], dubs: [], initialBuddyId: "", chatConnectionStatus: "connected" as const,
       nowPlayingId: null, isPlaying: false, onOpenProfile: vi.fn(), onPlay: vi.fn(),
-      onStartConversation: start, onSelectConversation: select, onLoadOlderMessages: vi.fn(async () => null), onSendMessage: send,
+      onStartConversation: start, onSelectConversation: select, onShowConversations: showConversations, onLoadOlderMessages: vi.fn(async () => null), onSendMessage: send,
     };
     const { container, rerender } = render(<MessengerTemplate {...props} />);
     const messenger = container.querySelector(".messenger");
@@ -70,6 +104,7 @@ describe("MessengerTemplate shared dubs", () => {
     fireEvent.change(screen.getByLabelText("Message Amber"), { target: { value: "Amber draft" } });
     fireEvent.click(screen.getByRole("button", { name: "Back" }));
     expect(messenger).not.toHaveClass("messenger--thread-open");
+    expect(showConversations).toHaveBeenCalledOnce();
     fireEvent.click(screen.getByRole("button", { name: "Open conversation with Ben" }));
     expect(screen.getByLabelText("Message Ben")).toHaveValue("");
     fireEvent.change(screen.getByLabelText("Message Ben"), { target: { value: "Hello Ben" } });
@@ -208,6 +243,7 @@ describe("MessengerTemplate shared dubs", () => {
     fireEvent.click(trigger);
     fireEvent.keyDown(document, { key: "Escape" });
     expect(trigger).toHaveAttribute("aria-expanded", "false");
+    expect(trigger).toHaveFocus();
 
     fireEvent.click(trigger);
     fireEvent.pointerDown(document.body);
@@ -250,6 +286,7 @@ describe("MessengerTemplate shared dubs", () => {
     expect(screen.getByText("WAV")).toBeInTheDocument();
     expect(screen.getAllByText("320 kbps avg").length).toBeGreaterThan(0);
     const player = screen.getByRole("region", { name: "Audio player: Jungle Drop" });
+    expect(player).not.toHaveClass("audio-player--playable");
     const details = within(player).getByRole("region", { name: "Track details" });
     expect(details).toHaveClass("track-metadata--inline");
     expect(details).toHaveAttribute("tabindex", "0");
@@ -266,11 +303,10 @@ describe("MessengerTemplate shared dubs", () => {
     const inlineControls = screen
       .getByRole("region", { name: "Audio player: Jungle Drop" })
       .querySelectorAll(".transport-controls__play, .audio-player__timeline, .shared-dub__download");
-    expect(Array.from(inlineControls, (element) => element.className)).toEqual([
-      "button button--secondary button--small transport-controls__play",
-      "audio-player__timeline",
-      "button button--tertiary button--small app-icon-button shared-dub__download",
-    ]);
+    expect(inlineControls).toHaveLength(3);
+    expect(inlineControls[0]).toHaveClass("transport-controls__play");
+    expect(inlineControls[1]).toHaveClass("audio-player__timeline");
+    expect(inlineControls[2]).toHaveClass("shared-dub__download");
     expect(onPlay).toHaveBeenCalledWith(dub);
     expect(onDownload).toHaveBeenCalledWith(dub);
   });

@@ -1,13 +1,13 @@
-import { useLayoutEffect, useRef, type ReactNode } from "react";
+import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { ScrollViewport } from "../../atoms/ScrollViewport/ScrollViewport";
 import "../../atoms/ScrollViewport/ScrollViewport.css";
 import { AppHeader } from "../../organisms/AppHeader/AppHeader";
-import { AudioPlayer } from "../../organisms/AudioPlayer/AudioPlayer";
 import { CommunityPanel } from "../../organisms/CommunityPanel/CommunityPanel";
 import { Feed } from "../../organisms/Feed/Feed";
 import { Navigation } from "../../organisms/Navigation/Navigation";
 import type { DubPostProps } from "../../organisms/DubPost/DubPost";
 import { desktopNavigation, templatePosts } from "../TemplateContent";
+import { CollectionHeaderContext } from "../shared/CollectionHeaderContext";
 import "../TemplateFrame.css";
 import "./DashboardTemplate.css";
 
@@ -17,9 +17,11 @@ export interface DashboardTemplateProps {
   className?: string;
   navigation?: ReactNode;
   header?: ReactNode;
+  contentOverlay?: ReactNode;
   children?: ReactNode;
   community?: ReactNode;
   audioPlayer?: ReactNode;
+  footer?: ReactNode;
   scrollContent?: boolean;
   scrollResetKey?: string;
 }
@@ -29,14 +31,17 @@ export function DashboardTemplate({
   className,
   community,
   header,
+  contentOverlay,
   navigation,
   posts = templatePosts,
   audioPlayer,
+  footer,
   scrollContent = false,
   scrollResetKey,
   userName = "Meladee",
 }: DashboardTemplateProps) {
   const contentRef = useRef<HTMLDivElement>(null);
+  const [collectionHeader, setCollectionHeader] = useState<HTMLDivElement | null>(null);
   useLayoutEffect(() => {
     if (scrollContent && contentRef.current) contentRef.current.scrollTop = 0;
   }, [scrollContent, scrollResetKey]);
@@ -50,6 +55,7 @@ export function DashboardTemplate({
         : <CommunityPanel variant="sidebar" />;
 
   return (
+    <CollectionHeaderContext.Provider value={collectionHeader}>
     <main
       className={["template-frame", "dashboard-template", className]
         .filter(Boolean)
@@ -65,7 +71,11 @@ export function DashboardTemplate({
         />
       )}
       <div className="dashboard-template__main">
-        {header ?? <AppHeader userName={userName} variant="compact" />}
+        <div className="dashboard-template__header">
+          {header ?? <AppHeader userName={userName} variant="compact" />}
+          <div className="dashboard-template__collection-header" ref={setCollectionHeader} />
+        </div>
+        {contentOverlay && <div className="dashboard-template__content-overlay">{contentOverlay}</div>}
         <ScrollViewport
           aria-label={scrollContent ? "Page content" : undefined}
           className={[
@@ -93,8 +103,10 @@ export function DashboardTemplate({
             </aside>
           )}
         </ScrollViewport>
-        {audioPlayer ?? <AudioPlayer variant="full" />}
+        {audioPlayer}
+        {footer}
       </div>
     </main>
+    </CollectionHeaderContext.Provider>
   );
 }

@@ -1,14 +1,17 @@
+import type { ReactNode } from "react";
 import { Check, Download, Heart, MessageCircle, Plus } from "@craft/icons";
 import { Avatar } from "../../atoms/Avatar/Avatar";
 import { AListBadge } from "../../atoms/AListBadge/AListBadge";
 import { Button } from "../../atoms/Button/Button";
 import { TrackTag } from "../../atoms/TrackTag/TrackTag";
 import { DubActionsMenu } from "../../molecules/DubActionsMenu/DubActionsMenu";
+import { NowPlaying } from "../../molecules/NowPlaying/NowPlaying";
 import { TrackFileMetadata } from "../../molecules/TrackFileMetadata/TrackFileMetadata";
 import { AudioPlayer } from "../AudioPlayer/AudioPlayer";
 import type { Dub } from "../../types/domain";
 import { formatLocalTimestamp, formatRelativeTime } from "../../templates/templateFormatters";
 import { TrackArtwork } from "../../templates/shared/TrackArtwork";
+import { useMobileLayout } from "../../utils/useMobileLayout";
 import "../../foundations/DistributionSurfaces.css";
 import "./DubCard.css";
 
@@ -42,6 +45,42 @@ export interface DubCardProps {
   manageable?: boolean;
 }
 
+function DistributionTag({ distribution = "worldwide" }: { distribution?: Dub["distribution"] }) {
+  const label = distribution === "private" ? "Private" : distribution === "alist" ? "A-List" : "Worldwide";
+  return (
+    <TrackTag aria-label={`Distribution: ${label}`} className={`dub-card__distribution dub-card__distribution--${distribution}`} variant="accent">
+      {label}
+    </TrackTag>
+  );
+}
+
+export interface CompactDubCardProps {
+  dub: Dub;
+  action: ReactNode;
+  onOpenProfile?: (username: string) => void;
+  shared?: boolean;
+}
+
+export function CompactDubCard({ dub, action, onOpenProfile, shared = false }: CompactDubCardProps) {
+  return (
+    <article className={`dub-card dub-card--compact${dub.distribution === "alist" ? " dub-card--alist" : dub.distribution === "private" ? " dub-card--private" : ""}`}>
+      <NowPlaying
+        artist={dub.artist}
+        artistAListApproved={dub.artistAListApproved}
+        artworkContent={<TrackArtwork dub={dub} />}
+        isPlaying={false}
+        onArtistClick={onOpenProfile ? () => onOpenProfile(dub.uploader) : undefined}
+        title={dub.title}
+      />
+      <div className="dub-card__compact-footer">
+        <DistributionTag distribution={dub.distribution} />
+        {shared && <span className="dub-card__compact-shared">Shared</span>}
+        {action}
+      </div>
+    </article>
+  );
+}
+
 export function DubCard({
   dub,
   crateId,
@@ -71,7 +110,41 @@ export function DubCard({
   onShareWithFriend,
   manageable = false,
 }: DubCardProps) {
-  const distributionLabel = dub.distribution === "private" ? "Private" : dub.distribution === "alist" ? "A-List" : "Worldwide";
+  const mobile = useMobileLayout();
+  const actions = manageable && onEdit && onDelete ? (
+    <DubActionsMenu
+      iconOnly
+      onDelete={() => onDelete(dub)}
+      onEdit={() => onEdit(dub)}
+      title={dub.title}
+    />
+  ) : null;
+  const downloadAndShare = (
+    <>
+      <Button
+        aria-label={mobile ? (hasLiked ? "Download again" : "Download and like") : undefined}
+        className="dub-card__download"
+        leadingIcon={hasLiked ? <Check /> : <Download />}
+        onClick={() => onDownload(dub)}
+        size="small"
+        variant={hasLiked ? "secondary" : "primary"}
+      >
+        {!mobile && (hasLiked ? "Download again" : "Download · Like")}
+      </Button>
+      {onShareWithFriend && (
+        <Button aria-label={`Share ${dub.title} with a friend`} leadingIcon={<MessageCircle />} onClick={() => onShareWithFriend(dub)} size="small" variant="secondary">
+          {!mobile && "Share"}
+        </Button>
+      )}
+    </>
+  );
+  const likes = (
+    <span className="dub-card__likes" aria-label={`${dub.likes} likes`}>
+      <Heart aria-hidden="true" />
+      <strong>{dub.likes}</strong>
+      {hasLiked && <span className="dub-card__you-liked">You downloaded</span>}
+    </span>
+  );
 
   return (
     <article className={`dub-card${dub.distribution === "alist" ? " dub-card--alist" : dub.distribution === "private" ? " dub-card--private" : ""}`}>
@@ -95,7 +168,10 @@ export function DubCard({
           )}
           <span className="dub-card__handle">@{dub.uploader}</span>
         </div>
-        <span className="dub-card__uploaded">{formatRelativeTime(dub.uploadedAt)}</span>
+        <div className="dub-card__topline-end">
+          <span className="dub-card__uploaded">{formatRelativeTime(dub.uploadedAt)}</span>
+          {mobile && actions}
+        </div>
       </div>
 
       <p className="dub-card__message">{dub.message}</p>
@@ -103,6 +179,7 @@ export function DubCard({
       <div className="dub-card__track">
         <div className="dub-card__track-info">
           <AudioPlayer
+            className={isCurrentTrack || isPlaying ? "dub-card__player--current" : undefined}
             distribution={dub.distribution ?? "worldwide"}
             onPlayChange={() => onPlay(dub)}
             playing={isPlaying}
@@ -130,60 +207,41 @@ export function DubCard({
             variant="full"
           />
           <div className="dub-card__metadata">
-            <div className="dub-card__metadata-tags">
-              {(dub.tags?.length ? dub.tags : [dub.genre]).map((tag) => (
-                <TrackTag key={tag} variant="audio">{tag}</TrackTag>
-              ))}
-              {dub.bpm > 0 && <TrackTag>{dub.bpm} BPM</TrackTag>}
-              <TrackFileMetadata
-                audioFileName={dub.audioFileName}
-                bitrateKbps={dub.bitrateKbps}
-                fileType={dub.audioFormat}
-              />
+            <div className="dub-card__metadata-details">
+              <div className="dub-card__metadata-tags">
+                {(dub.tags?.length ? dub.tags : [dub.genre]).map((tag) => (
+                  <TrackTag key={tag} variant="audio">{tag}</TrackTag>
+                ))}
+                {dub.bpm > 0 && <TrackTag>{dub.bpm} BPM</TrackTag>}
+                <TrackFileMetadata
+                  audioFileName={dub.audioFileName}
+                  bitrateKbps={dub.bitrateKbps}
+                  fileType={dub.audioFormat}
+                />
+              </div>
+              {mobile && <div className="dub-card__mobile-details">
+                {likes}
+                <time className="dub-card__timestamp" dateTime={dub.uploadedAt} title={formatLocalTimestamp(dub.uploadedAt)}>
+                  {new Intl.DateTimeFormat(undefined, { day: "numeric", month: "short", year: "numeric" }).format(new Date(dub.uploadedAt))}
+                </time>
+              </div>}
             </div>
-            <TrackTag
-              aria-label={`Distribution: ${distributionLabel}`}
-              className={`dub-card__distribution dub-card__distribution--${dub.distribution ?? "worldwide"}`}
-              variant="accent"
-            >
-              {distributionLabel}
-            </TrackTag>
+            <div className="dub-card__distribution-column">
+              <DistributionTag distribution={dub.distribution} />
+              {mobile && <div className="dub-card__mobile-actions">{downloadAndShare}</div>}
+            </div>
           </div>
-          <time className="dub-card__timestamp" dateTime={dub.uploadedAt}>
+          {!mobile && <time className="dub-card__timestamp" dateTime={dub.uploadedAt}>
             Uploaded: {formatLocalTimestamp(dub.uploadedAt)}
-          </time>
+          </time>}
         </div>
       </div>
 
-      <div className="dub-card__footer">
-        <span className="dub-card__likes" aria-label={`${dub.likes} likes`}>
-          <Heart aria-hidden="true" />
-          <strong>{dub.likes}</strong>
-          {hasLiked && <span className="dub-card__you-liked">You downloaded</span>}
-        </span>
-        <span className="dub-card__download-count">{dub.downloads.toLocaleString()} downloads</span>
-        <Button
-          className="dub-card__download"
-          leadingIcon={hasLiked ? <Check /> : <Download />}
-          onClick={() => onDownload(dub)}
-          size="small"
-          variant={hasLiked ? "secondary" : "primary"}
-        >
-          {hasLiked ? "Download again" : "Download · Like"}
-        </Button>
-        {onShareWithFriend && (
-          <Button aria-label={`Share ${dub.title} with a friend`} leadingIcon={<MessageCircle />} onClick={() => onShareWithFriend(dub)} size="small" variant="secondary">
-            Share
-          </Button>
-        )}
-        {manageable && onEdit && onDelete && (
-          <DubActionsMenu
-            iconOnly
-            onDelete={() => onDelete(dub)}
-            onEdit={() => onEdit(dub)}
-            title={dub.title}
-          />
-        )}
+      {(!mobile || crateId || onAddToCrate) && <div className="dub-card__footer">
+        {!mobile && likes}
+        {!mobile && <span className="dub-card__download-count">{dub.downloads.toLocaleString()} downloads</span>}
+        {!mobile && downloadAndShare}
+        {!mobile && actions}
         {crateId ? (
           <Button onClick={() => onRemoveFromCrate?.(crateId, dub.id)} size="small" variant="tertiary">
             Remove from crate
@@ -193,7 +251,7 @@ export function DubCard({
             Add to crate
           </Button>
         ) : null}
-      </div>
+      </div>}
     </article>
   );
 }

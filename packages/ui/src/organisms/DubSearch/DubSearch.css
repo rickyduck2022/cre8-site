@@ -93,6 +93,7 @@
 
 .dub-search__distribution:has(input:checked) {
   border-color: var(--action-primary);
+  box-shadow: var(--shadow-control-accent);
 }
 
 .dub-search__distribution:focus-within {
@@ -149,12 +150,19 @@
   background: var(--surface-control);
   border: 1px solid var(--border-default);
   border-radius: var(--radius-sm, 0.45rem);
+  box-shadow: var(--shadow-input);
   color: var(--text-primary);
   font: inherit;
   min-height: 2.15rem;
   min-width: 0;
   padding: 0.35rem 0.5rem;
   width: 100%;
+}
+
+.dub-search__range input {
+  font-size: var(--type-size-input);
+  font-weight: var(--type-weight-regular);
+  line-height: var(--type-leading-body);
 }
 
 .dub-search__select {

@@ -10,30 +10,24 @@ export interface DubStatisticsProps {
 }
 
 export function DubStatistics({ dub, onRevokeGrant, onOpenProfile }: DubStatisticsProps) {
-  const maxValue = Math.max(dub.downloads, dub.likes, 1);
   const metrics = [
-    { label: "Downloads", value: dub.downloads, variant: "downloads" },
-    { label: "Unique Supporters", value: dub.likes, variant: "supporters" },
+    { label: "Downloads", value: dub.downloads, variant: "downloads", icon: <Download aria-hidden="true" /> },
+    { label: "Unique Supporters", value: dub.likes, variant: "supporters", icon: <Heart aria-hidden="true" /> },
   ];
 
   return (
     <div className="dub-statistics">
-      <div className="dub-statistics__header"><h3>Performance</h3></div>
       <div className="dub-statistics__layout">
         <div className="dub-statistics__chart-column">
-          <div className="dub-statistics__charts">
+          <h3>Performance</h3>
+          <dl className="dub-statistics__charts">
             {metrics.map((metric) => (
               <div className="dub-statistics__metric" key={metric.variant}>
-                <div className="dub-statistics__metric-header">
-                  <span className="dub-statistics__label">{metric.label}</span>
-                  <span className="dub-statistics__value">{metric.value.toLocaleString()}</span>
-                </div>
-                <div className="dub-statistics__bar-container">
-                  <div className={`dub-statistics__bar dub-statistics__bar--${metric.variant}`} style={{ width: `${(metric.value / maxValue) * 100}%` }} />
-                </div>
+                <dt className="dub-statistics__label">{metric.icon}{metric.label}</dt>
+                <dd className="dub-statistics__value">{metric.value.toLocaleString()}</dd>
               </div>
             ))}
-          </div>
+          </dl>
           <p className="dub-statistics__note">Downloads are counted when requested, not when the file transfer completes.</p>
         </div>
 
@@ -61,9 +55,10 @@ export function DubStatistics({ dub, onRevokeGrant, onOpenProfile }: DubStatisti
               <p className="dub-statistics__warning">Revoking access cannot remove files already downloaded.</p>
             </div>
           )}
-          {dub.downloaders && dub.downloaders.length > 0 ? (
-            <div className="dub-statistics__supporters">
-              <h4>Recent Supporters</h4>
+          <div className="dub-statistics__supporters">
+            <h4>Recent Supporters</h4>
+            {dub.downloaders && dub.downloaders.length > 0 ? (
+              <>
               <ul className="dub-statistics__supporter-list" aria-label={`Supporters of ${dub.title}`}>
                 {dub.downloaders.slice(0, 5).map((supporter) => (
                   <li key={supporter.username} className="dub-statistics__supporter-item">
@@ -76,10 +71,12 @@ export function DubStatistics({ dub, onRevokeGrant, onOpenProfile }: DubStatisti
                   +{dub.downloaders.length - 5} more supporter{dub.downloaders.length - 5 === 1 ? "" : "s"}
                 </p>
               )}
-            </div>
-          ) : <p className="dub-statistics__empty">{dub.downloaders ? "No supporters yet." : "Supporter details are unavailable."}</p>}
+              </>
+            ) : <p className="dub-statistics__empty">{dub.downloaders ? "No supporters yet." : "Supporter details are unavailable."}</p>}
+          </div>
         </div>
       </div>
     </div>
   );
 }
+import { Download, Heart } from "@craft/icons";

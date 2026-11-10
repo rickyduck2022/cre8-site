@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type MouseEvent } from "react";
 import { Ellipsis } from "@craft/icons";
 import { Modal } from "../Modal/Modal";
 import { Navigation, type NavigationItem, type NavigationSection } from "../Navigation/Navigation";
@@ -19,7 +19,7 @@ export function MobileNavigation({ sections, activeItem, primaryHrefs }: MobileN
     ...section,
     items: section.items.map((item) => ({
       ...item,
-      onClick: () => { item.onClick?.(); setOpen(false); },
+      onClick: (event: MouseEvent<HTMLAnchorElement>) => { item.onClick?.(event); setOpen(false); },
     })),
   }));
   return (

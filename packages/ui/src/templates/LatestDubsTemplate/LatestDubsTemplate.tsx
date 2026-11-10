@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useContext, useId, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { ChevronDown, Search } from "@craft/icons";
 import { Badge } from "../../atoms/Badge/Badge";
 import { FilterTab } from "../../atoms/FilterTab/FilterTab";
@@ -8,8 +9,9 @@ import { formatLocalTimestamp, formatRelativeTime } from "../templateFormatters"
 import { TrackArtwork } from "../shared/TrackArtwork";
 import { DubCard } from "../../organisms/DubCard/DubCard";
 import { canShareDub } from "../../organisms/ShareDubDialog/ShareDubDialog";
-import { DubSearch, createEmptyDubSearchFilters, getDubSearchFilterCount, type DubSearchFilters } from "../../organisms/DubSearch/DubSearch";
+import { DubSearch, createEmptyDubSearchFilters, type DubSearchFilters } from "../../organisms/DubSearch/DubSearch";
 import { DubSearchToolbar } from "../shared/DubSearchToolbar";
+import { CollectionHeaderContext } from "../shared/CollectionHeaderContext";
 import "../CommunityPageTemplates.css";
 import "./LatestDubsTemplate.css";
 
@@ -49,6 +51,7 @@ export interface LatestDubsTemplateProps {
   brandingImageAlt?: string;
   feedName?: string;
   showIntro?: boolean;
+  compactHeader?: boolean;
   prioritizeAList?: boolean;
   queryAlreadyFiltered?: boolean;
   showDistributionFilter?: boolean;
@@ -94,6 +97,7 @@ export function LatestDubsTemplate({
   brandingImageAlt = "Cre8 DnB branding",
   feedName = "Dub Vault",
   showIntro = true,
+  compactHeader = false,
   prioritizeAList = false,
   queryAlreadyFiltered = false,
   showDistributionFilter = true,
@@ -105,6 +109,9 @@ export function LatestDubsTemplate({
   onRemoveFromCrate,
 }: LatestDubsTemplateProps) {
   const [order, setOrder] = useState<FeedOrder>("newest");
+  const headerTarget = useContext(CollectionHeaderContext);
+  const sortExplanationId = useId();
+  const showPriority = prioritizeAList && dubs.some((dub) => dub.distribution === "alist");
 
   const visibleDubs = useMemo(() => {
     const needle = query.trim().toLocaleLowerCase();
@@ -125,9 +132,11 @@ export function LatestDubsTemplate({
   }, [dubs, order, query, prioritizeAList, queryAlreadyFiltered]);
   const pagination = usePagination(visibleDubs, `${query}|${order}|${crateId ?? ""}|${JSON.stringify(filters)}`);
 
-  return (
-    <div className="latest-dubs-template">
-      {showIntro ? (
+  const collectionHeader = (
+    <>
+      {compactHeader ? (
+        <h1 className="sr-only">{crateName ?? feedName}</h1>
+      ) : showIntro ? (
         <section className={brandingImageSrc ? "page-intro latest-dubs-template__intro" : "page-intro"}>
           {brandingImageSrc && (
             <img
@@ -153,35 +162,47 @@ export function LatestDubsTemplate({
         <h1 className="latest-dubs-template__title">{crateName ?? feedName}</h1>
       )}
 
-      {prioritizeAList && dubs.some((dub) => dub.distribution === "alist") && (
+      {!compactHeader && showPriority && (
         <p className="latest-dubs-template__priority">A-List dubs appear first. Sort order applies within each distribution.</p>
       )}
-      <DubSearchToolbar filterCount={getDubSearchFilterCount(filters)} query={query}>
-        <div className="feed-toolbar">
-          <div className="feed-toolbar__filters" role="tablist" aria-label="Sort dubs">
-            <FilterTab active={order === "newest"} onClick={() => setOrder("newest")}>
-              Newest
-            </FilterTab>
-            <FilterTab active={order === "liked"} onClick={() => setOrder("liked")}>
-              Most liked
-            </FilterTab>
-          </div>
-          <label className="sort-select">
-            <span className="sr-only">Sort uploads</span>
-            <select
-              aria-label="Sort uploads"
-              onChange={(event) => setOrder(event.target.value as FeedOrder)}
-              value={order}
-            >
-              <option value="newest">Newest first</option>
-              <option value="liked">Most liked</option>
-            </select>
-            <ChevronDown aria-hidden="true" />
-          </label>
-        </div>
-        <DubSearch query={query} onQueryChange={(value) => onQueryChange?.(value)} filters={filters} onFiltersChange={(value) => onFiltersChange?.(value)} fileTypes={fileTypes} resultCount={visibleDubs.length} isSearching={isSearching} error={searchError} showDistributionFilter={showDistributionFilter} />
+      <DubSearchToolbar query={query}>
+        {(onSearch) => (
+          <>
+            {compactHeader && showPriority && (
+              <span className="sr-only" id={sortExplanationId}>A-List dubs appear first. Sort order applies within each distribution.</span>
+            )}
+            <div className="feed-toolbar">
+              <div className="feed-toolbar__filters" role="tablist" aria-label="Sort dubs" aria-describedby={compactHeader && showPriority ? sortExplanationId : undefined}>
+                <FilterTab active={order === "newest"} onClick={() => setOrder("newest")}>
+                  Newest
+                </FilterTab>
+                <FilterTab active={order === "liked"} onClick={() => setOrder("liked")}>
+                  Most liked
+                </FilterTab>
+              </div>
+              <label className="sort-select">
+                <span className="sr-only">Sort uploads</span>
+                <select
+                  aria-label="Sort uploads"
+                  onChange={(event) => setOrder(event.target.value as FeedOrder)}
+                  value={order}
+                >
+                  <option value="newest">Newest first</option>
+                  <option value="liked">Most liked</option>
+                </select>
+                <ChevronDown aria-hidden="true" />
+              </label>
+            </div>
+            <DubSearch query={query} onQueryChange={(value) => onQueryChange?.(value)} filters={filters} onFiltersChange={(value) => onFiltersChange?.(value)} onSearch={onSearch} fileTypes={fileTypes} resultCount={visibleDubs.length} isSearching={isSearching} error={searchError} showDistributionFilter={showDistributionFilter} />
+          </>
+        )}
       </DubSearchToolbar>
+    </>
+  );
 
+  return (
+    <div className="latest-dubs-template">
+      {headerTarget ? createPortal(<div className="latest-dubs-template collection-header">{collectionHeader}</div>, headerTarget) : collectionHeader}
       <section aria-label="Community uploads" className="feed-list">
         {isSearching && (
           <div className="latest-dubs-template__loading" role="status">

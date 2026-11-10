@@ -1,88 +1,114 @@
 .dub-statistics {
-  background: var(--surface-raised);
-  border: 1px solid var(--border-default);
-  border-radius: 0 0 0.75rem 0.75rem;
-  display: grid;
-  gap: 1rem;
-  padding: 1rem;
-}
-
-.dub-statistics__header h3,
-.dub-statistics__people h4 {
+  background: var(--color-background);
   color: var(--text-primary);
-  font-size: var(--type-size-body);
-  margin: 0;
+  padding: var(--spacing-4);
 }
 
 .dub-statistics__layout {
+  align-items: start;
   display: grid;
-  gap: 1.5rem;
+  gap: var(--spacing-4);
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
 }
 
 .dub-statistics__chart-column,
-.dub-statistics__charts,
 .dub-statistics__people,
 .dub-statistics__access,
-.dub-statistics__supporters,
-.dub-statistics__metric {
-  display: grid;
-  gap: 0.75rem;
+.dub-statistics__supporters {
   align-content: start;
+  display: grid;
+  gap: var(--spacing-3);
   min-width: 0;
 }
 
-.dub-statistics__metric-header {
-  display: flex;
-  justify-content: space-between;
-  gap: 0.5rem;
+.dub-statistics__chart-column h3,
+.dub-statistics__people h4 {
+  color: var(--text-primary);
+  font-size: var(--type-size-label);
+  font-weight: var(--type-weight-strong);
+  letter-spacing: var(--type-tracking-eyebrow);
+  margin: 0;
+  text-transform: uppercase;
 }
 
-.dub-statistics__label,
-.dub-statistics__note,
-.dub-statistics__people p {
-  color: var(--text-secondary);
-  font-size: var(--type-size-compact);
+.dub-statistics__charts {
+  display: grid;
+  gap: var(--spacing-2);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   margin: 0;
+}
+
+.dub-statistics__metric {
+  background: var(--surface-media-section);
+  border: 1px solid var(--color-neutral-950);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-media-inset);
+  display: grid;
+  gap: var(--spacing-2);
+  min-width: 0;
+  padding: var(--spacing-3);
+}
+
+.dub-statistics__label {
+  align-items: center;
+  color: var(--text-secondary);
+  display: flex;
+  font-size: var(--type-size-caption);
+  gap: var(--spacing-1);
+}
+
+.dub-statistics__label svg {
+  color: var(--audio-active);
+  flex: none;
+  height: 1rem;
+  width: 1rem;
 }
 
 .dub-statistics__value {
   color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: var(--type-size-heading);
   font-weight: var(--type-weight-strong);
+  line-height: var(--type-leading-tight);
+  margin: 0;
+  overflow-wrap: anywhere;
 }
 
-.dub-statistics__bar-container {
-  background: var(--surface-control);
-  border-radius: 0.375rem;
-  height: 0.75rem;
-  overflow: hidden;
-}
-
-.dub-statistics__bar {
-  background: var(--audio-active);
-  border-radius: inherit;
-  height: 100%;
-}
-
-.dub-statistics__bar--supporters {
-  background: var(--action-primary);
+.dub-statistics__note,
+.dub-statistics__people p {
+  color: var(--text-secondary);
+  font-size: var(--type-size-caption);
+  line-height: var(--type-leading-body);
+  margin: 0;
 }
 
 .dub-statistics__access-list,
 .dub-statistics__supporter-list {
   display: grid;
-  gap: 0.75rem;
+  gap: var(--spacing-2);
   list-style: none;
   margin: 0;
   padding: 0;
 }
 
-.dub-statistics__empty,
-.dub-statistics__warning {
-  color: var(--text-secondary);
+.dub-statistics__access-item,
+.dub-statistics__supporter-item {
+  background: var(--surface-canvas);
+  border-radius: var(--radius-sm);
+  min-width: 0;
+  padding: var(--spacing-2);
 }
 
-@media (max-width: 640px) {
+.dub-statistics__access-item .artist-card,
+.dub-statistics__supporter-item .artist-card {
+  min-width: 0;
+}
+
+@media (max-width: 760px) {
+  .dub-statistics {
+    padding: var(--spacing-3);
+  }
+
   .dub-statistics__layout {
     grid-template-columns: minmax(0, 1fr);
   }

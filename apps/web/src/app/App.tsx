@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent, type MouseEvent, type ReactNode } from "react";
 import {
   Friends,
   FriendsFeed,
@@ -7,6 +7,9 @@ import {
   MessageCircle,
   LockKeyhole,
   Users,
+  ChevronRight,
+  Play,
+  Pause,
 } from "@craft/icons";
 import {
   AppHeader,
@@ -20,6 +23,8 @@ import {
   DubUploadForm,
   EditProfileForm,
   LatestDubsTemplate,
+  HistoryNavigation,
+  PlayerPositionMenu,
   LibraryTemplate,
   MyDubsTemplate,
   MessengerTemplate,
@@ -29,6 +34,7 @@ import {
   NotificationViewport,
   ProfileTemplate,
   ShareDubDialog,
+  SnapPreview,
   SharedWithMeTemplate,
   shareDubToFriends,
   TrackArtwork,
@@ -41,9 +47,13 @@ import {
 } from "@craft/ui";
 import { DemoModeNotice } from "../components/DemoModeNotice";
 import { AListApplication } from "../components/AListApplication";
+import { PushSettings, removeDevicePushSubscription } from "../components/PushSettings";
 import { useCommunity } from "../hooks/useCommunity";
 import { useMemberSearch } from "../hooks/useMemberSearch";
 import { useDubSearch } from "../hooks/useDubSearch";
+import { useFloatingPlayerPosition } from "../hooks/useFloatingPlayerPosition";
+import { readPlayerLayout, savePlayerLayout } from "../hooks/playerLayoutStorage";
+import { useAppHistory } from "../hooks/useAppHistory";
 import type { CommunitySection } from "../types/community";
 import "./App.css";
 
@@ -81,7 +91,7 @@ function isFeedDub(dub: Dub, aListFeed: boolean, approved: boolean, includePriva
 }
 
 function getSectionFromHash(hash: string): CommunitySection {
-  const section = hash.replace(/^#/, "") as CommunitySection;
+  const section = hash.replace(/^#/, "").split("?")[0] as CommunitySection;
   return sections.includes(section) ? section : "dubs";
 }
 
@@ -155,12 +165,27 @@ export function App({ appStatus }: { appStatus?: ReactNode } = {}) {
   const [activeSection, setActiveSection] = useState<CommunitySection>(() =>
     getSectionFromHash(window.location.hash),
   );
-  const [profileUsername, setProfileUsername] = useState("");
-  const [chatBuddyId, setChatBuddyId] = useState("");
+  const [profileUsername, setProfileUsername] = useState(() => new URLSearchParams(window.location.hash.split("?")[1]).get("user") ?? "");
+  const [chatBuddyId, setChatBuddyId] = useState(() => new URLSearchParams(window.location.hash.split("?")[1]).get("buddy") ?? "");
   const [chatNavigationKey, setChatNavigationKey] = useState(0);
-  const [playerMinimized, setPlayerMinimized] = useState<{ messenger?: boolean; other?: boolean }>({});
+  const [savedPlayerLayout] = useState(readPlayerLayout);
+  const [playerMinimized, setPlayerMinimized] = useState(savedPlayerLayout.minimized);
+  const [playerPlacement, setPlayerPlacement] = useState(savedPlayerLayout.placement);
+  const [playerOpacity, setPlayerOpacity] = useState(savedPlayerLayout.opacity);
+  const [viewportWidth, setViewportWidth] = useState(() => window.innerWidth);
+  const playerRef = useRef<HTMLElement>(null);
+  const focusPlayerAfterOpening = useRef(false);
+  const history = useAppHistory(() => {
+    const section = getSectionFromHash(window.location.hash);
+    const params = new URLSearchParams(window.location.hash.split("?")[1]);
+    setActiveSection(section);
+    setProfileUsername(section === "profile" ? params.get("user") ?? "" : "");
+    setChatBuddyId(section === "messenger" ? params.get("buddy") ?? "" : "");
+    setChatNavigationKey((key) => key + 1);
+  });
   const playerContext = activeSection === "messenger" ? "messenger" : "other";
-  const isPlayerMinimized = playerMinimized[playerContext] ?? (playerContext === "messenger");
+  const isPlayerMinimized = playerMinimized[playerContext] ?? true;
+  const isHeaderPlayer = !isPlayerMinimized && playerPlacement[playerContext] === "header";
   const [searchQuery, setSearchQuery] = useState("");
   const [feedFilters, setFeedFilters] = useState<DubSearchFilters>(createEmptyDubSearchFilters);
   const [aListFilters, setAListFilters] = useState<DubSearchFilters>(createEmptyDubSearchFilters);
@@ -197,12 +222,63 @@ export function App({ appStatus }: { appStatus?: ReactNode } = {}) {
   const interactiveNavigationSections = navigationSections.map((section) => ({
     ...section,
     items: section.items.map((item) => {
-      if (item.href === "#profile") return { ...item, onClick: () => setProfileUsername("") };
-      if (item.href === "#messenger") return { ...item, onClick: () => { setChatBuddyId(""); setChatNavigationKey((key) => key + 1); } };
-      return item;
+      return { ...item, onClick: (event: MouseEvent<HTMLAnchorElement>) => {
+        if (!item.href || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+        event.preventDefault();
+        history.navigate(item.href);
+      } };
     }),
   }));
   const previewTrack = state.dubs.find((dub) => dub.id === state.nowPlayingId) ?? null;
+  const floatingPlayer = useFloatingPlayerPosition(
+    playerRef,
+    !loading && Boolean(state.member) && isPlayerMinimized && Boolean(previewTrack),
+    (target) => {
+      setPlayerPlacement((current) => ({ ...current, [playerContext]: target }));
+      setPlayerMinimized((current) => ({ ...current, [playerContext]: false }));
+    },
+    savedPlayerLayout.position,
+  );
+  useEffect(() => {
+    savePlayerLayout({ minimized: playerMinimized, placement: playerPlacement, position: floatingPlayer.position, opacity: playerOpacity });
+  }, [playerMinimized, playerPlacement, floatingPlayer.position, playerOpacity]);
+  const mobileEdgeDock = viewportWidth <= 760 && isPlayerMinimized
+    && (floatingPlayer.position === "left-edge" || floatingPlayer.position === "right-edge")
+    ? floatingPlayer.position : null;
+  const canAdjustPlayerOpacity = viewportWidth <= 760 && isPlayerMinimized && !floatingPlayer.isDocked && !mobileEdgeDock;
+  useLayoutEffect(() => {
+    if (!mobileEdgeDock && focusPlayerAfterOpening.current) {
+      focusPlayerAfterOpening.current = false;
+      playerRef.current?.querySelector<HTMLButtonElement>(".audio-player__drag")?.focus();
+    }
+  }, [mobileEdgeDock]);
+  useEffect(() => {
+    const update = () => setViewportWidth(window.innerWidth);
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, []);
+  useLayoutEffect(() => {
+    const player = playerRef.current;
+    const dashboard = player?.closest<HTMLElement>(".community-dashboard-template");
+    if (!player || !dashboard || (!isPlayerMinimized && activeSection !== "messenger" && !isHeaderPlayer)) return;
+    const heightProperty = isPlayerMinimized ? "--measured-minimized-player-height" : "--measured-app-player-height";
+    const headerSlot = isHeaderPlayer ? dashboard.querySelector<HTMLElement>(".app-header-player-slot") : null;
+    const updateHeight = () => {
+      dashboard.style.setProperty(heightProperty, `${player.getBoundingClientRect().height}px`);
+      if (headerSlot) dashboard.style.setProperty("--header-player-top", `${headerSlot.getBoundingClientRect().top}px`);
+    };
+    updateHeight();
+    const observer = typeof ResizeObserver === "undefined" ? undefined : new ResizeObserver(updateHeight);
+    observer?.observe(player);
+    if (headerSlot) observer?.observe(headerSlot);
+    window.addEventListener("resize", updateHeight);
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener("resize", updateHeight);
+      dashboard.style.removeProperty(heightProperty);
+      dashboard.style.removeProperty("--header-player-top");
+    };
+  }, [activeSection, isPlayerMinimized, isHeaderPlayer, Boolean(previewTrack)]);
   const dubsById = new Map(state.dubs.map((dub) => [dub.id, dub]));
   const suggestedByUsername = new Map(state.suggestedMembers.map((member) => [member.username, member]));
   const profile =
@@ -229,34 +305,26 @@ export function App({ appStatus }: { appStatus?: ReactNode } = {}) {
   }
   const profileBuddy = state.buddies.find((buddy) => buddy.username === profile?.username);
   useEffect(() => {
-    function syncSectionWithHash() {
-      setActiveSection(getSectionFromHash(window.location.hash));
+    if (!("serviceWorker" in navigator)) return;
+    function openPushConversation(event: MessageEvent) {
+      if (event.data?.type !== "push.openConversation" || typeof event.data.buddyId !== "string" || !event.data.buddyId) return;
+      history.navigate(`#messenger?${new URLSearchParams({ buddy: event.data.buddyId })}`);
     }
-
-    window.addEventListener("hashchange", syncSectionWithHash);
-    window.addEventListener("popstate", syncSectionWithHash);
-    return () => {
-      window.removeEventListener("hashchange", syncSectionWithHash);
-      window.removeEventListener("popstate", syncSectionWithHash);
-    };
+    navigator.serviceWorker.addEventListener("message", openPushConversation);
+    return () => navigator.serviceWorker.removeEventListener("message", openPushConversation);
   }, []);
 
   function navigateTo(section: CommunitySection) {
-    setActiveSection(section);
-    const nextHash = `#${section}`;
-    if (window.location.hash !== nextHash) window.history.pushState(null, "", nextHash);
+    history.navigate(`#${section}`);
   }
 
   function openProfile(username: string) {
-    setProfileUsername(username);
-    navigateTo("profile");
+    history.navigate(`#profile?${new URLSearchParams({ user: username })}`);
   }
 
   function openChat(buddyId: string) {
-    setChatBuddyId(buddyId);
-    setChatNavigationKey((key) => key + 1);
     void markConversationRead(buddyId);
-    navigateTo("messenger");
+    history.navigate(`#messenger?${new URLSearchParams({ buddy: buddyId })}`);
   }
 
   function beginDubEdit(dub: Dub) {
@@ -274,10 +342,8 @@ export function App({ appStatus }: { appStatus?: ReactNode } = {}) {
   async function startConversation(username: string) {
     const buddyId = await addBuddy(username);
     if (!buddyId) return;
-    setChatBuddyId(buddyId);
-    setChatNavigationKey((key) => key + 1);
     setIsStartConversationOpen(false);
-    navigateTo("messenger");
+    openChat(buddyId);
   }
 
   async function handleShareDub(values: Parameters<typeof addDub>[0]) {
@@ -375,7 +441,7 @@ export function App({ appStatus }: { appStatus?: ReactNode } = {}) {
 
   if (!state.member) {
     return (
-      <main className="app-login">
+      <main className="app-login app-login--auth">
         <section className="app-login__card">
           {appStatus}
           <img className="app-login__logo" src={cre8LogoSrc} alt="Cre8 Messenger · Wear Cre8 DnB" />
@@ -447,18 +513,19 @@ export function App({ appStatus }: { appStatus?: ReactNode } = {}) {
   }
   return (
     <DashboardTemplate
-      className={`community-dashboard-template community-dashboard-template--has-player${isPlayerMinimized ? " community-dashboard-template--player-minimized" : ""}${activeSection === "messenger" ? " community-dashboard-template--messenger" : ""}`}
+      className={`community-dashboard-template${previewTrack ? " community-dashboard-template--has-player" : ""}${previewTrack && isPlayerMinimized ? ` community-dashboard-template--player-minimized${floatingPlayer.isDocked || (floatingPlayer.isInitial && viewportWidth <= 760) ? " community-dashboard-template--player-docked" : ""}` : ""}${previewTrack && isHeaderPlayer ? " community-dashboard-template--player-header" : ""}${activeSection === "messenger" ? " community-dashboard-template--messenger" : ""}`}
       scrollContent
       scrollResetKey={activeSection}
       header={
-        <div>
+        <div className="app-header-region">
         <AppHeader
           className="app-topbar"
+          leading={<HistoryNavigation canGoBack={history.canGoBack} onBack={history.goBack} />}
           logoSrc={cre8LogoSrc}
           onCreate={() => setIsUploadOpen(true)}
           onEditProfile={() => setIsProfileEditOpen(true)}
           onLogout={() => {
-            void logout().catch((logoutError: unknown) => {
+            void removeDevicePushSubscription().then(logout).catch((logoutError: unknown) => {
               notify(
                 logoutError instanceof Error
                   ? logoutError.message
@@ -468,6 +535,7 @@ export function App({ appStatus }: { appStatus?: ReactNode } = {}) {
             });
           }}
           notifications={notifications}
+          pushSettings={<PushSettings />}
           onClearNotifications={clearNotifications}
           onDismissNotification={dismissNotification}
           onActivateNotification={openNotification}
@@ -487,6 +555,7 @@ export function App({ appStatus }: { appStatus?: ReactNode } = {}) {
           variant="compact"
         />
         {appStatus}
+        {previewTrack && isHeaderPlayer && <div aria-hidden="true" className="app-header-player-slot" />}
         </div>
       }
       navigation={
@@ -502,12 +571,76 @@ export function App({ appStatus }: { appStatus?: ReactNode } = {}) {
           onUserProfile={() => { if (state.member) openProfile(state.member.username); }}
         />
       }
-      audioPlayer={
-        previewTrack ? (
+      footer={
+        <footer className="app-sticky-footer" aria-label="Media and navigation">
+        {previewTrack && isPlayerMinimized && <div aria-hidden="true" className="app-player-footer-target" />}
+        {floatingPlayer.previews.map((target) => (
+          <SnapPreview
+            key={target.kind}
+            active={target.active}
+            label={target.kind === "dock" ? (target.active ? "Release to dock player" : "Drop to dock player") : target.kind === "left-edge" || target.kind === "right-edge" ? `${target.active ? "Release" : "Drop"} to dock at ${target.kind === "left-edge" ? "left" : "right"} edge` : `${target.active ? "Release" : "Drop"} to expand at ${target.kind}`}
+            icon={target.kind === "left-edge" || target.kind === "right-edge" ? <span className="app-player-edge-preview">{state.isPlaying ? <Pause aria-hidden="true" /> : <Play aria-hidden="true" />}<ChevronRight aria-hidden="true" style={target.kind === "right-edge" ? { transform: "rotate(180deg)" } : undefined} /></span> : undefined}
+            style={target.style}
+          />
+        ))}
+        {floatingPlayer.previews.filter((target) => target.active && target.previewStyle).map((target) => (
+          <SnapPreview key={`${target.kind}-preview`} active label="" style={target.previewStyle!} />
+        ))}
+        {previewTrack ? (
           <AudioPlayer
-            className="app-player"
+            className={`app-player${mobileEdgeDock ? " app-player--edge-collapsed" : ""}`}
+            colorVariant="controller"
+            ref={playerRef}
+            style={{ ...floatingPlayer.style, opacity: canAdjustPlayerOpacity ? playerOpacity / 100 : undefined }}
+            dragHandle={<Button
+              aria-label="Move audio player with arrow keys or drag; Home returns it to its original position"
+              title="Drag or use arrow keys to move; press Home to return"
+              className="audio-player__drag"
+              size="small"
+              variant="tertiary"
+              onPointerDown={floatingPlayer.onPointerDown}
+              onPointerMove={floatingPlayer.onPointerMove}
+              onPointerUp={floatingPlayer.onPointerUp}
+              onPointerCancel={floatingPlayer.onPointerCancel}
+              onLostPointerCapture={floatingPlayer.onLostPointerCapture}
+              onKeyDown={floatingPlayer.onKeyDown}
+            ><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 2v20M2 12h20M8 6l4-4 4 4M8 18l4 4 4-4M6 8l-4 4 4 4M18 8l4 4-4 4" />
+            </svg></Button>}
             minimized={isPlayerMinimized}
-            onMinimizedChange={(minimized) => setPlayerMinimized((current) => ({ ...current, [playerContext]: minimized }))}
+            minimizeLabel={viewportWidth > 760 && (!isPlayerMinimized || (floatingPlayer.isDocked && viewportWidth >= 1051)) ? "Pop out audio player" : undefined}
+            minimizeIcon={viewportWidth > 760 && (!isPlayerMinimized || (floatingPlayer.isDocked && viewportWidth >= 1051)) ? "minimize" : undefined}
+            positionMenu={<PlayerPositionMenu
+              positions={viewportWidth >= 1051 ? ["header", "footer", "sidebar", "floating"] : viewportWidth > 760 ? ["header", "footer", "default", "floating"] : ["header", "footer", "left-edge", "right-edge", "floating"]}
+              current={!isPlayerMinimized ? (isHeaderPlayer ? "header" : "footer") : mobileEdgeDock ?? (!floatingPlayer.isDocked || viewportWidth <= 760 ? "floating" : viewportWidth >= 1051 ? "sidebar" : "default")}
+              opacityControl={canAdjustPlayerOpacity ? { value: playerOpacity, onChange: setPlayerOpacity } : undefined}
+              onSelect={(position) => {
+                if (position === "floating") {
+                  if (mobileEdgeDock) floatingPlayer.reset();
+                  else if (!isPlayerMinimized || floatingPlayer.isDocked) floatingPlayer.popOut();
+                  setPlayerMinimized((current) => ({ ...current, [playerContext]: true }));
+                } else if (position === "header" || position === "footer") {
+                  floatingPlayer.dock();
+                  setPlayerPlacement((current) => ({ ...current, [playerContext]: position }));
+                  setPlayerMinimized((current) => ({ ...current, [playerContext]: false }));
+                } else if (position === "left-edge" || position === "right-edge") {
+                  floatingPlayer.dockToEdge(position);
+                  setPlayerMinimized((current) => ({ ...current, [playerContext]: true }));
+                } else {
+                  floatingPlayer.dock();
+                  setPlayerMinimized((current) => ({ ...current, [playerContext]: true }));
+                }
+              }}
+            />}
+            onMinimizedChange={(minimized) => {
+              if (window.innerWidth > 760 && (!isPlayerMinimized || (floatingPlayer.isDocked && window.innerWidth >= 1051))) {
+                floatingPlayer.popOut();
+                setPlayerMinimized((current) => ({ ...current, [playerContext]: true }));
+              } else {
+                if (window.innerWidth <= 760 && minimized && floatingPlayer.isDocked) floatingPlayer.reset();
+                setPlayerMinimized((current) => ({ ...current, [playerContext]: minimized }));
+              }
+            }}
             distribution={previewTrack.distribution ?? "worldwide"}
             onPlayChange={(playing) => {
               if (playing !== state.isPlaying) togglePlayback(previewTrack);
@@ -538,12 +671,32 @@ export function App({ appStatus }: { appStatus?: ReactNode } = {}) {
             }}
             variant="full"
           />
-        ) : <AudioPlayer
-            className="app-player"
-            variant="full"
-            minimized={isPlayerMinimized}
-            onMinimizedChange={(minimized) => setPlayerMinimized((current) => ({ ...current, [playerContext]: minimized }))}
+        ) : null}
+        {previewTrack && mobileEdgeDock && <div className={`app-player-edge-handle app-player-edge-handle--${mobileEdgeDock}`}>
+          <Button
+            aria-label={state.isPlaying ? "Pause audio player" : "Play audio player"}
+            className="app-player-edge-handle__play"
+            leadingIcon={state.isPlaying ? <Pause aria-hidden="true" /> : <Play aria-hidden="true" />}
+            onClick={() => togglePlayback(previewTrack)}
+            size="small"
+            variant="tertiary"
           />
+          <Button
+            aria-label={`Open audio player docked at ${mobileEdgeDock === "left-edge" ? "left" : "right"} edge`}
+            className="app-player-edge-handle__open"
+            leadingIcon={<ChevronRight aria-hidden="true" />}
+            onClick={() => {
+              focusPlayerAfterOpening.current = true;
+              floatingPlayer.reset();
+            }}
+            size="small"
+            variant="tertiary"
+          />
+        </div>}
+        <MobileNavigation activeItem={sectionLabels[activeSection]}
+          primaryHrefs={["#dubs", "#library", "#profile", "#messenger"]}
+          sections={interactiveNavigationSections} />
+        </footer>
       }
     >
       <div className={`app-content${activeSection === "messenger" ? " app-content--messenger" : ""}`}>
@@ -580,6 +733,7 @@ export function App({ appStatus }: { appStatus?: ReactNode } = {}) {
               onDeleteDub={beginDubDelete}
               onShareWithFriend={beginSharingDub}
               showIntro={false}
+              compactHeader={activeSection === "dubs"}
               showDistributionFilter={activeSection === "dubs"}
               feedName={activeSection === "alist" ? "A-List" : "Dub Vault"}
               onOpenProfile={openProfile}
@@ -739,7 +893,8 @@ export function App({ appStatus }: { appStatus?: ReactNode } = {}) {
               setShareDubTargetId(buddyId);
               setIsUploadOpen(true);
             }}
-            onSelectConversation={markConversationRead}
+            onSelectConversation={(buddyId) => openChat(buddyId)}
+            onShowConversations={() => navigateTo("messenger")}
             onLoadOlderMessages={loadOlderMessages}
             onSendMessage={sendMessage}
             onUnsendMessage={unsendMessage}
@@ -778,10 +933,6 @@ export function App({ appStatus }: { appStatus?: ReactNode } = {}) {
         )}
         {activeSection === "profile" && !profile && <p role="status">This profile is no longer available.</p>}
       </div>
-      <MobileNavigation activeItem={sectionLabels[activeSection]}
-        primaryHrefs={["#dubs", "#library", "#profile", "#messenger"]}
-        sections={interactiveNavigationSections} />
-
       <NotificationViewport
         notifications={activeNotifications}
         onDismiss={dismissNotification}
@@ -797,6 +948,13 @@ export function App({ appStatus }: { appStatus?: ReactNode } = {}) {
           initialFailure={Boolean(sharingDub.failedIds?.length)}
           onClose={() => setSharingDub(null)}
           onOpenProfile={(username) => { setSharingDub(null); openProfile(username); }}
+          onPlay={togglePlayback}
+          onSeekProgress={(progress, dub) => seekPlaybackProgress(progress, dub)}
+          isCurrentTrack={state.nowPlayingId === sharingDub.dub.id}
+          isPlaying={state.isPlaying}
+          currentTimeSeconds={state.currentTime}
+          durationSeconds={state.duration}
+          playbackError={state.playbackError}
           onFindFriends={() => {
             setSharingDub(null);
             navigateTo("buddies");

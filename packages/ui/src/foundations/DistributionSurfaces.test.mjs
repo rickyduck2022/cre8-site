@@ -79,7 +79,7 @@ describe("mobile distribution layouts", () => {
     expect(ruleFor(cardCss, ".dub-card").getPropertyValue("border-radius")).toBe("0.75rem");
     expect(card.getPropertyValue("border-radius")).toBe("");
     expect(card.getPropertyValue("padding")).toBe("1rem 0.625rem");
-    expect(ruleFor(cardCss, ".dub-card").getPropertyValue("box-shadow")).toBe("inset 0 0 0.25rem rgb(0 0 0 / 25%)");
+    expect(ruleFor(cardCss, ".dub-card").getPropertyValue("box-shadow")).toBe("var(--shadow-card)");
     expect(track.getPropertyValue("padding")).toBe("0.5rem 0");
     expect(distribution.getPropertyValue("border-radius")).toBe("0");
   });
@@ -147,10 +147,13 @@ describe("mobile distribution layouts", () => {
     expect(mobileRuleFor(search, ".dub-search__toggle-label", "760px").getPropertyValue("display")).toBe("none");
     const nav = readFileSync(resolve("src", "organisms", "MobileNavigation", "MobileNavigation.css"), "utf8");
     const container = ruleFor(nav, ".mobile-tabs.mobile-navigation");
+    expect(container.getPropertyValue("box-shadow")).toBe("0 -0.125rem 0.375rem var(--mobile-navigation-active-surface), 0 -0.375rem 1rem var(--mobile-navigation-active-surface)");
+    const shell = readFileSync(resolve("src", "templates", "CommunityPageTemplates.css"), "utf8");
+    expect(mobileRuleFor(shell, ".mobile-tabs", "760px").getPropertyValue("border-top")).toBe("");
     expect(container.getPropertyValue("padding")).toBe("0");
     expect(container.getPropertyValue("gap")).toBe("0");
     expect(ruleFor(nav, ".mobile-navigation .mobile-navigation__item").getPropertyValue("border-radius")).toBe("0");
-    expect(ruleFor(nav, '.mobile-navigation .mobile-navigation__item[aria-current="page"]').getPropertyValue("background")).toBe("var(--surface-control)");
+    expect(ruleFor(nav, '.mobile-navigation .mobile-navigation__item[aria-current="page"]').getPropertyValue("background")).toBe("var(--mobile-navigation-active-surface)");
   });
 
   it("stretches every mobile menu link to the available width", () => {

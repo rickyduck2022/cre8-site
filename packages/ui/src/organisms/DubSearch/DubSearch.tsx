@@ -66,6 +66,7 @@ export interface DubSearchProps {
   onQueryChange: (query: string) => void;
   filters: DubSearchFilters;
   onFiltersChange: (filters: DubSearchFilters) => void;
+  onSearch?: () => void;
   fileTypes?: string[];
   resultCount: number;
   isSearching?: boolean;
@@ -128,6 +129,7 @@ export function DubSearch({
   onQueryChange,
   filters,
   onFiltersChange,
+  onSearch,
   fileTypes = [],
   resultCount,
   isSearching = false,
@@ -151,6 +153,7 @@ export function DubSearch({
       event.preventDefault();
       onFiltersChange(draft);
       setExpanded(false);
+      onSearch?.();
     }}>
       {showDistributionFilter && (
         <fieldset className="dub-search__distributions">
@@ -248,7 +251,10 @@ export function DubSearch({
       <div className="dub-search__row">
         <SearchField
           aria-label="Search tracks, artists, tags, or genres"
-          onChange={(event) => onQueryChange(event.target.value)}
+          onChange={(event) => {
+            onQueryChange(event.target.value);
+            onSearch?.();
+          }}
           placeholder="Search tracks, artists, tags, or genres"
           value={query}
         />

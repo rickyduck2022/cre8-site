@@ -10,6 +10,7 @@
   padding: 0.3125rem 0.5rem;
   transition:
     background-color 120ms ease,
+    box-shadow 120ms ease,
     color 120ms ease;
 }
 
@@ -25,11 +26,13 @@
 
 .filter-tab--active {
   background: var(--action-primary);
+  box-shadow: var(--shadow-control-accent);
   color: var(--text-on-accent);
 }
 
 .filter-tab--active:hover {
   background: var(--action-primary-hover);
+  box-shadow: var(--shadow-control-accent-hover);
   color: var(--text-on-accent);
 }
 

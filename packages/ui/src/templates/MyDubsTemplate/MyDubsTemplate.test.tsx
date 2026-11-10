@@ -58,8 +58,12 @@ describe("MyDubsTemplate", () => {
       expect(details).toHaveClass(`my-dubs-template__statistics--${distribution ?? "worldwide"}`);
       expect(details.previousElementSibling).toHaveClass("dub-card");
       expect(details.parentElement?.querySelector(".my-dubs-template__distribution")).toBeNull();
+      expect(details).not.toHaveAttribute("open");
       fireEvent.click(summary);
+      expect(details).toHaveAttribute("open");
       expect(screen.getByText("Performance")).toBeVisible();
+      fireEvent.click(summary);
+      expect(details).not.toHaveAttribute("open");
     },
   );
   it("lets owners revoke private access from a named recipient", () => {
@@ -106,8 +110,38 @@ describe("MyDubsTemplate", () => {
     expect(onOpenProfile).toHaveBeenCalledTimes(2);
     expect(onOpenProfile).toHaveBeenCalledWith("meladee");
     const statistics = screen.getByText("Performance").closest(".dub-statistics")!;
+    expect(statistics.querySelector("dl")).toHaveTextContent("Downloads3Unique Supporters1");
+    expect(statistics.querySelector(".dub-statistics__bar")).toBeNull();
     expect(statistics.querySelector(".dub-statistics__chart-column")?.parentElement).toHaveClass("dub-statistics__layout");
     expect(statistics.querySelector(".dub-statistics__people")?.parentElement).toHaveClass("dub-statistics__layout");
+  });
+
+  it("distinguishes no supporters from unavailable details and limits the recent list", () => {
+    const supporters = Array.from({ length: 7 }, (_, index) => ({
+      username: `friend${index}`, displayName: `Friend ${index}`, downloadedAt: "2026-11-01T12:00:00Z",
+    }));
+    const props = {
+      likedDubIds: new Set<string>(), nowPlayingId: null, isPlaying: false,
+      onDownload: vi.fn(), onPlay: vi.fn(), onShareDub: vi.fn(), onEditDub: vi.fn(), onDeleteDub: vi.fn(),
+    };
+    const { rerender } = render(<MyDubsTemplate {...props} dubs={[{ ...dub, downloaders: [] }]} />);
+    fireEvent.click(screen.getByText("Statistics for Night Drive"));
+    expect(screen.getByText("No supporters yet.")).toBeVisible();
+    rerender(<MyDubsTemplate {...props} dubs={[{ ...dub, downloaders: supporters }]} />);
+    expect(screen.getByRole("list", { name: "Supporters of Night Drive" }).children).toHaveLength(5);
+    expect(screen.getByText("+2 more supporters")).toBeVisible();
+    rerender(<MyDubsTemplate {...props} dubs={[{ ...dub, downloaders: undefined }]} />);
+    expect(screen.getByText("Supporter details are unavailable.")).toBeVisible();
+  });
+
+  it("retains private access guidance when no grants exist", () => {
+    render(<MyDubsTemplate
+      dubs={[{ ...dub, distribution: "private", grants: [] }]} likedDubIds={new Set()} nowPlayingId={null} isPlaying={false}
+      onDownload={vi.fn()} onPlay={vi.fn()} onShareDub={vi.fn()} onEditDub={vi.fn()} onDeleteDub={vi.fn()}
+    />);
+    fireEvent.click(screen.getByText("Statistics for Night Drive"));
+    expect(screen.getByText("No friends currently have access.")).toBeVisible();
+    expect(screen.getByText("Revoking access cannot remove files already downloaded.")).toBeVisible();
   });
 
   it("renders the shared dub card and filters the user's tracks", () => {

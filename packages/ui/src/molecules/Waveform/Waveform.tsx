@@ -1,4 +1,4 @@
-import type { KeyboardEvent, MouseEvent } from "react";
+import { useId, type KeyboardEvent, type MouseEvent } from "react";
 import "../Molecules.css";
 
 export interface WaveformProps {
@@ -9,6 +9,8 @@ export interface WaveformProps {
   className?: string;
   durationSeconds?: number;
   onSeek?: (progress: number) => void;
+  variant?: "bars" | "smooth";
+  insetShadow?: boolean;
 }
 
 const defaultPeaks = Array.from({ length: 64 }, (_, index) => {
@@ -20,6 +22,21 @@ const defaultPeaks = Array.from({ length: 64 }, (_, index) => {
   return 0.14 + wave * 0.86;
 });
 
+function smoothPath(peaks: number[]) {
+  if (peaks.length === 0) return "";
+  const points = peaks.map((peak, index) => ({
+    x: peaks.length === 1 ? 128 : index * 256 / (peaks.length - 1),
+    height: Math.max(2, Math.min(30, peak * 30)) / 2,
+  }));
+  const edge = (values: typeof points, direction: number) => values.map((point, index) => {
+    const next = values[index + 1];
+    return next
+      ? `Q ${point.x} ${16 + direction * point.height} ${(point.x + next.x) / 2} ${16 + direction * (point.height + next.height) / 2}`
+      : `L ${point.x} ${16 + direction * point.height}`;
+  }).join(" ");
+  return `M 0 16 ${edge(points, -1)} L 256 16 ${edge([...points].reverse(), 1)} Z`;
+}
+
 export function Waveform({
   className,
   color = "audio",
@@ -28,8 +45,13 @@ export function Waveform({
   onSeek,
   peaks = defaultPeaks,
   progress = 0.32,
+  variant = "bars",
+  insetShadow = false,
 }: WaveformProps) {
+  const clipId = useId();
+  const shadowId = useId();
   const safeProgress = Math.max(0, Math.min(1, progress));
+  const path = variant === "smooth" ? smoothPath(peaks) : "";
 
   function seekFromPointer(event: MouseEvent<SVGSVGElement>) {
     if (!onSeek) return;
@@ -71,10 +93,28 @@ export function Waveform({
       onKeyDown={seekFromKeyboard}
       role={onSeek ? "slider" : "img"}
       tabIndex={onSeek ? 0 : undefined}
-      viewBox={`0 0 ${peaks.length * 4} 32`}
+      viewBox={`0 0 ${variant === "smooth" ? 256 : peaks.length * 4} 32`}
       preserveAspectRatio="none"
     >
-      {peaks.map((peak, index) => {
+      {(variant === "smooth" || insetShadow) && (
+        <defs>
+          {variant === "smooth" && <clipPath id={clipId}><rect width={256 * safeProgress} height="32" /></clipPath>}
+          {insetShadow && <filter id={shadowId} x="0" y="0" width="100%" height="100%" colorInterpolationFilters="sRGB">
+            <feGaussianBlur in="SourceAlpha" stdDeviation="1" result="blur" />
+            <feOffset in="blur" dy="1" result="offset" />
+            <feComposite in="SourceAlpha" in2="offset" operator="out" result="edge" />
+            <feFlood className="waveform__shadow-color" floodOpacity="0.8" result="color" />
+            <feComposite in="color" in2="edge" operator="in" result="shadow" />
+            <feComposite in="shadow" in2="SourceGraphic" operator="over" />
+          </filter>}
+        </defs>
+      )}
+      {variant === "smooth" ? (
+        <>
+          <path className="waveform__unplayed" d={path} />
+          <path className="waveform__played" clipPath={`url(#${clipId})`} filter={insetShadow ? `url(#${shadowId})` : undefined} d={path} />
+        </>
+      ) : peaks.map((peak, index) => {
         const height = Math.max(2, Math.min(30, peak * 30));
         return (
           <rect
@@ -84,6 +124,7 @@ export function Waveform({
             width="2"
             height={height}
             rx="1"
+            filter={insetShadow && index / peaks.length < safeProgress ? `url(#${shadowId})` : undefined}
             className={
               index / peaks.length < safeProgress
                 ? "waveform__played"

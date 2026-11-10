@@ -25,6 +25,7 @@ export default defineConfig(({ command }) => ({
         ],
       },
       workbox: {
+        importScripts: ["/push-worker.js"],
         globPatterns: ["**/*.{js,css,html,png,ico,svg,woff,woff2}"],
         navigateFallback: "/index.html",
         navigateFallbackDenylist: [/^\/api(?:\/|$)/, /^\/admin(?:\/|$)/],

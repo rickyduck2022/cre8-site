@@ -75,7 +75,7 @@ export function TransportControls({
       />
       <Button
         aria-label={playing ? "Pause" : "Play"}
-        className="transport-controls__play"
+        className={`transport-controls__play${playing ? " is-playing" : ""}`}
         leadingIcon={
           playing ? <Pause aria-hidden="true" /> : <Play aria-hidden="true" />
         }

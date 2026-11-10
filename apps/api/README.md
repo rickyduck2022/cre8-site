@@ -59,6 +59,32 @@ optional genre. Registration creates a linked artist profile and signs the
 artist in immediately. Signing out clears the server-side session and expires
 the session cookie.
 
+## Message and shared-dub push notifications
+
+Web push is optional and disabled until the server has VAPID credentials.
+Generate a key pair with `pnpm --filter @craft/api exec web-push generate-vapid-keys`
+and set `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, and `VAPID_SUBJECT` (a contact
+URI such as `mailto:admin@example.com`) in the server environment. Keep the
+private key secret and retain the same keys across restarts and deployments.
+Configure all three in Render's environment settings for a deployed service;
+never commit the private key. Changing keys requires users to enable push again.
+
+On HTTPS or localhost, open Notifications and choose **Enable push
+notifications** to grant permission for that device. On iPhone and iPad,
+install the app to the Home Screen first; browser and OS support varies. The
+development Vite server does not register a service worker, so use a production
+build to test push. Notifications include the sender and message or shared dub
+title, which may be visible on a lock screen. Tapping one opens the conversation.
+Disable push from the Notifications panel; signing out also removes the current
+device subscription. Other subscribed devices remain enabled. Browser permission
+may also be revoked in system settings.
+
+Subscriptions are stored with community data and push messages are encrypted
+for the receiving browser. Delivery depends on the browser push service and
+network; it is best effort, and failures are logged without retrying. Expired
+subscriptions are removed when the push service reports them. Existing in-app
+notifications continue to work without push configuration.
+
 Profile avatar URLs are included with members, friends, and dub uploaders.
 Updating a profile image changes its URL and sends refreshed community
 snapshots to connected members so their avatar badges update.

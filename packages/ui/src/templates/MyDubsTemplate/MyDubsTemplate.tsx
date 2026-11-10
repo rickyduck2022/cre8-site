@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { AudioLines, Search } from "@craft/icons";
+import { AudioLines, ChevronRight, Search } from "@craft/icons";
 import { Badge } from "../../atoms/Badge/Badge";
 import { Button } from "../../atoms/Button/Button";
 import { Pagination, usePagination } from "../../molecules/Pagination/Pagination";
@@ -129,7 +129,7 @@ export function MyDubsTemplate({
               manageable
             />
             <details className={`my-dubs-template__statistics my-dubs-template__statistics--${dub.distribution ?? "worldwide"}`}>
-              <summary>Statistics for {dub.title}</summary>
+              <summary><span>Statistics for {dub.title}</span><ChevronRight aria-hidden="true" /></summary>
               <DubStatistics dub={dub} onRevokeGrant={onRevokeGrant} onOpenProfile={onOpenProfile} />
             </details>
           </div>

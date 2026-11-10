@@ -1,4 +1,4 @@
-import type { ButtonHTMLAttributes, ReactNode } from "react";
+import { forwardRef, type ButtonHTMLAttributes, type ReactNode } from "react";
 import { cn } from "../../utils/cn";
 import "./Button.css";
 
@@ -14,7 +14,7 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   compactOnMobile?: boolean;
 }
 
-export function Button({
+export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button({
   children,
   className,
   compactOnMobile = false,
@@ -26,7 +26,7 @@ export function Button({
   type = "button",
   variant = "primary",
   ...props
-}: ButtonProps) {
+}, ref) {
   const classes = cn(
     "button",
     `button--${variant}`,
@@ -38,6 +38,7 @@ export function Button({
 
   return (
     <button
+      ref={ref}
       aria-busy={loading || undefined}
       className={classes}
       disabled={disabled || loading}
@@ -58,4 +59,4 @@ export function Button({
       )}
     </button>
   );
-}
+});

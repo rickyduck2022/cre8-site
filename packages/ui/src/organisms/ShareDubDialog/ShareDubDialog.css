@@ -1,11 +1,12 @@
 .share-dub-dialog { display: grid; gap: 1rem; }
-.share-dub-dialog__track { background: var(--surface-control); border: 1px solid var(--border-default); border-radius: 0.625rem; display: grid; gap: 0.25rem; padding: 0.875rem; }
-.share-dub-dialog__track strong, .share-dub-dialog__track span { overflow-wrap: anywhere; }
-.share-dub-dialog__track span, .share-dub-dialog__hint, .share-dub-dialog__message small, .share-dub-dialog__empty p, .share-dub-dialog__success p { color: var(--text-secondary); font-size: var(--type-size-label); }
+.share-dub-dialog__track { background: var(--surface-control); border: 1px solid var(--border-default); border-radius: 0.625rem; box-shadow: var(--shadow-media-inset); display: grid; gap: 0.25rem; padding: 0.875rem; }
+.share-dub-dialog__track > span, .share-dub-dialog__hint, .share-dub-dialog__message small, .share-dub-dialog__empty p, .share-dub-dialog__success p { color: var(--text-secondary); font-size: var(--type-size-label); }
+.share-dub-dialog__track .audio-player { min-width: 0; }
+.share-dub-dialog__track .now-playing__title, .share-dub-dialog__track .now-playing__artist { overflow-wrap: anywhere; }
 .share-dub-dialog__hint, .share-dub-dialog__empty p, .share-dub-dialog__success p { line-height: 1.5; margin: 0; }
 .share-dub-dialog__message > span { font-size: var(--type-size-label); font-weight: 700; margin-bottom: 0.5rem; }
 .share-dub-dialog__message { display: grid; }
-.share-dub-dialog__message textarea { background: var(--surface-control); border: 1px solid var(--border-default); border-radius: 0.5rem; color: var(--text-primary); font: inherit; font-size: var(--type-size-input); line-height: var(--type-leading-body); padding: 0.75rem; resize: vertical; width: 100%; }
+.share-dub-dialog__message textarea { background: var(--surface-control); border: 1px solid var(--border-default); border-radius: 0.5rem; box-shadow: var(--shadow-input); color: var(--text-primary); font: inherit; font-size: var(--type-size-input); line-height: var(--type-leading-body); padding: 0.75rem; resize: vertical; width: 100%; }
 .share-dub-dialog__error { color: var(--status-error, #ff7777); font-size: var(--type-size-label); margin: 0; }
 .share-dub-dialog__empty, .share-dub-dialog__success { display: grid; gap: 0.75rem; justify-items: start; }
 .share-dub-dialog__success > svg { color: var(--action-primary-hover); height: 2rem; width: 2rem; }

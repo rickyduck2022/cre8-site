@@ -13,6 +13,7 @@
   transition:
     background-color var(--animation-duration-fast) var(--animation-easing-default),
     border-color var(--animation-duration-fast) var(--animation-easing-default),
+    box-shadow var(--animation-duration-fast) var(--animation-easing-default),
     color var(--animation-duration-fast) var(--animation-easing-default),
     transform var(--animation-duration-fast) var(--animation-easing-default);
 }
@@ -53,11 +54,13 @@
 
 .button--primary {
   background: var(--action-primary);
+  box-shadow: var(--shadow-control-accent);
   color: var(--text-on-accent);
 }
 
 .button--primary:not(:disabled):hover {
   background: var(--action-primary-hover);
+  box-shadow: var(--shadow-control-accent-hover);
 }
 
 .button--primary:not(:disabled):active {
@@ -67,6 +70,7 @@
 .button--secondary {
   background: var(--surface-control);
   border-color: var(--border-default);
+  box-shadow: var(--shadow-control);
   color: var(--text-primary);
 }
 

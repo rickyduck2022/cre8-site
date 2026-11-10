@@ -1,10 +1,11 @@
 import { useId, useState, type FormEvent } from "react";
 import { MessageCircle } from "@craft/icons";
-import { AListBadge } from "../../atoms/AListBadge/AListBadge";
 import { Button } from "../../atoms/Button/Button";
 import { FriendPicker } from "../../molecules/FriendPicker/FriendPicker";
 import { ModalFooter } from "../../molecules/ModalFooter/ModalFooter";
 import { Modal } from "../Modal/Modal";
+import { AudioPlayer } from "../AudioPlayer/AudioPlayer";
+import { TrackArtwork } from "../../templates/shared/TrackArtwork";
 import type { Buddy, Dub } from "../../types/domain";
 import { shareDubToFriends } from "./shareDubToFriends";
 import "./ShareDubDialog.css";
@@ -21,13 +22,20 @@ export interface ShareDubDialogProps {
   onFindFriends: () => void;
   onOpenChat: (buddyId: string) => void;
   onOpenProfile?: (username: string) => void;
+  onPlay: (dub: Dub) => void;
+  onSeekProgress?: (progress: number, dub: Dub) => void;
+  isCurrentTrack?: boolean;
+  isPlaying?: boolean;
+  currentTimeSeconds?: number;
+  durationSeconds?: number;
+  playbackError?: string | null;
   onSendMessage: (buddyId: string, text: string, dubId: string) => boolean | Promise<boolean>;
   initialBuddyIds?: string[];
   initiallySentIds?: string[];
   initialFailure?: boolean;
 }
 
-export function ShareDubDialog({ dub, buddies, friends = buddies, onClose, onFindFriends, onOpenChat, onOpenProfile, onSendMessage, initialBuddyIds = [], initiallySentIds = [], initialFailure = false }: ShareDubDialogProps) {
+export function ShareDubDialog({ dub, buddies, friends = buddies, onClose, onFindFriends, onOpenChat, onOpenProfile, onPlay, onSeekProgress, isCurrentTrack = false, isPlaying = false, currentTimeSeconds = 0, durationSeconds, playbackError, onSendMessage, initialBuddyIds = [], initiallySentIds = [], initialFailure = false }: ShareDubDialogProps) {
   const formId = useId();
   const [recipients] = useState(buddies);
   const restrictedAList = dub.distribution === "alist" && dub.aListPublic !== true;
@@ -75,8 +83,24 @@ export function ShareDubDialog({ dub, buddies, friends = buddies, onClose, onFin
         <form className="share-dub-dialog" id={formId} onSubmit={(event) => void submit(event)}>
           <div className="share-dub-dialog__track">
             <span>SHARING</span>
-            <strong>{dub.title}</strong>
-            {onOpenProfile ? <button className="now-playing__artist now-playing__artist-button" onClick={() => onOpenProfile(dub.uploader)} type="button">{dub.artist}{dub.artistAListApproved && <AListBadge />}</button> : <span>{dub.artist}{dub.artistAListApproved && <AListBadge />}</span>}
+            <AudioPlayer
+              variant="inline"
+              distribution={dub.distribution ?? "worldwide"}
+              track={{
+                title: dub.title,
+                artist: dub.artist,
+                artistAListApproved: dub.artistAListApproved,
+                artworkContent: <TrackArtwork dub={dub} />,
+                duration: dub.duration,
+                onArtistClick: onOpenProfile ? () => onOpenProfile(dub.uploader) : undefined,
+              }}
+              playing={isCurrentTrack && isPlaying}
+              currentTimeSeconds={isCurrentTrack ? currentTimeSeconds : 0}
+              durationSeconds={isCurrentTrack ? durationSeconds : undefined}
+              playbackError={isCurrentTrack ? playbackError : undefined}
+              onPlayChange={() => onPlay(dub)}
+              onSeekProgress={onSeekProgress ? (progress) => onSeekProgress(progress, dub) : undefined}
+            />
           </div>
           <p className="share-dub-dialog__hint">
             {dub.distribution === "private"

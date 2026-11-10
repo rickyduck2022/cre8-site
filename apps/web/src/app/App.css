@@ -12,6 +12,7 @@
   background: var(--surface-raised);
   border: 1px solid var(--border-default);
   border-radius: 1rem;
+  box-shadow: var(--shadow-card);
   display: grid;
   gap: 1rem;
   max-width: 24rem;
@@ -48,6 +49,7 @@
   background: var(--surface-canvas);
   border: 1px solid var(--border-default);
   border-radius: 0.5rem;
+  box-shadow: var(--shadow-input);
   color: var(--text-primary);
   font: inherit;
   font-size: var(--type-size-input);
@@ -93,14 +95,32 @@
 }
 
 @media (max-width: 760px), (pointer: coarse) {
-  input:not([type="button"]):not([type="submit"]):not([type="reset"]):not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="color"]):not([type="hidden"]),
-  select,
-  textarea {
+  select {
     font-size: max(16px, 1em) !important;
   }
 }
 
 @media (max-width: 760px) {
+  .app-login--auth {
+    background: var(--surface-raised);
+    min-height: 100dvh;
+    padding: 0;
+    place-items: stretch;
+  }
+
+  .app-login--auth .app-login__card {
+    align-content: start;
+    border: 0;
+    border-radius: 0;
+    max-width: none;
+    min-height: 100dvh;
+    padding: max(1.25rem, env(safe-area-inset-top, 0px)) max(1.25rem, env(safe-area-inset-right, 0px)) max(1.25rem, env(safe-area-inset-bottom, 0px)) max(1.25rem, env(safe-area-inset-left, 0px));
+  }
+
+  .app-login--auth .app-login__logo {
+    max-width: 20rem;
+  }
+
   .community-dashboard-template {
     display: block;
   }

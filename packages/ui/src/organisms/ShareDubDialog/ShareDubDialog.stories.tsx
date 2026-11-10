@@ -18,6 +18,7 @@ const meta = {
     onClose: () => undefined,
     onFindFriends: () => undefined,
     onOpenChat: () => undefined,
+    onPlay: () => undefined,
     onSendMessage: async () => true,
   },
 } satisfies Meta<typeof ShareDubDialog>;

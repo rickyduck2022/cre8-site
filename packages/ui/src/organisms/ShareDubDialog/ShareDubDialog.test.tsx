@@ -21,10 +21,34 @@ beforeAll(() => {
 afterEach(cleanup);
 
 describe("ShareDubDialog", () => {
+  it("uses the shared playback state and routes play, seek, and profile actions for the selected dub", () => {
+    const play = vi.fn();
+    const seek = vi.fn();
+    const profile = vi.fn();
+    const props = { dub, buddies, onClose: vi.fn(), onFindFriends: vi.fn(), onOpenChat: vi.fn(), onSendMessage: vi.fn(), onPlay: play, onSeekProgress: seek, onOpenProfile: profile };
+    const { rerender } = render(<ShareDubDialog {...props} isPlaying currentTimeSeconds={45} durationSeconds={210} />);
+    const player = screen.getByRole("region", { name: "Audio player: Night Drive" });
+    expect(player).toHaveClass("audio-player--inline", "audio-player--private");
+    expect(player).not.toHaveClass("audio-player--playable");
+    fireEvent.click(screen.getByRole("button", { name: "Play" }));
+    expect(play).toHaveBeenCalledWith(dub);
+    const waveform = screen.getByRole("slider", { name: "Night Drive playback progress" });
+    vi.spyOn(waveform, "getBoundingClientRect").mockReturnValue({ left: 0, width: 100 } as DOMRect);
+    fireEvent.click(waveform, { clientX: 50 });
+    expect(seek).toHaveBeenCalledWith(0.5, dub);
+    fireEvent.click(player.querySelector(".now-playing__artist-button")!);
+    expect(profile).toHaveBeenCalledWith("amber");
+    rerender(<ShareDubDialog {...props} isCurrentTrack isPlaying currentTimeSeconds={45} durationSeconds={210} />);
+    expect(screen.getByRole("button", { name: "Pause" })).toBeInTheDocument();
+    expect(player).toHaveTextContent("00:45");
+    fireEvent.click(screen.getByRole("button", { name: "Pause" }));
+    expect(play).toHaveBeenCalledTimes(2);
+  });
+
   it("shares restricted A-List dubs with non-friends and preserves stable recipients after a snapshot changes", async () => {
     const send = vi.fn(async () => true);
     const member = { ...buddies[1], id: "member:user-2", aListApproved: true };
-    const props = { dub: { ...dub, distribution: "alist" as const }, buddies: [member], onClose: vi.fn(), onFindFriends: vi.fn(), onOpenChat: vi.fn(), onSendMessage: send };
+    const props = { dub: { ...dub, distribution: "alist" as const }, buddies: [member], onClose: vi.fn(), onFindFriends: vi.fn(), onOpenChat: vi.fn(), onPlay: vi.fn(), onSendMessage: send };
     const { rerender } = render(<ShareDubDialog {...props} />);
     expect(screen.getByText(/non-friend adds them/)).toBeVisible();
     fireEvent.click(screen.getByRole("checkbox", { name: /Holik/ }));
@@ -35,7 +59,7 @@ describe("ShareDubDialog", () => {
   });
   it("requires an explicit share again for friends already sent this version", async () => {
     const send = vi.fn(async (_buddyId: string, _text: string, _dubId: string) => true);
-    render(<ShareDubDialog dub={{ ...dub, sharedBuddyIds: ["friend-1"] }} buddies={buddies} onClose={vi.fn()} onFindFriends={vi.fn()} onOpenChat={vi.fn()} onSendMessage={send} />);
+    render(<ShareDubDialog dub={{ ...dub, sharedBuddyIds: ["friend-1"] }} buddies={buddies} onClose={vi.fn()} onFindFriends={vi.fn()} onOpenChat={vi.fn()} onPlay={vi.fn()} onSendMessage={send} />);
     expect(screen.getByRole("checkbox", { name: /Meladee/ })).toBeDisabled();
     expect(screen.getByRole("checkbox", { name: /Holik/ })).toBeEnabled();
     fireEvent.click(screen.getByRole("button", { name: "Share again with Meladee" }));
@@ -49,7 +73,7 @@ describe("ShareDubDialog", () => {
   it("finds a friend, sends a note and opens the conversation after confirmation", async () => {
     const send = vi.fn(async () => true);
     const openChat = vi.fn();
-    render(<ShareDubDialog dub={dub} buddies={buddies} onClose={vi.fn()} onFindFriends={vi.fn()} onOpenChat={openChat} onSendMessage={send} />);
+    render(<ShareDubDialog dub={dub} buddies={buddies} onClose={vi.fn()} onFindFriends={vi.fn()} onOpenChat={openChat} onPlay={vi.fn()} onSendMessage={send} />);
     expect(screen.getByText(/Unsend does not revoke/)).toBeVisible();
     expect(screen.getByRole("button", { name: "Send dub" })).toBeDisabled();
     fireEvent.change(screen.getByRole("searchbox", { name: "Search friends" }), { target: { value: "HOLIK" } });
@@ -68,7 +92,7 @@ describe("ShareDubDialog", () => {
     const send = vi.fn()
       .mockImplementationOnce(() => new Promise<boolean>((resolve) => { resolveSend = resolve; }))
       .mockResolvedValueOnce(true);
-    render(<ShareDubDialog dub={dub} buddies={buddies} onClose={vi.fn()} onFindFriends={vi.fn()} onOpenChat={vi.fn()} onSendMessage={send} />);
+    render(<ShareDubDialog dub={dub} buddies={buddies} onClose={vi.fn()} onFindFriends={vi.fn()} onOpenChat={vi.fn()} onPlay={vi.fn()} onSendMessage={send} />);
     fireEvent.click(screen.getByRole("checkbox", { name: /Meladee/ }));
     fireEvent.click(screen.getByRole("button", { name: "Send dub" }));
     expect(screen.getByRole("button", { name: "Send dub" })).toBeDisabled();
@@ -83,7 +107,7 @@ describe("ShareDubDialog", () => {
 
   it("sends to multiple friends and retries only failed recipients", async () => {
     const send = vi.fn().mockResolvedValueOnce(true).mockResolvedValueOnce(false).mockResolvedValueOnce(true);
-    render(<ShareDubDialog dub={dub} buddies={buddies} onClose={vi.fn()} onFindFriends={vi.fn()} onOpenChat={vi.fn()} onSendMessage={send} />);
+    render(<ShareDubDialog dub={dub} buddies={buddies} onClose={vi.fn()} onFindFriends={vi.fn()} onOpenChat={vi.fn()} onPlay={vi.fn()} onSendMessage={send} />);
     fireEvent.click(screen.getByRole("checkbox", { name: /Meladee/ }));
     fireEvent.change(screen.getByRole("searchbox", { name: "Search friends" }), { target: { value: "holik" } });
     fireEvent.click(screen.getByRole("checkbox", { name: /Holik/ }));
@@ -98,7 +122,7 @@ describe("ShareDubDialog", () => {
 
   it("allows retrying failed upload deliveries without resending successful ones", async () => {
     const send = vi.fn(async () => true);
-    render(<ShareDubDialog dub={{ ...dub, sharedBuddyIds: ["friend-1", "friend-2"] }} buddies={buddies} initialBuddyIds={["friend-2"]} initiallySentIds={["friend-1"]} initialFailure onClose={vi.fn()} onFindFriends={vi.fn()} onOpenChat={vi.fn()} onSendMessage={send} />);
+    render(<ShareDubDialog dub={{ ...dub, sharedBuddyIds: ["friend-1", "friend-2"] }} buddies={buddies} initialBuddyIds={["friend-2"]} initiallySentIds={["friend-1"]} initialFailure onClose={vi.fn()} onFindFriends={vi.fn()} onOpenChat={vi.fn()} onPlay={vi.fn()} onSendMessage={send} />);
     expect(screen.getByRole("checkbox", { name: /Meladee/ })).toBeDisabled();
     expect(screen.getByRole("checkbox", { name: /Holik/ })).toBeChecked();
     fireEvent.click(screen.getByRole("button", { name: "Retry selected" }));
@@ -109,7 +133,7 @@ describe("ShareDubDialog", () => {
 
   it("does not report all deliveries complete when a failed friend is deselected", async () => {
     const send = vi.fn(async () => true);
-    render(<ShareDubDialog dub={dub} buddies={buddies} initialBuddyIds={["friend-2"]} initialFailure onClose={vi.fn()} onFindFriends={vi.fn()} onOpenChat={vi.fn()} onSendMessage={send} />);
+    render(<ShareDubDialog dub={dub} buddies={buddies} initialBuddyIds={["friend-2"]} initialFailure onClose={vi.fn()} onFindFriends={vi.fn()} onOpenChat={vi.fn()} onPlay={vi.fn()} onSendMessage={send} />);
     fireEvent.click(screen.getByRole("checkbox", { name: /Holik/ }));
     fireEvent.click(screen.getByRole("checkbox", { name: /Meladee/ }));
     fireEvent.click(screen.getByRole("button", { name: "Retry selected" }));
@@ -121,7 +145,7 @@ describe("ShareDubDialog", () => {
 
   it("offers a route to find friends and restricts private forwarding", () => {
     const findFriends = vi.fn();
-    render(<ShareDubDialog dub={dub} buddies={[]} onClose={vi.fn()} onFindFriends={findFriends} onOpenChat={vi.fn()} onSendMessage={vi.fn()} />);
+    render(<ShareDubDialog dub={dub} buddies={[]} onClose={vi.fn()} onFindFriends={findFriends} onOpenChat={vi.fn()} onPlay={vi.fn()} onSendMessage={vi.fn()} />);
     fireEvent.click(screen.getByRole("button", { name: "Find friends" }));
     expect(findFriends).toHaveBeenCalled();
     expect(canShareDub(dub, "amber")).toBe(true);

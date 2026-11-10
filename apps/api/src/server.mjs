@@ -5,6 +5,7 @@ import { basename, extname, isAbsolute, join, relative, resolve } from "node:pat
 import { fileURLToPath } from "node:url";
 import { pipeline } from "node:stream/promises";
 import { WebSocket, WebSocketServer } from "ws";
+import { createPushService, validPushSubscription } from "./push.mjs";
 
 const apiDirectory = fileURLToPath(new URL(".", import.meta.url));
 const defaultDataPath = resolve(process.env.COMMUNITY_DATA_PATH ?? resolve(apiDirectory, "../data/community.json"));
@@ -112,6 +113,7 @@ export function createSeedState() {
     aListAccessDecisions: [],
     notifications: [],
     dubShares: [],
+    pushSubscriptions: [],
   };
 }
 
@@ -173,7 +175,7 @@ export function initializeData(dataPath = defaultDataPath, mediaDirectory = defa
   for (const dub of data.dubs) {
     dub.audioUrl ??= `/api/dubs/${dub.id}/audio`;
   }
-  for (const key of ["friendships", "conversations", "likes", "downloads", "crates", "uploads", "dubGrants", "aListApplications", "aListAccessDecisions", "notifications", "dubShares"]) {
+  for (const key of ["friendships", "conversations", "likes", "downloads", "crates", "uploads", "dubGrants", "aListApplications", "aListAccessDecisions", "notifications", "dubShares", "pushSubscriptions"]) {
     data[key] ??= [];
   }
   backfillBidirectionalFriendships(data);
@@ -185,6 +187,46 @@ function saveData(dataPath, data) {
   const temporaryPath = `${dataPath}.tmp`;
   writeFileSync(temporaryPath, `${JSON.stringify(data, null, 2)}\n`);
   renameSync(temporaryPath, dataPath);
+}
+
+function validateAdminSeed({ username, password }) {
+  if (username === undefined && password === undefined) return null;
+  if (typeof username !== "string" || !/^[a-z0-9._-]{3,24}$/.test(username)) {
+    throw new Error("ADMIN_SEED_USERNAME must be 3-24 lowercase letters, numbers, dots, underscores, or hyphens.");
+  }
+  if (typeof password !== "string" || password.length === 0 || password.length > 128) {
+    throw new Error("ADMIN_SEED_PASSWORD must be set and at most 128 characters.");
+  }
+  return { username, password };
+}
+
+function seedAdministrator(data, dataPath, seed) {
+  if (!seed) return;
+  const existing = data.users.find((user) => user.username.toLowerCase() === seed.username);
+  if (existing) {
+    if (existing.seededAdministrator !== true) {
+      throw new Error(`Cannot seed administrator: username "${seed.username}" already belongs to an existing account.`);
+    }
+    return;
+  }
+  const credentials = hashPassword(seed.password);
+  const user = {
+    id: randomUUID(),
+    username: seed.username,
+    displayName: "Admin",
+    createdAt: new Date().toISOString(),
+    passwordSalt: credentials.salt,
+    passwordHash: credentials.hash,
+    seededAdministrator: true,
+    presence: "offline",
+    genre: "Uncategorized",
+    role: "DJ / Producer",
+    bio: "",
+    links: [],
+  };
+  data.users.push(user);
+  data.artists.push({ id: randomUUID(), userId: user.id, name: user.displayName, genres: [], role: user.role });
+  saveData(dataPath, data);
 }
 
 function json(response, status, value, headers = {}) {
@@ -676,7 +718,7 @@ function createConversationMessage(data, user, buddyId, input) {
   findOrCreateConversation(data, user.id, friendship.id).messages.push(senderMessage);
   findOrCreateConversation(data, recipient.id, recipientFriendship.id).messages.push(recipientMessage);
   recipientFriendship.unread = (recipientFriendship.unread ?? 0) + 1;
-  return { message: senderMessage, recipientId: recipient.id };
+  return { message: senderMessage, recipientId: recipient.id, recipientBuddyId: recipientFriendship.id };
 }
 
 function unsendConversationMessage(data, user, buddyId, messageId) {
@@ -761,8 +803,16 @@ export function createApiServer({
   publicAudioDirectory = defaultPublicAudioDirectory,
   webDirectory = defaultWebDirectory,
   adminDirectory = defaultAdminDirectory,
+  adminSeed = { username: process.env.ADMIN_SEED_USERNAME, password: process.env.ADMIN_SEED_PASSWORD },
+  pushService = createPushService({
+    publicKey: process.env.VAPID_PUBLIC_KEY,
+    privateKey: process.env.VAPID_PRIVATE_KEY,
+    subject: process.env.VAPID_SUBJECT,
+  }),
 } = {}) {
+  const validatedAdminSeed = validateAdminSeed(adminSeed);
   const data = initializeData(dataPath, mediaDirectory);
+  seedAdministrator(data, dataPath, validatedAdminSeed);
   mkdirSync(mediaDirectory, { recursive: true });
   const sessions = new Map();
   const socketsByUser = new Map();
@@ -904,6 +954,61 @@ export function createApiServer({
       }
       if (!user) {
         json(response, 401, { error: "Sign in to continue." });
+        return;
+      }
+      if (route === "/api/push/config" && request.method === "GET") {
+        json(response, 200, { publicKey: pushService?.publicKey ?? null });
+        return;
+      }
+      if (route === "/api/push/status" && request.method === "POST") {
+        const input = await readJson(request);
+        if (!input || typeof input.endpoint !== "string" || input.endpoint.length > 2048) {
+          json(response, 400, { error: "Invalid push endpoint." });
+          return;
+        }
+        json(response, 200, { enabled: data.pushSubscriptions.some((item) => item.userId === user.id && item.subscription.endpoint === input.endpoint) });
+        return;
+      }
+      if (route === "/api/push/subscription" && request.method === "POST") {
+        if (!pushService) {
+          json(response, 503, { error: "Push notifications are not configured on this server." });
+          return;
+        }
+        if (!isAllowedWebSocketOrigin(request)) {
+          json(response, 403, { error: "Invalid request origin." });
+          return;
+        }
+        const subscription = await readJson(request);
+        if (!validPushSubscription(subscription)) {
+          json(response, 400, { error: "Invalid push subscription." });
+          return;
+        }
+        if (data.pushSubscriptions.filter((item) => item.userId === user.id && item.subscription.endpoint !== subscription.endpoint).length >= 20) {
+          json(response, 400, { error: "Too many push subscriptions for this account." });
+          return;
+        }
+        data.pushSubscriptions = data.pushSubscriptions.filter((item) => item.subscription.endpoint !== subscription.endpoint);
+        data.pushSubscriptions.push({ userId: user.id, subscription: {
+          endpoint: subscription.endpoint,
+          keys: { p256dh: subscription.keys.p256dh, auth: subscription.keys.auth },
+        } });
+        persist();
+        json(response, 200, { status: "ok" });
+        return;
+      }
+      if (route === "/api/push/subscription" && request.method === "DELETE") {
+        if (!isAllowedWebSocketOrigin(request)) {
+          json(response, 403, { error: "Invalid request origin." });
+          return;
+        }
+        const input = await readJson(request);
+        if (!input || typeof input.endpoint !== "string" || input.endpoint.length > 2048) {
+          json(response, 400, { error: "Invalid push endpoint." });
+          return;
+        }
+        data.pushSubscriptions = data.pushSubscriptions.filter((item) => item.userId !== user.id || item.subscription.endpoint !== input.endpoint);
+        persist();
+        json(response, 200, { status: "ok" });
         return;
       }
       if (route.startsWith("/api/admin/") && !isAdministrator(user)) {
@@ -1529,6 +1634,7 @@ export function createApiServer({
           return;
         }
         persist();
+        sendMessagePush(user, result);
         broadcastCommunity(user.id);
         broadcastCommunity(recipient.id);
         json(response, 201, { buddyId: friendship.id, snapshot: communitySnapshot(data, user) });
@@ -1577,6 +1683,7 @@ export function createApiServer({
           return;
         }
         persist();
+        sendMessagePush(user, result);
         broadcastCommunity(user.id);
         broadcastCommunity(result.recipientId);
         json(response, 201, communitySnapshot(data, user));
@@ -1756,6 +1863,28 @@ export function createApiServer({
       json(response, error.status ?? 500, { error: error.message || "The server could not complete the request." });
     }
   });
+
+  function sendMessagePush(sender, result) {
+    if (!pushService) return;
+    const dub = result.message.dubId && data.dubs.find((item) => item.id === result.message.dubId);
+    const title = dub ? `${sender.displayName} shared a dub` : `Message from ${sender.displayName}`;
+    const body = dub ? `${dub.title}: ${result.message.text}` : result.message.text;
+    const payload = { title, body: body.slice(0, 180), buddyId: result.recipientBuddyId };
+    for (const item of data.pushSubscriptions.filter((entry) => entry.userId === result.recipientId)) {
+      void Promise.resolve().then(() => pushService.send(item.subscription, payload)).catch((error) => {
+        if (error.statusCode === 404 || error.statusCode === 410) {
+          data.pushSubscriptions = data.pushSubscriptions.filter((entry) => entry !== item);
+          try {
+            persist();
+          } catch (persistError) {
+            console.error("Failed to remove expired push subscription:", persistError.message);
+          }
+        } else {
+          console.error("Push notification delivery failed:", error.message);
+        }
+      });
+    }
+  }
 
   function broadcastCommunity(userId) {
     const user = data.users.find((item) => item.id === userId);

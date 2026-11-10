@@ -104,7 +104,7 @@ export function PwaStatusProvider({
         </div>
       )}
       {showInstall && (
-        <div className="pwa-status__row">
+        <div className="pwa-status__row pwa-status__install">
           {installPrompt ? (
             <>
               <span>Install cre8 for an app-like experience.</span>
