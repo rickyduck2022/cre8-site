@@ -1,0 +1,40 @@
+{
+  "signed-in": [
+    { "type": "click", "target": { "role": "button", "name": "Sign up as an artist" } },
+    { "type": "fill", "target": { "label": "Artist" }, "value": "{{artistName}}" },
+    { "type": "fill", "target": { "label": "Password" }, "value": "{{demoPassword}}" },
+    { "type": "fill", "target": { "label": "Confirm password" }, "value": "{{demoPassword}}" },
+    { "type": "click", "target": { "role": "button", "name": "Create artist account" } },
+    { "type": "waitFor", "target": { "role": "heading", "name": "Dub Vault" } }
+  ],
+  "add-holik": [
+    { "type": "navigate", "destination": "buddies" },
+    { "type": "fill", "target": { "label": "Find artists by username or ID" }, "value": "holik" },
+    { "type": "click", "target": { "role": "button", "name": "Add Holik" } },
+    { "type": "waitFor", "target": { "role": "button", "name": "Message Holik", "within": { "role": "region", "name": "Contacts" } } },
+    { "type": "navigate", "destination": "dubs" }
+  ],
+  "publish-dub": [
+    { "type": "click", "target": { "role": "button", "name": "Share a dub" } },
+    { "type": "fill", "target": { "label": "Track title" }, "value": "{{trackTitle}}" },
+    { "type": "click", "target": { "role": "button", "name": "Liquid", "within": { "role": "dialog", "name": "Share a dub" } } },
+    { "type": "fill", "target": { "label": "BPM" }, "value": "174" },
+    { "type": "upload", "target": { "label": "Audio fileUp to 100 MB" }, "asset": "audio" },
+    { "type": "upload", "target": { "label": "Track artwork Optional \u00b7 up to 10 MB" }, "asset": "artwork" },
+    { "type": "click", "target": { "role": "button", "name": "Share dub" } },
+    { "type": "waitFor", "target": { "role": "dialog", "name": "Share a dub" }, "state": "hidden" },
+    { "type": "navigate", "destination": "dubs" },
+    { "type": "waitFor", "target": { "role": "region", "name": "Audio player: {{trackTitle}}" } }
+  ],
+  "publish-private-dub": [
+    { "type": "click", "target": { "role": "button", "name": "Share a dub" } },
+    { "type": "fill", "target": { "label": "Track title" }, "value": "{{trackTitle}}" },
+    { "type": "select", "target": { "label": "Distribution" }, "value": "private" },
+    { "type": "click", "target": { "role": "checkbox", "name": "Holik @holik" } },
+    { "type": "upload", "target": { "label": "Audio fileUp to 100 MB" }, "asset": "audio" },
+    { "type": "upload", "target": { "label": "Track artwork Optional \u00b7 up to 10 MB" }, "asset": "artwork" },
+    { "type": "click", "target": { "role": "button", "name": "Share dub" } },
+    { "type": "waitFor", "target": { "role": "dialog", "name": "Share a dub" }, "state": "hidden" },
+    { "type": "navigate", "destination": "my-dubs" }
+  ]
+}

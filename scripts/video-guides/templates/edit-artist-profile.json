@@ -1,0 +1,76 @@
+{
+  "id": "edit-artist-profile",
+  "title": "Edit your artist profile",
+  "description": "Update your artist identity, genres, biography and website, then revisit the saved profile.",
+  "variables": {
+    "artistName": "Demo Artist",
+    "updatedArtistName": "Demo Artist DnB"
+  },
+  "setup": [
+    { "type": "include", "fragment": "signed-in" }
+  ],
+  "steps": [
+    {
+      "caption": "1. Select My Profile to open your artist page.",
+      "actions": [
+        { "type": "navigate", "destination": "profile" },
+        { "type": "waitFor", "target": { "role": "heading", "name": "{{artistName}}" } }
+      ]
+    },
+    {
+      "caption": "2. Select Edit profile to change your public artist details.",
+      "actions": [
+        { "type": "click", "target": { "role": "button", "name": "Edit profile" } },
+        { "type": "waitFor", "target": { "role": "dialog", "name": "Edit your profile" } }
+      ]
+    },
+    {
+      "caption": "3. Update your artist name and role. Your account username stays the same.",
+      "actions": [
+        { "type": "fill", "target": { "label": "Artist name" }, "value": "{{updatedArtistName}}" },
+        { "type": "fill", "target": { "label": "Role" }, "value": "Producer / DJ" }
+      ]
+    },
+    {
+      "caption": "4. Select Jungle in Genres to add it to your profile.",
+      "actions": [
+        { "type": "click", "target": { "role": "button", "name": "Jungle", "within": { "role": "dialog", "name": "Edit your profile" } } }
+      ]
+    },
+    {
+      "caption": "5. Write a short About me introduction for other artists.",
+      "actions": [
+        { "type": "fill", "target": { "label": "About me" }, "value": "Jungle producer and DJ. Sharing new sounds and connecting with artists." }
+      ]
+    },
+    {
+      "caption": "6. Add a website so other artists can find more of your music.",
+      "actions": [
+        { "type": "fill", "target": { "label": "Other website / custom link" }, "value": "https://example.com/demo-artist" }
+      ]
+    },
+    {
+      "caption": "7. Select Save profile and wait for the editor to close.",
+      "actions": [
+        { "type": "click", "target": { "role": "button", "name": "Save profile" } },
+        { "type": "waitFor", "target": { "role": "dialog", "name": "Edit your profile" }, "state": "hidden" },
+        { "type": "waitFor", "target": { "role": "heading", "name": "{{updatedArtistName}}" } }
+      ]
+    },
+    {
+      "caption": "Your artist page now includes your new details and website.",
+      "actions": [
+        { "type": "waitFor", "target": { "role": "heading", "name": "About" } },
+        { "type": "waitFor", "target": { "role": "link", "name": "Other website / custom link" }, "reveal": true }
+      ]
+    },
+    {
+      "caption": "8. Return to Dub Vault, then My Profile. Your saved artist name is still there.",
+      "actions": [
+        { "type": "navigate", "destination": "dubs" },
+        { "type": "navigate", "destination": "profile" },
+        { "type": "waitFor", "target": { "role": "heading", "name": "{{updatedArtistName}}" } }
+      ]
+    }
+  ]
+}

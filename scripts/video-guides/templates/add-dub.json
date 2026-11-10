@@ -1,0 +1,78 @@
+{
+  "id": "add-dub",
+  "title": "Add and publish a dub",
+  "description": "Upload an audio file, add cre8 artwork and publish a worldwide dub.",
+  "variables": { "artistName": "Demo Artist", "trackTitle": "new one 123" },
+  "assets": {
+    "audio": { "env": "GUIDE_AUDIO_PATH" },
+    "artwork": { "path": "apps/web/public/cre8-main-logo.png", "env": "GUIDE_ARTWORK_PATH" }
+  },
+  "setup": [
+    { "type": "include", "fragment": "signed-in" }
+  ],
+  "steps": [
+    {
+      "caption": "Start signed in to your artist account. Here is how to add a dub.",
+      "actions": [{ "type": "waitFor", "target": { "role": "heading", "name": "Dub Vault" } }]
+    },
+    {
+      "caption": "1. Select Share a dub in the top bar to open the upload form.",
+      "actions": [
+        { "type": "click", "target": { "role": "button", "name": "Share a dub" } },
+        { "type": "waitFor", "target": { "role": "dialog", "name": "Share a dub" } }
+      ]
+    },
+    {
+      "caption": "2. Enter your track title and check that the correct artist profile is selected.",
+      "actions": [
+        { "type": "fill", "target": { "label": "Track title" }, "value": "{{trackTitle}}" },
+        { "type": "waitFor", "target": { "role": "combobox", "name": "Artist profile" } }
+      ]
+    },
+    {
+      "caption": "3. Choose who can access the dub. This example uses Worldwide.",
+      "actions": [{ "type": "select", "target": { "label": "Distribution" }, "value": "worldwide" }],
+      "holdMs": 5500
+    },
+    {
+      "caption": "4. Tags and BPM are optional. Add them when you know the track details.",
+      "actions": [{ "type": "waitFor", "target": { "label": "BPM" } }]
+    },
+    {
+      "caption": "5. Choose your audio file. Here we use new one 123.wav.",
+      "actions": [{ "type": "upload", "target": { "label": "Audio fileUp to 100 MB" }, "asset": "audio" }],
+      "holdMs": 5500
+    },
+    {
+      "caption": "6. Add optional track artwork. We are using the cre8 logo.",
+      "actions": [{ "type": "upload", "target": { "label": "Track artwork Optional \u00b7 up to 10 MB" }, "asset": "artwork" }],
+      "holdMs": 5500
+    },
+    {
+      "caption": "7. Add a short message to introduce your dub.",
+      "actions": [{ "type": "fill", "target": { "label": "Message" }, "value": "A new dub from Demo Artist. Thanks for listening!" }]
+    },
+    {
+      "caption": "8. Select Share dub. Keep the dialog open while the files upload and publish.",
+      "actions": [
+        { "type": "click", "target": { "role": "button", "name": "Share dub" } },
+        { "type": "waitFor", "target": { "role": "region", "name": "Audio player: {{trackTitle}}" } }
+      ],
+      "holdMs": 6000
+    },
+    {
+      "caption": "Your dub is published in the Dub Vault, with its audio and cre8 artwork.",
+      "actions": [{ "type": "waitFor", "target": { "role": "img", "name": "{{trackTitle}} artwork" } }],
+      "holdMs": 6000
+    },
+    {
+      "caption": "9. Open My Dubs to find and manage your upload.",
+      "actions": [
+        { "type": "navigate", "destination": "my-dubs" },
+        { "type": "waitFor", "target": { "role": "heading", "name": "My Dubs" } },
+        { "type": "waitFor", "target": { "role": "region", "name": "Audio player: {{trackTitle}}" } }
+      ],
+      "holdMs": 6500
+    }
+  ]
+}

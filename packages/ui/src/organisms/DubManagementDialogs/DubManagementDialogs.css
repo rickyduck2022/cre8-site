@@ -7,3 +7,8 @@
 .dub-management-dialogs__delete-copy strong {
   color: var(--text-primary);
 }
+
+.dub-management-dialogs__error {
+  color: var(--status-error, #ff7777);
+  font-size: var(--type-size-caption);
+}

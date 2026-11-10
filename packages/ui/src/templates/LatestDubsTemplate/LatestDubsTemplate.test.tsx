@@ -2,6 +2,7 @@ import { cleanup, fireEvent, render, screen, within } from "@testing-library/rea
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { LatestDubsTemplate } from "./LatestDubsTemplate";
 import type { Dub } from "../communityTypes";
+import type { DubPack } from "../../organisms/DubPackCard/DubPackCard";
 
 afterEach(cleanup);
 
@@ -13,6 +14,59 @@ const dub: Dub = {
 };
 
 describe("LatestDubsTemplate ownership controls", () => {
+  const second = { ...dub, id: "two", title: "Closing Dub" };
+  const pack: DubPack = {
+    id: "pack", title: "Night Sessions", description: "", kind: "dub", status: "published",
+    distribution: "worldwide", aListPublic: false, licence: "", ownerUsername: "amber", ownerDisplayName: "Amber",
+    items: [{ dub }, { dub: second }], createdAt: dub.uploadedAt, updatedAt: dub.uploadedAt, totalBytes: 1200,
+  };
+  const packProps = {
+    likedDubIds: new Set<string>(), nowPlayingId: null, isPlaying: false,
+    onDownload: vi.fn(), onOpenProfile: vi.fn(), onPlay: vi.fn(), onPlayPack: vi.fn(), onOpenPack: vi.fn(),
+  };
+  it("groups pack members into one expandable release before pagination without duplicate standalone cards", () => {
+    const standalone = { ...dub, id: "single", title: "Standalone" };
+    render(<LatestDubsTemplate {...packProps} dubs={[dub, second, standalone]} packs={[pack]} />);
+    const feed = screen.getByRole("region", { name: "Community uploads" });
+    expect(within(feed).getAllByRole("article")).toHaveLength(2);
+    expect(within(feed).getByRole("article", { name: "Dub Pack: Night Sessions" })).toBeVisible();
+    expect(within(feed).getByRole("region", { name: "Audio player: Standalone" })).toBeVisible();
+    expect(within(feed).queryByRole("region", { name: "Audio player: My Dub" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Show 2 tracks" }));
+    expect(within(feed).getByRole("article", { name: "My Dub" })).toBeVisible();
+    expect(within(feed).getByRole("article", { name: "Closing Dub" })).toBeVisible();
+  });
+
+  it("preserves filtered tracks, multiple-pack membership and standalone crate behavior", () => {
+    const { rerender } = render(<LatestDubsTemplate {...packProps} dubs={[second]} packs={[pack, { ...pack, id: "other", title: "Other release" }]} queryAlreadyFiltered />);
+    const feed = screen.getByRole("region", { name: "Community uploads" });
+    expect(within(feed).getAllByRole("article")).toHaveLength(2);
+    fireEvent.click(screen.getAllByRole("button", { name: "Show 2 tracks" })[0]);
+    expect(screen.getByText(/1 track matches your filters/)).toBeVisible();
+    expect(within(feed).queryByRole("article", { name: "My Dub" })).not.toBeInTheDocument();
+    rerender(<LatestDubsTemplate {...packProps} dubs={[dub, second]} packs={[pack]} crateId="crate" />);
+    expect(within(feed).queryByRole("article", { name: "Dub Pack: Night Sessions" })).not.toBeInTheDocument();
+    expect(within(feed).getAllByRole("region", { name: /^Audio player:/ })).toHaveLength(2);
+  });
+
+  it("finds published packs by title without exposing draft pack metadata", () => {
+    const { rerender } = render(<LatestDubsTemplate {...packProps} dubs={[dub, second]} packs={[pack]} query="Night Sessions" />);
+    expect(screen.getByRole("article", { name: "Dub Pack: Night Sessions" })).toBeVisible();
+    rerender(<LatestDubsTemplate {...packProps} dubs={[dub, second]} packs={[{ ...pack, status: "draft" }]} query="Night Sessions" />);
+    expect(screen.queryByRole("article", { name: "Dub Pack: Night Sessions" })).not.toBeInTheDocument();
+    expect(screen.getByText("No dubs found")).toBeVisible();
+  });
+
+  it("paginates releases rather than splitting a pack's tracks across feed pages", () => {
+    const tracks = Array.from({ length: 7 }, (_, index) => ({ ...dub, id: `track-${index}`, title: `Track ${index}` }));
+    const standalone = { ...dub, id: "standalone", title: "Standalone" };
+    render(<LatestDubsTemplate {...packProps} dubs={[...tracks, standalone]} packs={[{ ...pack, items: tracks.map((dub) => ({ dub })) }]} />);
+    const feed = screen.getByRole("region", { name: "Community uploads" });
+    expect(within(feed).getByRole("article", { name: "Dub Pack: Night Sessions" })).toBeVisible();
+    expect(within(feed).getByRole("region", { name: "Audio player: Standalone" })).toBeVisible();
+    expect(screen.queryByRole("group", { name: "Releases pagination" })).not.toBeInTheDocument();
+  });
+
   it("shows a loading indicator in place of stale results and pagination while searching", () => {
     const props = {
       dubs: [dub], likedDubIds: new Set<string>(), nowPlayingId: null, isPlaying: false,
@@ -88,7 +142,7 @@ describe("LatestDubsTemplate ownership controls", () => {
       onDownload={vi.fn()} onOpenProfile={vi.fn()} onPlay={vi.fn()}
       currentUsername="meladee" onShareWithFriend={onShareWithFriend}
     />);
-    fireEvent.click(screen.getByRole("button", { name: "Share My Dub with a friend" }));
+    fireEvent.click(screen.getByRole("button", { name: "Share My Dub" }));
     expect(onShareWithFriend).toHaveBeenCalledWith(dub);
   });
 

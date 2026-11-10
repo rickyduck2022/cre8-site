@@ -1,0 +1,87 @@
+{
+  "id": "cre8-advert",
+  "title": "cre8 — your music, your community",
+  "description": "Instagram advert highlighting key cre8 functionality: discover, play, filter, publish and share dubs.",
+  "marketing": true,
+  "holdMs": 3200,
+  "actionDelayMs": 350,
+  "typingDelayMs": 45,
+  "variables": { "artistName": "Night Shift", "trackTitle": "Night Drive" },
+  "assets": {
+    "audio": { "env": "GUIDE_AUDIO_PATH" },
+    "artwork": { "path": "apps/web/public/cre8-main-logo.png", "env": "GUIDE_ARTWORK_PATH" }
+  },
+  "setup": [
+    { "type": "include", "fragment": "signed-in" },
+    { "type": "include", "fragment": "publish-dub" },
+    { "type": "click", "target": { "role": "button", "name": "Share a dub" } },
+    { "type": "fill", "target": { "label": "Track title" }, "value": "Midnight Roller" },
+    { "type": "click", "target": { "role": "button", "name": "Rollers", "within": { "role": "dialog", "name": "Share a dub" } } },
+    { "type": "fill", "target": { "label": "BPM" }, "value": "172" },
+    { "type": "upload", "target": { "label": "Audio fileUp to 100 MB" }, "asset": "audio" },
+    { "type": "upload", "target": { "label": "Track artwork Optional \u00b7 up to 10 MB" }, "asset": "artwork" },
+    { "type": "click", "target": { "role": "button", "name": "Share dub" } },
+    { "type": "waitFor", "target": { "role": "dialog", "name": "Share a dub" }, "state": "hidden" },
+    { "type": "include", "fragment": "add-holik" },
+    { "type": "waitFor", "target": { "role": "heading", "name": "Dub Vault" } }
+  ],
+  "steps": [
+    {
+      "caption": "Discover fresh dubs from a community built for DnB.",
+      "actions": [
+        { "type": "waitFor", "target": { "role": "heading", "name": "Dub Vault" } },
+        { "type": "waitFor", "target": { "role": "region", "name": "Audio player: {{trackTitle}}" } }
+      ],
+      "holdMs": 3600
+    },
+    {
+      "caption": "Press play and keep the vibe going while you explore.",
+      "actions": [
+        { "type": "click", "target": { "role": "button", "name": "Play", "within": { "role": "region", "name": "Audio player: {{trackTitle}}" } } }
+      ],
+      "holdMs": 3600
+    },
+    {
+      "caption": "Find your sound with search, tags and BPM filters.",
+      "actions": [
+        { "type": "click", "target": { "role": "button", "name": "Filters" } },
+        { "type": "click", "target": { "role": "button", "name": "Liquid" } },
+        { "type": "click", "target": { "role": "button", "name": "Apply filters" } },
+        { "type": "waitFor", "target": { "role": "region", "name": "Audio player: {{trackTitle}}" } }
+      ]
+    },
+    {
+      "caption": "Drop your own dub in seconds and share it worldwide.",
+      "actions": [
+        { "type": "click", "target": { "role": "button", "name": "Clear filters" } },
+        { "type": "click", "target": { "role": "button", "name": "Share a dub" } },
+        { "type": "fill", "target": { "label": "Track title" }, "value": "Fresh Cut" },
+        { "type": "click", "target": { "role": "button", "name": "Jump Up", "within": { "role": "dialog", "name": "Share a dub" } } },
+        { "type": "upload", "target": { "label": "Audio fileUp to 100 MB" }, "asset": "audio" },
+        { "type": "upload", "target": { "label": "Track artwork Optional \u00b7 up to 10 MB" }, "asset": "artwork" },
+        { "type": "click", "target": { "role": "button", "name": "Share dub" } },
+        { "type": "waitFor", "target": { "role": "dialog", "name": "Share a dub" }, "state": "hidden" }
+      ]
+    },
+    {
+      "caption": "Send dubs and messages straight to your crew.",
+      "actions": [
+        { "type": "navigate", "destination": "messenger" },
+        { "type": "click", "target": { "role": "button", "name": "Close audio player" } },
+        { "type": "click", "target": { "role": "button", "name": "Open conversation with Holik" } },
+        { "type": "fill", "target": { "label": "Message Holik" }, "value": "New dub just dropped — check Fresh Cut!" },
+        { "type": "click", "target": { "role": "button", "name": "Send message" } },
+        { "type": "waitFor", "target": { "role": "button", "name": "Unsend message", "within": { "role": "log", "name": "Conversation messages" } } }
+      ],
+      "holdMs": 3600
+    },
+    {
+      "caption": "Free to join. Start sharing today at cre8.",
+      "actions": [
+        { "type": "navigate", "destination": "dubs" },
+        { "type": "waitFor", "target": { "role": "region", "name": "Audio player: Fresh Cut" } }
+      ],
+      "holdMs": 5200
+    }
+  ]
+}

@@ -17,6 +17,11 @@ import "./DubCard.css";
 
 export interface DubCardProps {
   dub: Dub;
+  variant?: "default" | "playlist";
+  trackNumber?: number;
+  musicalKey?: string;
+  playbackDisabled?: boolean;
+  downloadDisabled?: boolean;
   crateId?: string;
   hasLiked?: boolean;
   isPlaying?: boolean;
@@ -42,6 +47,8 @@ export interface DubCardProps {
   onEdit?: (dub: Dub) => void;
   onDelete?: (dub: Dub) => void;
   onShareWithFriend?: (dub: Dub) => void;
+  onManageAccess?: () => void;
+  onAddToPack?: (dub: Dub) => void;
   manageable?: boolean;
 }
 
@@ -83,6 +90,11 @@ export function CompactDubCard({ dub, action, onOpenProfile, shared = false }: C
 
 export function DubCard({
   dub,
+  variant = "default",
+  trackNumber,
+  musicalKey,
+  playbackDisabled = false,
+  downloadDisabled = false,
   crateId,
   hasLiked = false,
   isPlaying = false,
@@ -108,12 +120,15 @@ export function DubCard({
   onEdit,
   onDelete,
   onShareWithFriend,
+  onManageAccess,
+  onAddToPack,
   manageable = false,
 }: DubCardProps) {
   const mobile = useMobileLayout();
   const actions = manageable && onEdit && onDelete ? (
     <DubActionsMenu
       iconOnly
+      onAddToPack={onAddToPack ? () => onAddToPack(dub) : undefined}
       onDelete={() => onDelete(dub)}
       onEdit={() => onEdit(dub)}
       title={dub.title}
@@ -122,17 +137,18 @@ export function DubCard({
   const downloadAndShare = (
     <>
       <Button
+        disabled={downloadDisabled}
         aria-label={mobile ? (hasLiked ? "Download again" : "Download and like") : undefined}
-        className="dub-card__download"
+        className={`dub-card__download${mobile && !hasLiked ? " dub-card__download--mobile-label" : ""}`}
         leadingIcon={hasLiked ? <Check /> : <Download />}
         onClick={() => onDownload(dub)}
         size="small"
         variant={hasLiked ? "secondary" : "primary"}
       >
-        {!mobile && (hasLiked ? "Download again" : "Download · Like")}
+        {(!mobile || !hasLiked) && (hasLiked ? "Download again" : "Download · Like")}
       </Button>
       {onShareWithFriend && (
-        <Button aria-label={`Share ${dub.title} with a friend`} leadingIcon={<MessageCircle />} onClick={() => onShareWithFriend(dub)} size="small" variant="secondary">
+        <Button aria-label={`Share ${dub.title}`} leadingIcon={<MessageCircle />} onClick={() => onShareWithFriend(dub)} size="small" variant="secondary">
           {!mobile && "Share"}
         </Button>
       )}
@@ -145,6 +161,50 @@ export function DubCard({
       {hasLiked && <span className="dub-card__you-liked">You downloaded</span>}
     </span>
   );
+
+  if (variant === "playlist") {
+    return (
+      <article aria-label={dub.title} className={`dub-card dub-card--playlist${isCurrentTrack ? " dub-card--current" : ""}${dub.distribution === "alist" ? " dub-card--alist" : dub.distribution === "private" ? " dub-card--private" : ""}`}>
+        <div className="dub-card__playlist-track">
+          {trackNumber !== undefined && <span className="dub-card__track-number" aria-label={`Track ${trackNumber}`}>{trackNumber}</span>}
+          <fieldset className="dub-card__playlist-player" disabled={playbackDisabled} aria-label={`Playback for ${dub.title}`}>
+            <AudioPlayer
+              className={isCurrentTrack ? "dub-card__player--current" : undefined}
+              distribution={dub.distribution ?? "worldwide"}
+              transportVariant="minimal"
+              variant="inline"
+              onPlayChange={() => onPlay(dub)}
+              playing={isPlaying}
+              currentTimeSeconds={isCurrentTrack ? currentTimeSeconds : 0}
+              durationSeconds={isCurrentTrack ? durationSeconds : undefined}
+              playbackError={isCurrentTrack ? playbackError : undefined}
+              onSeek={!playbackDisabled && onSeek ? (time) => onSeek(time, dub) : undefined}
+              onSeekProgress={!playbackDisabled && onSeekProgress ? (progress) => onSeekProgress(progress, dub) : undefined}
+              volume={volume}
+              onVolumeChange={onVolumeChange}
+              contextLabel={isCurrentTrack ? (isPlaying ? "Now playing" : "Paused") : undefined}
+              track={{
+                artist: dub.artist,
+                artistAListApproved: dub.artistAListApproved,
+                artworkContent: <TrackArtwork dub={dub} />,
+                duration: dub.duration,
+                onArtistClick: onOpenProfile ? () => onOpenProfile(dub.uploader) : undefined,
+                title: dub.title,
+              }}
+            />
+          </fieldset>
+        </div>
+        <div className="dub-card__playlist-footer">
+          <div className="dub-card__metadata-tags">
+            {dub.bpm > 0 && <TrackTag>{dub.bpm} BPM</TrackTag>}
+            {musicalKey && <TrackTag>{musicalKey}</TrackTag>}
+            <TrackFileMetadata audioFileName={dub.audioFileName} bitrateKbps={dub.bitrateKbps} fileType={dub.audioFormat} />
+          </div>
+          {downloadAndShare}
+        </div>
+      </article>
+    );
+  }
 
   return (
     <article className={`dub-card${dub.distribution === "alist" ? " dub-card--alist" : dub.distribution === "private" ? " dub-card--private" : ""}`}>
@@ -196,6 +256,7 @@ export function DubCard({
             onVolumeChange={onVolumeChange}
             onShuffleChange={onShuffleChange}
             onRepeatChange={onRepeatChange}
+            contextLabel={isCurrentTrack ? (isPlaying ? "Now playing" : "Paused") : undefined}
             track={{
               artist: dub.artist,
               artistAListApproved: dub.artistAListApproved,
@@ -230,6 +291,17 @@ export function DubCard({
               <DistributionTag distribution={dub.distribution} />
               {mobile && <div className="dub-card__mobile-actions">{downloadAndShare}</div>}
             </div>
+            {manageable && dub.distribution === "private" && onManageAccess && (
+              <Button
+                aria-label={`Manage access for ${dub.title}, ${dub.grants?.length ?? 0} ${dub.grants?.length === 1 ? "recipient" : "recipients"}`}
+                className="dub-card__manage-access"
+                onClick={onManageAccess}
+                size="small"
+                variant="secondary"
+              >
+                Manage access · {dub.grants?.length ?? 0}
+              </Button>
+            )}
           </div>
           {!mobile && <time className="dub-card__timestamp" dateTime={dub.uploadedAt}>
             Uploaded: {formatLocalTimestamp(dub.uploadedAt)}

@@ -80,6 +80,7 @@ export interface Dub {
   downloaders?: Array<{ username: string; displayName: string; downloadedAt: string; avatarUrl?: string; aListApproved?: boolean }>;
   distribution?: "worldwide" | "private" | "alist";
   aListPublic?: boolean;
+  previewSeconds?: number;
   version?: number;
   sharedBuddyIds?: string[];
   grants?: Array<{ id: string; username: string; displayName: string; avatarUrl?: string; aListApproved?: boolean }>;
@@ -101,6 +102,7 @@ export interface ChatMessage {
   text: string;
   sentAt: string;
   dubId?: string;
+  packId?: string;
   unsent?: boolean;
 }
 

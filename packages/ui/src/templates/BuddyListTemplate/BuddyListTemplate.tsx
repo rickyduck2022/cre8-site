@@ -97,13 +97,15 @@ export function BuddyListTemplate({
           onClick={() => document.getElementById("artist-lookup")?.focus()}
           size="small"
         >
-          Find friends
+          Find artists
         </Button>
       </section>
 
       <FriendLookup
+        buddies={buddies}
         isSearching={isSearchingMembers}
         onAdd={(member) => onAddMatchedMember?.(member)}
+        onOpenChat={onOpenChat}
         onOpenProfile={onSelectProfile}
         onQueryChange={onMemberSearchQueryChange ?? (() => undefined)}
         query={memberSearchQuery}
@@ -140,12 +142,16 @@ export function BuddyListTemplate({
         />
       </div>
 
-      <SearchField
-        aria-label="Search friends"
-        onChange={(event) => onQueryChange?.(event.target.value)}
-        placeholder="Search friends by name or genre"
-        value={query}
-      />
+      <div className="buddy-list__search">
+        <h2>Search friends</h2>
+        <p>Filter your saved contacts by name or genre.</p>
+        <SearchField
+          aria-label="Search friends"
+          onChange={(event) => onQueryChange?.(event.target.value)}
+          placeholder="Search friends by name or genre"
+          value={query}
+        />
+      </div>
 
       <section className="buddy-list" aria-label="Contacts">
         {buddyPagination.items.map((buddy) => (

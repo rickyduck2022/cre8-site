@@ -4,15 +4,6 @@
   bottom: 100%;
 }
 
-.player-position-menu__trigger.button {
-  background: var(--surface-media-section);
-  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
-  box-shadow: var(--shadow-card);
-  min-height: 2rem;
-  min-width: 2rem;
-  padding: var(--spacing-1);
-}
-
 .player-position-menu__popover {
   background: var(--surface-raised);
   border: 1px solid var(--border-default);

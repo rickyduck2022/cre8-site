@@ -20,6 +20,18 @@
   gap: 0.5rem;
 }
 
+.dub-search__active {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.dub-search__active .button {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
 .dub-search__panel {
   background: var(--surface-raised);
   border: 1px solid var(--border-default);
@@ -223,6 +235,11 @@
     border: 0;
     border-radius: 0;
     padding: 0;
+  }
+
+  .dub-search__dialog .dub-search__footer {
+    border-top: 0;
+    padding-top: 0;
   }
 }
 

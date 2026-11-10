@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import { Ellipsis } from "@craft/icons";
 import { Button } from "../../atoms/Button/Button";
+import { PlayerTab } from "../../atoms/PlayerTab/PlayerTab";
 import "./PlayerPositionMenu.css";
 
 export type PlayerPosition = "header" | "footer" | "sidebar" | "default" | "floating" | "left-edge" | "right-edge";
@@ -87,9 +88,9 @@ export function PlayerPositionMenu({ positions, current, onSelect, opacityContro
     <div className="player-position-menu" ref={root} onBlur={(event) => {
       if (!event.currentTarget.contains(event.relatedTarget) && !popover.current?.contains(event.relatedTarget)) setOpen(false);
     }}>
-      <Button ref={trigger} aria-label="Choose player position" aria-expanded={open} aria-controls={open ? id : undefined}
+      <PlayerTab ref={trigger} aria-label="Choose player position" aria-expanded={open} aria-controls={open ? id : undefined}
         className="player-position-menu__trigger" leadingIcon={<Ellipsis aria-hidden="true" />}
-        onClick={toggle} size="small" variant="tertiary" />
+        onClick={toggle} />
       {open && createPortal(
         <div ref={popover} className="player-position-menu__popover" id={id} role="group" aria-label="Player positions" style={menuStyle}>
           {positions.map((position) => (

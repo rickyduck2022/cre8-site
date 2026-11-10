@@ -6,6 +6,17 @@ import { TransportControls } from "./TransportControls";
 afterEach(cleanup);
 
 describe("TransportControls", () => {
+  it("renders only play/pause in minimal mode and preserves full controls by default", () => {
+    const change = vi.fn();
+    const { rerender } = render(<TransportControls variant="minimal" onPlayChange={change} />);
+    expect(screen.getAllByRole("button")).toHaveLength(1);
+    fireEvent.click(screen.getByRole("button", { name: "Play" }));
+    expect(change).toHaveBeenCalledWith(true);
+    expect(screen.getByRole("button", { name: "Pause" })).toBeVisible();
+    rerender(<TransportControls />);
+    expect(screen.getAllByRole("button")).toHaveLength(5);
+  });
+
   it("keeps the play button icon as its only flex item", () => {
     render(<TransportControls />);
 

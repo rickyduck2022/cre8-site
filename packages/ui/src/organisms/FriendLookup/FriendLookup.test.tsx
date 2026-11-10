@@ -20,4 +20,21 @@ describe("FriendLookup", () => {
     fireEvent.click(screen.getByRole("button", { name: "Add Amber" }));
     await waitFor(() => expect(onAdd).toHaveBeenCalledWith(expect.objectContaining({ id: "user-1", artistId: "artist-user-1" })));
   });
+
+  it("replaces Add with Added and a message shortcut when the result becomes a saved friend", () => {
+    const member = { id: "account-amber", username: "amber", displayName: "Amber", genre: "Jungle" };
+    const onAdd = vi.fn();
+    const onOpenChat = vi.fn();
+    const props = { query: "amber", results: [member], onAdd, onOpenChat, onQueryChange: vi.fn() };
+    const { rerender } = render(<FriendLookup {...props} />);
+    fireEvent.click(screen.getByRole("button", { name: "Add Amber" }));
+    expect(onAdd).toHaveBeenCalledWith(member);
+
+    rerender(<FriendLookup {...props} buddies={[{ id: "saved-amber", username: "amber" }]} />);
+    expect(screen.queryByRole("button", { name: "Add Amber" })).not.toBeInTheDocument();
+    expect(screen.getByText("Added")).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Message Amber" }));
+    expect(onOpenChat).toHaveBeenCalledWith("saved-amber");
+    expect(onAdd).toHaveBeenCalledOnce();
+  });
 });

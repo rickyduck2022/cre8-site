@@ -28,7 +28,7 @@ export default defineConfig(({ command }) => ({
         importScripts: ["/push-worker.js"],
         globPatterns: ["**/*.{js,css,html,png,ico,svg,woff,woff2}"],
         navigateFallback: "/index.html",
-        navigateFallbackDenylist: [/^\/api(?:\/|$)/, /^\/admin(?:\/|$)/],
+        navigateFallbackDenylist: [/^\/api(?:\/|$)/, /^\/admin(?:\/|$)/, /^\/guides(?:\/|$)/],
         cleanupOutdatedCaches: true,
       },
     }),
@@ -44,6 +44,9 @@ export default defineConfig(({ command }) => ({
       "/api": {
         target: "http://127.0.0.1:3001",
         ws: true,
+      },
+      "/guides": {
+        target: "http://127.0.0.1:3001",
       },
     },
   },

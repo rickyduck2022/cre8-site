@@ -201,16 +201,6 @@
 }
 
 @media (max-width: 760px) {
-  .notification-center__dialog .modal__surface {
-    padding: max(1.25rem, env(safe-area-inset-top, 0px)) 1rem max(1.25rem, env(safe-area-inset-bottom, 0px));
-  }
-
-  .notification-center__dialog .modal__header {
-    border-bottom: 1px solid var(--border-default);
-    margin-bottom: 0;
-    padding-bottom: 0.75rem;
-  }
-
   .notification-center__mobile-actions {
     display: flex;
     justify-content: flex-end;

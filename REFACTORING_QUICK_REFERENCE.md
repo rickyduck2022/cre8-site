@@ -1,5 +1,90 @@
 # React Component Library - Refactoring Quick Reference
 
+## Shared media-player tabs
+
+Use `PlayerTab` from `@craft/ui` for move, expand, position-menu and close tabs.
+It forwards native button props and refs, fixes the small/tertiary presentation,
+and owns the surface, top-only inset shadow, keyboard focus and touch-hover
+behavior. Consumers retain their action handlers, accessible labels and docking
+geometry; ordinary menu items remain `Button` components.
+
+The app player supplies context through `--player-tab-surface`,
+`--player-tab-hover`, `--player-tab-color` and `--player-tab-shadow`.
+Use `--shadow-media-edge-inset` for mini-player tabs and `--shadow-tab-inset`
+for expanded desktop tabs, both defined in `packages/tokens/src/theme.css`.
+Do not add per-action shadow or focus overrides to the shell stylesheet.
+Within the app player, a non-interactive surface extension masks the shadow at
+the tab join and inherits the button's opaque hover background. Tab borders use
+`--player-tab-border` (the mini-player outline in the app shell). The inset
+shadow extends through the join before being clipped, preserving side shading
+without a bottom seam. Header and sidebar layouts change the join direction.
+
+## App player composition
+
+`apps/web/src/hooks/usePlayerLayout.ts` owns player layout state, saved
+preferences, position-menu actions, drag/snap integration, viewport changes,
+edge-dock focus restoration and measured layout offsets. Messenger and other
+pages retain separate minimized/expanded placements; the existing storage
+format and shared floating position remain unchanged.
+
+`apps/web/src/components/AppPlayer.tsx` renders the player, tabs, snap previews
+and mobile edge controls. It receives the layout controller and a typed subset
+of `AudioPlayer` playback props; it does not create an audio instance or fetch
+community data. `App` binds playback and profile navigation, supplies the
+controller's dashboard classes and keeps the header slot and mobile navigation
+in the shell.
+
+Mini players reuse `TransportControls` for previous/play/next. Shuffle and repeat
+remain hidden only in the minimized shell layout. Mini players put transport
+controls on their own row to preserve artwork/text space at every width;
+measured height offsets automatically include that row.
+
+## Public shared-dub playback
+
+`ShareDubDialog` accepts an `externalShareUrl` supplied by the app. It offers
+copy/manual-copy feedback only for worldwide or explicitly public A-List dubs;
+friend sharing and its per-recipient retry lifecycle remain separate.
+The API independently enforces the same public policy on metadata and media.
+Logged-out streams contain only an FFmpeg-generated preview. The uploader can
+save a 30/60/90-second per-dub setting through `onUpdatePreview`; other sharers
+see the current setting but cannot edit it. The setting affects all existing
+links. The standalone page offers sign-in for both full listening and downloads;
+authenticated metadata points at the original protected audio endpoint.
+
+The web root selects `SharedDubPage` for `#share?dub=<id>` without mounting
+the community shell or chat. The page reuses `TrackArtwork`, `AudioPlayer` and
+`useAudioPlayback`. Use `transportVariant="minimal"` on `AudioPlayer` (or
+`variant="minimal"` on `TransportControls`) for play/pause without queue controls.
+Playback persistence is optional; standalone playback sets `autoAdvance: false`
+so reaching the end does not restart the track. Existing app defaults are unchanged.
+
+Both community and standalone download actions use `services/downloadDubFile`.
+Only `#sign-in?dub=<id>` is recognized as a sign-in return destination; arbitrary
+redirect URLs are never accepted.
+
+## Async dialog submissions
+
+Use `utils/useAsyncSubmission` for pending state, inline failure messages and
+an immediate in-flight lock (including duplicate calls before React rerenders).
+`run(action)` returns a success boolean: `false` and `null` are failures;
+other resolved results, including legacy `void` form callbacks, are success.
+Rejected actions surface their error message rather than becoming unhandled
+rejections. Supply a record ID as the reset key for persistent dialog hosts.
+
+Use `requestClose(onClose)` for guarded dismissal and pass `closeDisabled`
+to `Modal` while pending. This disables the header close action, guards
+Escape/backdrop/native close callbacks and explains why closing is unavailable.
+Disable form fields and footer actions during submission; keep values intact on
+failure and close only after `run` confirms success.
+
+`EditProfileDialog` owns the profile-save lifecycle; the app only supplies
+profile data, its existing mutation and dismissal callback. `DubUploadForm`
+uses the same lifecycle for create/edit while retaining specialized upload
+progress and validation. `DubManagementDialogs` guards edit/delete dismissal
+and presents API failures inline. `ShareDubDialog` retains its success screen
+and per-recipient retry state; rejected recipient sends are reported as failed
+without losing earlier successes or resending them.
+
 ## 🎯 Key Changes at a Glance
 
 | Area | What Changed | How to Use |

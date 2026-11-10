@@ -17,3 +17,9 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 export const Results: Story = {};
+export const AddedFriend: Story = {
+  args: {
+    buddies: [{ id: "buddy-amber", username: "amber" }],
+    onOpenChat: () => undefined,
+  },
+};

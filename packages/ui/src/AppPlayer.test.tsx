@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "../../../apps/web/src/app/App";
 
@@ -53,6 +53,77 @@ afterEach(() => {
 });
 
 describe("app footer player", () => {
+  it.each([375, 900, 1440])("wires mini-player previous, next and play controls at width %i", (width) => {
+    vi.stubGlobal("innerWidth", width);
+    const playPreviousDub = vi.fn();
+    const playNextDub = vi.fn();
+    const togglePlayback = vi.fn();
+    mocks.community.mockReturnValue({
+      ...community([dub], "one"), playPreviousDub, playNextDub, togglePlayback,
+    });
+    render(<App />);
+    const player = screen.getByRole("region", { name: "Audio player: Night Drive" });
+    fireEvent.click(within(player).getByRole("button", { name: "Previous track" }));
+    fireEvent.click(within(player).getByRole("button", { name: "Next track" }));
+    fireEvent.click(within(player).getByRole("button", { name: "Play", exact: true }));
+    expect(playPreviousDub).toHaveBeenCalledOnce();
+    expect(playNextDub).toHaveBeenCalledOnce();
+    expect(togglePlayback).toHaveBeenCalledOnce();
+    expect(togglePlayback).toHaveBeenCalledWith(dub);
+  });
+
+  it.each([
+    [1440, "Header"], [1440, "Footer"], [1440, "Left sidebar"], [1440, "Pop out"],
+    [375, "Left edge"], [375, "Right edge"],
+  ] as const)("closes the %s-width %s player without discarding its saved layout", (width, position) => {
+    vi.stubGlobal("innerWidth", width);
+    const closePlayer = vi.fn();
+    const togglePlayback = vi.fn();
+    mocks.community.mockReturnValue({ ...community([dub], "one"), closePlayer, togglePlayback });
+    const app = render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "Choose player position" }));
+    fireEvent.click(screen.getByRole("button", { name: position }));
+    const saved = window.localStorage.getItem("cre8:player-layout");
+    const closeButtons = screen.getAllByRole("button", { name: "Close audio player" });
+    fireEvent.click(closeButtons[closeButtons.length - 1]);
+    expect(closePlayer).toHaveBeenCalledOnce();
+    expect(togglePlayback).not.toHaveBeenCalled();
+    mocks.community.mockReturnValue({ ...community([dub], null), closePlayer, togglePlayback });
+    app.rerender(<App />);
+    expect(screen.queryByRole("region", { name: /Audio player/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Open audio player docked/ })).not.toBeInTheDocument();
+    expect(window.localStorage.getItem("cre8:player-layout")).toBe(saved);
+  });
+
+  it("preserves separate Messenger and other-page layouts across navigation and remounts", () => {
+    vi.stubGlobal("innerWidth", 900);
+    mocks.community.mockReturnValue(community([dub], "one"));
+    let app = render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "Choose player position" }));
+    fireEvent.click(screen.getByRole("button", { name: "Header" }));
+    expect(screen.getByRole("main")).toHaveClass("community-dashboard-template--player-header");
+
+    function navigate(hash: string) {
+      act(() => {
+        window.history.replaceState(null, "", `/#${hash}`);
+        window.dispatchEvent(new HashChangeEvent("hashchange"));
+      });
+    }
+
+    navigate("messenger");
+    expect(screen.getByRole("region", { name: "Audio player: Night Drive" })).toHaveClass("audio-player--minimized");
+    fireEvent.click(screen.getByRole("button", { name: "Choose player position" }));
+    fireEvent.click(screen.getByRole("button", { name: "Footer" }));
+    navigate("dubs");
+    expect(screen.getByRole("main")).toHaveClass("community-dashboard-template--player-header");
+    app.unmount();
+    app = render(<App />);
+    expect(screen.getByRole("main")).toHaveClass("community-dashboard-template--player-header");
+    navigate("messenger");
+    expect(screen.getByRole("region", { name: "Audio player: Night Drive" })).not.toHaveClass("audio-player--minimized");
+    expect(screen.getByRole("main")).not.toHaveClass("community-dashboard-template--player-header");
+  });
+
   it("applies mobile opacity to the whole player and removes it on desktop", () => {
     vi.stubGlobal("innerWidth", 375);
     mocks.community.mockReturnValue(community([dub], "one"));

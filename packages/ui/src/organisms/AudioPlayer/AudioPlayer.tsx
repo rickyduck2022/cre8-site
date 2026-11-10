@@ -1,6 +1,6 @@
 import { forwardRef, useState, type CSSProperties, type ReactNode } from "react";
-import { Maximize2, Minimize2, Volume2 } from "@craft/icons";
-import { Button } from "../../atoms/Button/Button";
+import { Maximize2, Minimize2, Volume2, X } from "@craft/icons";
+import { PlayerTab } from "../../atoms/PlayerTab/PlayerTab";
 import type { NowPlayingProps } from "../../molecules/NowPlaying/NowPlaying";
 import { NowPlaying } from "../../molecules/NowPlaying/NowPlaying";
 import { TransportControls } from "../../molecules/TransportControls/TransportControls";
@@ -18,6 +18,8 @@ export interface AudioPlayerProps {
   track?: AudioPlayerTrack | null;
   variant?: "full" | "compact" | "mini" | "docked" | "inline";
   colorVariant?: "default" | "playable" | "controller";
+  transportVariant?: "full" | "minimal";
+  contextLabel?: string;
   distribution?: Dub["distribution"];
   endAction?: ReactNode;
   metadata?: ReactNode;
@@ -44,6 +46,7 @@ export interface AudioPlayerProps {
   minimizeLabel?: string;
   minimizeIcon?: "maximize" | "minimize";
   positionMenu?: ReactNode;
+  onClose?: () => void;
 }
 
 function formatTime(seconds: number) {
@@ -64,6 +67,7 @@ function durationFromLabel(duration?: string) {
 export const AudioPlayer = forwardRef<HTMLElement, AudioPlayerProps>(function AudioPlayer({
   className,
   colorVariant = "default",
+  contextLabel,
   currentTimeSeconds = 0,
   durationSeconds,
   distribution,
@@ -74,6 +78,7 @@ export const AudioPlayer = forwardRef<HTMLElement, AudioPlayerProps>(function Au
   minimizeLabel,
   minimizeIcon,
   onMinimizedChange,
+  onClose,
   onNext,
   onPlayChange,
   onPrevious,
@@ -89,6 +94,7 @@ export const AudioPlayer = forwardRef<HTMLElement, AudioPlayerProps>(function Au
   shuffle,
   style,
   track,
+  transportVariant = "full",
   variant = "full",
   volume,
 }, ref) {
@@ -142,6 +148,7 @@ export const AudioPlayer = forwardRef<HTMLElement, AudioPlayerProps>(function Au
     >
       {minimized && dragHandle}
       <NowPlaying
+        contextLabel={contextLabel}
         artist={track.artist || "Artist"}
         artistAListApproved={track.artistAListApproved}
         artwork={track.artwork}
@@ -151,6 +158,7 @@ export const AudioPlayer = forwardRef<HTMLElement, AudioPlayerProps>(function Au
         title={track.title}
         />
       <TransportControls
+        variant={transportVariant}
         onNext={onNext}
         onPlayChange={handlePlayChange}
         onPrevious={onPrevious}
@@ -206,7 +214,7 @@ export const AudioPlayer = forwardRef<HTMLElement, AudioPlayerProps>(function Au
         </span>
       )}
       {onMinimizedChange && (
-        <Button
+        <PlayerTab
           aria-expanded={!minimized}
           aria-label={minimizeLabel ?? (minimized ? "Expand audio player" : "Minimize audio player")}
           className="audio-player__minimize"
@@ -217,6 +225,9 @@ export const AudioPlayer = forwardRef<HTMLElement, AudioPlayerProps>(function Au
         />
       )}
       {positionMenu}
+      {onClose && (
+        <PlayerTab aria-label="Close audio player" className="audio-player__close" leadingIcon={<X aria-hidden="true" />} onClick={onClose} />
+      )}
     </section>
   );
 });

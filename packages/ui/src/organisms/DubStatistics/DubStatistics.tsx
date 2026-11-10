@@ -33,8 +33,8 @@ export function DubStatistics({ dub, onRevokeGrant, onOpenProfile }: DubStatisti
 
         <div className="dub-statistics__people">
           {dub.distribution === "private" && (
-            <div className="dub-statistics__access">
-              <h4>Private Access</h4>
+            <div aria-label={`Private access for ${dub.title}`} className="dub-statistics__access" role="region" tabIndex={-1}>
+          <h4>Private Access</h4>
               <p>Share this dub with a friend to grant access in Messenger.</p>
               {dub.grants?.length ? (
                 <ul className="dub-statistics__access-list" aria-label={`Private access to ${dub.title}`}>

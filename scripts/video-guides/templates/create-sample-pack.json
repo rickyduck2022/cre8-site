@@ -1,0 +1,74 @@
+{
+  "id": "create-sample-pack",
+  "title": "Create a Sample Pack",
+  "description": "Choose Sample Pack, add usage terms, upload audio with BPM and musical key, and publish.",
+  "variables": { "artistName": "Demo Artist", "packTitle": "Jungle Toolkit" },
+  "assets": {
+    "audio": { "env": "GUIDE_AUDIO_PATH" },
+    "artwork": { "path": "apps/web/public/cre8-main-logo.png", "env": "GUIDE_ARTWORK_PATH" }
+  },
+  "setup": [{ "type": "include", "fragment": "signed-in" }],
+  "steps": [
+    {
+      "caption": "1. Open Share a dub, then choose Dub / Sample Pack.",
+      "actions": [
+        { "type": "click", "target": { "role": "button", "name": "Share a dub" } },
+        { "type": "click", "target": { "role": "button", "name": "Dub / Sample Pack" } },
+        { "type": "waitFor", "target": { "role": "region", "name": "Pack editor" } }
+      ]
+    },
+    {
+      "caption": "2. Change Pack type to Sample Pack. No different uploader is needed.",
+      "actions": [
+        { "type": "select", "target": { "role": "combobox", "name": "Pack type" }, "value": "sample" },
+        { "type": "fill", "target": { "label": "Pack title" }, "value": "{{packTitle}}" },
+        { "type": "upload", "target": { "label": "Pack artwork (optional)" }, "asset": "artwork" }
+      ]
+    },
+    {
+      "caption": "3. State usage rights clearly. Download access alone does not grant permission to reuse samples.",
+      "actions": [
+        { "type": "fill", "target": { "label": "Usage licence" }, "value": "Demo terms: use in original productions; no standalone resale. Only distribute audio you have permission to license." }
+      ]
+    },
+    {
+      "caption": "4. Add an audio file. BPM and musical key are optional sample metadata.",
+      "actions": [
+        { "type": "click", "target": { "role": "button", "name": "2. Add files" } },
+        { "type": "upload", "target": { "label": "Upload audio files" }, "asset": "audio" },
+        { "type": "fill", "target": { "label": "File title" }, "value": "Jungle Texture" },
+        { "type": "fill", "target": { "label": "BPM (optional)" }, "value": "174" },
+        { "type": "fill", "target": { "label": "Musical key (optional)" }, "value": "F minor" }
+      ]
+    },
+    {
+      "caption": "5. Upload the file and wait for confirmation. Successful uploads remain saved in the draft.",
+      "actions": [
+        { "type": "click", "target": { "role": "button", "name": "Upload files (1)" } },
+        { "type": "waitFor", "target": { "text": "All files uploaded and saved." } }
+      ]
+    },
+    {
+      "caption": "6. Review the files and licence, then publish the Sample Pack.",
+      "actions": [
+        { "type": "click", "target": { "role": "button", "name": "3. Arrange & review" } },
+        { "type": "click", "target": { "role": "button", "name": "Publish pack" } },
+        { "type": "waitFor", "target": { "role": "article", "name": "Sample Pack: {{packTitle}}" } }
+      ]
+    },
+    {
+      "caption": "7. Edit pack lets you change the type later without uploading the files again.",
+      "actions": [
+        { "type": "click", "target": { "role": "button", "name": "Edit pack" } },
+        { "type": "waitFor", "target": { "role": "combobox", "name": "Pack type" } }
+      ]
+    },
+    {
+      "caption": "Your Sample Pack keeps its audio, artwork and permissions when its type changes.",
+      "actions": [
+        { "type": "click", "target": { "role": "button", "name": "Close editor" } },
+        { "type": "waitFor", "target": { "role": "article", "name": "Sample Pack: {{packTitle}}" } }
+      ]
+    }
+  ]
+}

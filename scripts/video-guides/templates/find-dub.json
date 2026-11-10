@@ -1,0 +1,60 @@
+{
+  "id": "find-dub",
+  "title": "Find a dub",
+  "description": "Search the Dub Vault, apply tag and BPM filters, and change the sort order.",
+  "variables": { "artistName": "Demo Artist", "trackTitle": "Night Drive" },
+  "assets": {
+    "audio": { "env": "GUIDE_AUDIO_PATH" },
+    "artwork": { "path": "apps/web/public/cre8-main-logo.png", "env": "GUIDE_ARTWORK_PATH" }
+  },
+  "setup": [
+    { "type": "include", "fragment": "signed-in" },
+    { "type": "include", "fragment": "publish-dub" }
+  ],
+  "steps": [
+    {
+      "caption": "Find your next dub in Dub Vault. This demo has a Liquid track at 174 BPM.",
+      "actions": [{ "type": "waitFor", "target": { "role": "heading", "name": "Dub Vault" } }]
+    },
+    {
+      "caption": "1. Search by track title, artist, tag or genre.",
+      "actions": [
+        { "type": "fill", "target": { "label": "Search tracks, artists, tags, or genres" }, "value": "Night" },
+        { "type": "waitFor", "target": { "role": "region", "name": "Audio player: {{trackTitle}}" } }
+      ]
+    },
+    {
+      "caption": "2. Open Filters to narrow the results.",
+      "actions": [{ "type": "click", "target": { "role": "button", "name": "Filters" } }]
+    },
+    {
+      "caption": "3. Select Liquid. Tags match any of the styles you choose.",
+      "actions": [{ "type": "click", "target": { "role": "button", "name": "Liquid" } }]
+    },
+    {
+      "caption": "4. Set a BPM range, then select Apply filters.",
+      "actions": [
+        { "type": "fill", "target": { "label": "Minimum BPM" }, "value": "170" },
+        { "type": "fill", "target": { "label": "Maximum BPM" }, "value": "176" },
+        { "type": "click", "target": { "role": "button", "name": "Apply filters" } },
+        { "type": "waitFor", "target": { "role": "region", "name": "Audio player: {{trackTitle}}" } }
+      ]
+    },
+    {
+      "caption": "5. Choose Most liked to sort matching dubs by downloads and likes.",
+      "actions": [{ "type": "select", "target": { "label": "Sort uploads" }, "value": "liked" }]
+    },
+    {
+      "caption": "6. Applied filters appear as removable chips. Select Clear filters to reset them.",
+      "actions": [
+        { "type": "waitFor", "target": { "role": "button", "name": "Remove Liquid filter" } },
+        { "type": "click", "target": { "role": "button", "name": "Clear filters" } },
+        { "type": "fill", "target": { "label": "Search tracks, artists, tags, or genres" }, "value": "" }
+      ]
+    },
+    {
+      "caption": "Your full Dub Vault is back. Select Play on a track when you are ready to listen.",
+      "actions": [{ "type": "waitFor", "target": { "role": "region", "name": "Audio player: {{trackTitle}}" } }]
+    }
+  ]
+}

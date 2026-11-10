@@ -7,6 +7,25 @@ afterEach(cleanup);
 const track = { title: "Night Drive", artist: "Amber" };
 
 describe("AudioPlayer playback indicator", () => {
+  it("shows a playback context label without replacing track details or transport", () => {
+    render(<AudioPlayer track={track} contextLabel="Playback paused" />);
+    expect(screen.getByText("Playback paused")).toBeVisible();
+    expect(screen.getByText("Night Drive")).toBeVisible();
+    expect(screen.getByRole("button", { name: "Play" })).toBeVisible();
+  });
+  it.each([false, true])("offers an optional close action (minimized: %s)", (minimized) => {
+    const close = vi.fn();
+    const play = vi.fn();
+    render(<AudioPlayer track={track} minimized={minimized} onClose={close} onPlayChange={play} />);
+    const button = screen.getByRole("button", { name: "Close audio player" });
+    expect(button).toHaveClass("player-tab");
+    expect(button.querySelector("svg")).toBeInTheDocument();
+    expect(button).not.toHaveTextContent("Close");
+    fireEvent.click(button);
+    expect(close).toHaveBeenCalledOnce();
+    expect(play).not.toHaveBeenCalled();
+  });
+
   it("offers a controlled minimize and expand action without affecting playback", () => {
     const change = vi.fn();
     const play = vi.fn();

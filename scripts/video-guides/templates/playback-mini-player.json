@@ -1,0 +1,60 @@
+{
+  "id": "playback-mini-player",
+  "title": "Playback and mini player",
+  "description": "Play a dub, use repeat, change player placement and keep listening while navigating.",
+  "variables": { "artistName": "Demo Artist", "trackTitle": "Night Drive" },
+  "assets": {
+    "audio": { "env": "GUIDE_AUDIO_PATH" },
+    "artwork": { "path": "apps/web/public/cre8-main-logo.png", "env": "GUIDE_ARTWORK_PATH" }
+  },
+  "setup": [
+    { "type": "include", "fragment": "signed-in" },
+    { "type": "include", "fragment": "publish-dub" }
+  ],
+  "steps": [
+    {
+      "caption": "Listen to a dub, then keep the player with you as you move around cre8.",
+      "actions": [{ "type": "waitFor", "target": { "role": "region", "name": "Audio player: {{trackTitle}}" } }]
+    },
+    {
+      "caption": "1. Select Play on the track. The persistent player opens too.",
+      "actions": [{ "type": "click", "target": { "role": "button", "name": "Play", "within": { "role": "region", "name": "Audio player: {{trackTitle}}" } } }]
+    },
+    {
+      "caption": "2. Open the player position menu and choose Footer for a larger player.",
+      "actions": [
+        { "type": "click", "target": { "role": "button", "name": "Choose player position" } },
+        { "type": "click", "target": { "role": "button", "name": "Footer", "within": { "role": "group", "name": "Player positions" } } }
+      ]
+    },
+    {
+      "caption": "3. Open My Library. Playback continues when you leave the Dub Vault.",
+      "actions": [
+        { "type": "navigate", "destination": "library" },
+        { "type": "waitFor", "target": { "role": "button", "name": "Pause" } }
+      ]
+    },
+    {
+      "caption": "4. Select Repeat to keep the current track in rotation.",
+      "actions": [{ "type": "click", "target": { "role": "button", "name": "Enable repeat" } }]
+    },
+    {
+      "caption": "5. Choose Pop out from the position menu to use the mini player.",
+      "actions": [
+        { "type": "click", "target": { "role": "button", "name": "Choose player position" } },
+        { "type": "click", "target": { "role": "button", "name": "Pop out" } }
+      ]
+    },
+    {
+      "caption": "6. Select Pause to stop playback without closing the player.",
+      "actions": [{ "type": "click", "target": { "role": "button", "name": "Pause" } }]
+    },
+    {
+      "caption": "7. Close the audio player when you have finished listening.",
+      "actions": [
+        { "type": "click", "target": { "role": "button", "name": "Close audio player" } },
+        { "type": "waitFor", "target": { "role": "button", "name": "Close audio player" }, "state": "hidden" }
+      ]
+    }
+  ]
+}

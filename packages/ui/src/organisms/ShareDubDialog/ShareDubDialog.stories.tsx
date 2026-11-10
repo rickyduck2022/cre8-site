@@ -27,3 +27,12 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 export const Default: Story = {};
 export const NoFriends: Story = { args: { buddies: [] } };
+export const ExternalSharing: Story = {
+  args: {
+    dub: { ...meta.args.dub, distribution: "worldwide" },
+    buddies: [],
+    externalShareUrl: "https://cre8.example/#share?dub=dub-1",
+    onUpdatePreview: async () => undefined,
+  },
+};
+export const ProtectedSharing: Story = { args: { externalShareUrl: "https://cre8.example/#share?dub=dub-1" } };

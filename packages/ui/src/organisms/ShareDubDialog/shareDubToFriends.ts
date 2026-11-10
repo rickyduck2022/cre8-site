@@ -7,8 +7,13 @@ export async function shareDubToFriends(
   const sent: string[] = [];
   const failed: string[] = [];
   for (const buddyId of [...new Set(buddyIds)]) {
-    if (await sendMessage(buddyId, text, dubId)) sent.push(buddyId);
-    else failed.push(buddyId);
+    try {
+      if (await sendMessage(buddyId, text, dubId)) sent.push(buddyId);
+      else failed.push(buddyId);
+    } catch (error) {
+      console.warn("Unable to share dub with recipient.", error);
+      failed.push(buddyId);
+    }
   }
   return { sent, failed };
 }

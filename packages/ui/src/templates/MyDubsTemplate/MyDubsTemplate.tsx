@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { AudioLines, ChevronRight, Search } from "@craft/icons";
 import { Badge } from "../../atoms/Badge/Badge";
 import { Button } from "../../atoms/Button/Button";
@@ -7,12 +7,19 @@ import { SearchField } from "../../molecules/SearchField/SearchField";
 import { ShareDubIcon } from "../../molecules/ShareDubIcon/ShareDubIcon";
 import { DubCard } from "../../organisms/DubCard/DubCard";
 import { DubStatistics } from "../../organisms/DubStatistics/DubStatistics";
+import { DubPackCollection, type DubPackCollectionProps } from "../../organisms/DubPackCard/DubPackCollection";
 import type { Dub } from "../communityTypes";
 import "../CommunityPageTemplates.css";
 import "./MyDubsTemplate.css";
 
 export interface MyDubsTemplateProps {
   dubs: Dub[];
+  packs?: DubPackCollectionProps["packs"];
+  ownerUsername?: string;
+  onPlayPack?: DubPackCollectionProps["onPlayAll"];
+  onOpenPack?: DubPackCollectionProps["onOpenPack"];
+  onDownloadPack?: DubPackCollectionProps["onDownloadPack"];
+  onActivateQueue?: DubPackCollectionProps["onActivateQueue"];
   likedDubIds: Set<string>;
   nowPlayingId: string | null;
   isPlaying: boolean;
@@ -36,11 +43,18 @@ export interface MyDubsTemplateProps {
   onEditDub: (dub: Dub) => void;
   onDeleteDub: (dub: Dub) => void;
   onRevokeGrant?: (dubId: string, userId: string) => void;
+  onAddToPack?: (dub: Dub) => void;
   onOpenProfile?: (username: string) => void;
 }
 
 export function MyDubsTemplate({
   dubs,
+  packs = [],
+  ownerUsername,
+  onPlayPack,
+  onOpenPack,
+  onDownloadPack,
+  onActivateQueue,
   likedDubIds,
   nowPlayingId,
   isPlaying,
@@ -64,9 +78,11 @@ export function MyDubsTemplate({
   onEditDub,
   onDeleteDub,
   onRevokeGrant,
+  onAddToPack,
   onOpenProfile,
 }: MyDubsTemplateProps) {
   const [query, setQuery] = useState("");
+  const statisticsRefs = useRef(new Map<string, HTMLDetailsElement>());
   const filteredDubs = useMemo(() => {
     const needle = query.trim().toLocaleLowerCase();
     return dubs.filter((dub) =>
@@ -75,6 +91,12 @@ export function MyDubsTemplate({
     );
   }, [dubs, query]);
   const pagination = usePagination(filteredDubs, query);
+  const manageAccess = (dubId: string) => {
+    const details = statisticsRefs.current.get(dubId);
+    if (!details) return;
+    details.open = true;
+    details.querySelector<HTMLElement>(".dub-statistics__access")?.focus();
+  };
 
   return (
     <div className="my-dubs-template">
@@ -98,6 +120,15 @@ export function MyDubsTemplate({
         placeholder="Search your tracks, tags, or genres"
         value={query}
       />
+
+      {ownerUsername && onPlayPack && onOpenPack && <DubPackCollection
+        packs={packs} ownerUsername={ownerUsername} query={query} likedDubIds={likedDubIds}
+        nowPlayingId={nowPlayingId} isPlaying={isPlaying} currentTimeSeconds={currentTimeSeconds}
+        durationSeconds={durationSeconds} volume={volume} shuffle={shuffle} repeat={repeat} playbackError={playbackError}
+        onPlay={onPlay} onPlayAll={onPlayPack} onOpenPack={onOpenPack} onDownloadPack={onDownloadPack}
+        onDownload={onDownload} onOpenProfile={onOpenProfile} onSeek={onSeek} onSeekProgress={onSeekProgress}
+        onActivateQueue={onActivateQueue} onPrevious={onPrevious} onNext={onNext}
+        onShuffleChange={onShuffleChange} onRepeatChange={onRepeatChange} onVolumeChange={onVolumeChange} />}
 
       <section aria-label="My Dubs" className="my-dubs-template__list feed-list">
         {pagination.items.map((dub) => (
@@ -126,9 +157,17 @@ export function MyDubsTemplate({
               onEdit={onEditDub}
               onDelete={onDeleteDub}
               onShareWithFriend={onShareWithFriend}
+              onAddToPack={onAddToPack}
+              onManageAccess={dub.distribution === "private" ? () => manageAccess(dub.id) : undefined}
               manageable
             />
-            <details className={`my-dubs-template__statistics my-dubs-template__statistics--${dub.distribution ?? "worldwide"}`}>
+            <details
+              className={`my-dubs-template__statistics my-dubs-template__statistics--${dub.distribution ?? "worldwide"}`}
+              ref={(element) => {
+                if (element) statisticsRefs.current.set(dub.id, element);
+                else statisticsRefs.current.delete(dub.id);
+              }}
+            >
               <summary><span>Statistics for {dub.title}</span><ChevronRight aria-hidden="true" /></summary>
               <DubStatistics dub={dub} onRevokeGrant={onRevokeGrant} onOpenProfile={onOpenProfile} />
             </details>

@@ -66,9 +66,7 @@ describe("DubSearch", () => {
     fireEvent.click(screen.getByRole("button", { name: "Clear search" }));
     expect(onQueryChange).toHaveBeenCalledWith("");
     expect(onFiltersChange).toHaveBeenCalledWith(createEmptyDubSearchFilters());
-    expect(screen.getByRole("checkbox", { name: "Private" })).not.toBeChecked();
-    expect(screen.getByRole("checkbox", { name: "Worldwide" })).toBeChecked();
-    expect(screen.getByRole("checkbox", { name: "A-List" })).toBeChecked();
+    expect(screen.queryByRole("checkbox", { name: "Private" })).not.toBeInTheDocument();
   });
 
   it("can hide distribution choices for a fixed-distribution feed", () => {
@@ -99,6 +97,12 @@ describe("DubSearch", () => {
     expect(toggle).toHaveAttribute("aria-haspopup", "dialog");
     fireEvent.click(toggle);
     const dialog = screen.getByRole("dialog", { name: "Filter dubs" });
+    const apply = within(dialog).getByRole("button", { name: "Apply filters" });
+    const footer = apply.closest("footer");
+    expect(footer).toHaveClass("modal__footer");
+    expect(footer).toContainElement(within(dialog).getByText("3 dubs found"));
+    expect(apply).toHaveAttribute("form", dialog.querySelector("form")?.id);
+    expect(dialog.querySelector(".modal__content")).not.toContainElement(apply);
     fireEvent.click(within(dialog).getByRole("checkbox", { name: "Private" }));
     fireEvent.click(within(dialog).getByRole("button", { name: "Close" }));
     expect(onFiltersChange).not.toHaveBeenCalled();
@@ -111,6 +115,60 @@ describe("DubSearch", () => {
     fireEvent.click(screen.getByRole("button", { name: "Apply filters" }));
     expect(onFiltersChange).toHaveBeenCalledWith({ ...createEmptyDubSearchFilters(), distributions: ["worldwide", "alist", "private"] });
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("keeps the mobile footer count current and clears filters without submitting", () => {
+    vi.stubGlobal("matchMedia", vi.fn().mockReturnValue({
+      matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn(),
+    }));
+    const onFiltersChange = vi.fn();
+    const onQueryChange = vi.fn();
+    const props = {
+      query: "jungle",
+      onQueryChange,
+      filters: { ...createEmptyDubSearchFilters(), tags: ["Jungle"] },
+      onFiltersChange,
+      resultCount: 3,
+    };
+    const { rerender } = render(<DubSearch {...props} />);
+    fireEvent.click(screen.getByRole("button", { name: /Filters/ }));
+    const footer = screen.getByRole("button", { name: "Apply filters" }).closest("footer")!;
+    rerender(<DubSearch {...props} isSearching />);
+    expect(within(footer).getByText("Searching…")).toHaveAttribute("aria-live", "polite");
+    rerender(<DubSearch {...props} resultCount={1} />);
+    expect(within(footer).getByText("1 dub found")).toBeInTheDocument();
+    fireEvent.click(within(footer).getByRole("button", { name: "Clear search" }));
+    expect(onFiltersChange).toHaveBeenCalledOnce();
+    expect(onFiltersChange).toHaveBeenCalledWith(createEmptyDubSearchFilters());
+    expect(onQueryChange).toHaveBeenCalledWith("");
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("removes individual applied filters without opening the panel and resets to collection defaults", () => {
+    const onFiltersChange = vi.fn();
+    const onQueryChange = vi.fn();
+    const onSearch = vi.fn();
+    const filters = {
+      ...createEmptyDubSearchFilters(), tags: ["Liquid", "Jungle"], distributions: ["private" as const],
+      minBpm: "170", maxBpm: "176", minBitrate: "128", fileType: "WAV",
+    };
+    render(<DubSearch query="Night" onQueryChange={onQueryChange} filters={filters}
+      onFiltersChange={onFiltersChange} onSearch={onSearch}
+      defaultDistributions={["private", "worldwide", "alist"]} resultCount={1} />);
+    fireEvent.click(screen.getByRole("button", { name: "Remove Liquid filter" }));
+    expect(onFiltersChange).toHaveBeenLastCalledWith({ ...filters, tags: ["Jungle"] });
+    fireEvent.click(screen.getByRole("button", { name: "Remove BPM: 170 - 176 filter" }));
+    expect(onFiltersChange).toHaveBeenLastCalledWith({ ...filters, minBpm: "", maxBpm: "" });
+    fireEvent.click(screen.getByRole("button", { name: "Remove kbps: 128 - any filter" }));
+    expect(onFiltersChange).toHaveBeenLastCalledWith({ ...filters, minBitrate: "", maxBitrate: "" });
+    fireEvent.click(screen.getByRole("button", { name: "Remove Format: WAV filter" }));
+    expect(onFiltersChange).toHaveBeenLastCalledWith({ ...filters, fileType: "" });
+    fireEvent.click(screen.getByRole("button", { name: "Remove Distribution: Private filter" }));
+    expect(onFiltersChange).toHaveBeenLastCalledWith({ ...filters, distributions: ["private", "worldwide", "alist"] });
+    fireEvent.click(screen.getByRole("button", { name: "Clear filters" }));
+    expect(onFiltersChange).toHaveBeenLastCalledWith({ ...createEmptyDubSearchFilters(), distributions: ["private", "worldwide", "alist"] });
+    expect(onQueryChange).not.toHaveBeenCalled();
+    expect(onSearch).toHaveBeenCalledTimes(6);
   });
 
   it("preserves the draft when switching between desktop and mobile layouts", () => {

@@ -2,6 +2,7 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { MyDubsTemplate } from "./MyDubsTemplate";
 import type { Dub } from "../communityTypes";
+import type { DubPack } from "../../organisms/DubPackCard/DubPackCard";
 
 afterEach(cleanup);
 
@@ -30,6 +31,25 @@ function renderPage() {
 }
 
 describe("MyDubsTemplate", () => {
+  it("shows owned Dub and Sample Packs beside the existing dub management list", () => {
+    const pack: DubPack = { id: "pack", title: "Dub release", description: "", kind: "dub", status: "published",
+      distribution: "private", aListPublic: false, licence: "", ownerUsername: "amber", ownerDisplayName: "Amber",
+      items: [{ dub }], totalBytes: 1200, createdAt: dub.uploadedAt, updatedAt: dub.uploadedAt };
+    render(<MyDubsTemplate dubs={[dub]} packs={[pack, { ...pack, id: "sample", title: "Sample release", kind: "sample" },
+      { ...pack, id: "draft", title: "Hidden draft", status: "draft" }, { ...pack, id: "other", title: "Other owner", ownerUsername: "other" }]}
+      ownerUsername="amber" likedDubIds={new Set()} nowPlayingId={null} isPlaying={false}
+      onDownload={vi.fn()} onPlay={vi.fn()} onShareDub={vi.fn()} onEditDub={vi.fn()} onDeleteDub={vi.fn()}
+      onPlayPack={vi.fn()} onOpenPack={vi.fn()} />);
+    expect(screen.getByRole("article", { name: "Dub Pack: Dub release" })).toBeVisible();
+    expect(screen.getByRole("article", { name: "Sample Pack: Sample release" })).toBeVisible();
+    expect(screen.queryByText("Hidden draft")).not.toBeInTheDocument();
+    expect(screen.queryByText("Other owner")).not.toBeInTheDocument();
+    expect(screen.getByText("Statistics for Night Drive")).toBeVisible();
+    fireEvent.change(screen.getByRole("searchbox", { name: "Search my dubs" }), { target: { value: "Sample release" } });
+    expect(screen.getByRole("article", { name: "Sample Pack: Sample release" })).toBeVisible();
+    expect(screen.queryByRole("article", { name: "Dub Pack: Dub release" })).not.toBeInTheDocument();
+  });
+
   it("uses accessible mobile icon buttons for both upload entry points", () => {
     const share = vi.fn();
     render(<MyDubsTemplate
@@ -86,6 +106,29 @@ describe("MyDubsTemplate", () => {
     expect(onRevokeGrant).toHaveBeenCalledWith("dub-1", "friend");
   });
 
+  it("opens private access directly and focuses its recipients from the card action", () => {
+    render(<MyDubsTemplate
+      dubs={[{ ...dub, distribution: "private", grants: [{ id: "friend", username: "meladee", displayName: "Meladee" }] }]}
+      likedDubIds={new Set()}
+      nowPlayingId={null}
+      isPlaying={false}
+      onDownload={vi.fn()}
+      onPlay={vi.fn()}
+      onShareDub={vi.fn()}
+      onEditDub={vi.fn()}
+      onDeleteDub={vi.fn()}
+    />);
+    const details = screen.getByText("Statistics for Night Drive").closest("details")!;
+    expect(details).not.toHaveAttribute("open");
+    const manageAccess = screen.getByRole("button", { name: "Manage access for Night Drive, 1 recipient" });
+    expect(manageAccess).toHaveTextContent("Manage access · 1");
+    fireEvent.click(manageAccess);
+    expect(details).toHaveAttribute("open");
+    const access = screen.getByRole("region", { name: "Private access for Night Drive" });
+    expect(access).toHaveFocus();
+    expect(access).toHaveTextContent("Meladee");
+  });
+
   it("shows owner statistics with separate download and unique supporter counts", () => {
     const onOpenProfile = vi.fn();
     render(<MyDubsTemplate
@@ -139,6 +182,7 @@ describe("MyDubsTemplate", () => {
       dubs={[{ ...dub, distribution: "private", grants: [] }]} likedDubIds={new Set()} nowPlayingId={null} isPlaying={false}
       onDownload={vi.fn()} onPlay={vi.fn()} onShareDub={vi.fn()} onEditDub={vi.fn()} onDeleteDub={vi.fn()}
     />);
+    expect(screen.getByRole("button", { name: "Manage access for Night Drive, 0 recipients" })).toHaveTextContent("Manage access · 0");
     fireEvent.click(screen.getByText("Statistics for Night Drive"));
     expect(screen.getByText("No friends currently have access.")).toBeVisible();
     expect(screen.getByText("Revoking access cannot remove files already downloaded.")).toBeVisible();

@@ -10,6 +10,16 @@ function withIconColor(props: IconProps): IconProps {
   };
 }
 
+export const X: IconComponent = (props) =>
+  React.createElement(IconBase, {
+    ...withIconColor(props),
+    children: React.createElement("path", {
+      d: "M6 6l12 12M18 6 6 18",
+      strokeWidth: 1.7,
+      strokeLinecap: "round",
+    }),
+  });
+
 export const Mail: IconComponent = (props) =>
   React.createElement(IconBase, {
     ...withIconColor(props),

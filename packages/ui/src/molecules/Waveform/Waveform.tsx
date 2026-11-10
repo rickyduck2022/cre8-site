@@ -1,4 +1,4 @@
-import { useId, type KeyboardEvent, type MouseEvent } from "react";
+import { useId, useRef, type KeyboardEvent, type MouseEvent, type PointerEvent } from "react";
 import "../Molecules.css";
 
 export interface WaveformProps {
@@ -50,6 +50,7 @@ export function Waveform({
 }: WaveformProps) {
   const clipId = useId();
   const shadowId = useId();
+  const dragPointerId = useRef<number | null>(null);
   const safeProgress = Math.max(0, Math.min(1, progress));
   const path = variant === "smooth" ? smoothPath(peaks) : "";
 
@@ -58,6 +59,26 @@ export function Waveform({
     const bounds = event.currentTarget.getBoundingClientRect();
     if (bounds.width === 0) return;
     onSeek(Math.max(0, Math.min(1, (event.clientX - bounds.left) / bounds.width)));
+  }
+
+  function startDrag(event: PointerEvent<SVGSVGElement>) {
+    if (!onSeek || (event.pointerType === "mouse" && event.button !== 0)) return;
+    dragPointerId.current = event.pointerId;
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+    seekFromPointer(event);
+  }
+
+  function dragSeek(event: PointerEvent<SVGSVGElement>) {
+    if (dragPointerId.current !== event.pointerId) return;
+    seekFromPointer(event);
+  }
+
+  function endDrag(event: PointerEvent<SVGSVGElement>) {
+    if (dragPointerId.current !== event.pointerId) return;
+    dragPointerId.current = null;
+    if (event.currentTarget.hasPointerCapture?.(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
   }
 
   function seekFromKeyboard(event: KeyboardEvent<SVGSVGElement>) {
@@ -91,6 +112,10 @@ export function Waveform({
         .join(" ")}
       onClick={seekFromPointer}
       onKeyDown={seekFromKeyboard}
+      onPointerCancel={endDrag}
+      onPointerDown={startDrag}
+      onPointerMove={dragSeek}
+      onPointerUp={endDrag}
       role={onSeek ? "slider" : "img"}
       tabIndex={onSeek ? 0 : undefined}
       viewBox={`0 0 ${variant === "smooth" ? 256 : peaks.length * 4} 32`}

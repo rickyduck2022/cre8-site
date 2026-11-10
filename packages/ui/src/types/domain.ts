@@ -92,6 +92,7 @@ export interface Dub {
   downloaders?: Array<{ username: string; displayName: string; downloadedAt: string; avatarUrl?: string; aListApproved?: boolean }>;
   distribution?: "worldwide" | "private" | "alist";
   aListPublic?: boolean;
+  previewSeconds?: number;
   version?: number;
   sharedBuddyIds?: string[];
   grants?: Array<{ id: string; username: string; displayName: string; avatarUrl?: string; aListApproved?: boolean }>;
@@ -100,6 +101,25 @@ export interface Dub {
 export interface LibraryDownload {
   downloadedAt: string;
   dub: Dub;
+}
+
+export interface DubPack {
+  id: string;
+  title: string;
+  description: string;
+  kind: "dub" | "sample";
+  status: "draft" | "published";
+  distribution: "worldwide" | "private" | "alist";
+  aListPublic: boolean;
+  licence: string;
+  artworkUrl?: string;
+  ownerUsername: string;
+  ownerDisplayName: string;
+  items: Array<{ dub: Dub; key?: string }>;
+  grants?: Array<{ id: string; username: string; displayName: string }>;
+  createdAt: string;
+  updatedAt: string;
+  totalBytes: number;
 }
 
 export interface ArtistOption {
@@ -113,6 +133,7 @@ export interface ChatMessage {
   text: string;
   sentAt: string;
   dubId?: string;
+  packId?: string;
   unsent?: boolean;
 }
 

@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { DubManagementDialogs } from "./DubManagementDialogs";
 import type { Dub } from "../../types/domain";
@@ -17,6 +17,70 @@ const dub: Dub = {
 };
 
 describe("DubManagementDialogs", () => {
+  it("blocks dismissal while editing, preserves fields on rejection and closes only after retry succeeds", async () => {
+    let reject!: (error: Error) => void;
+    const update = vi.fn()
+      .mockImplementationOnce(() => new Promise<Dub>((_resolve, rejectPromise) => { reject = rejectPromise; }))
+      .mockResolvedValueOnce(dub);
+    const close = vi.fn();
+    const { container } = render(<DubManagementDialogs
+      editingDub={dub} deletingDub={null} artists={[{ id: "artist-1", name: "Amber" }]}
+      onCloseEdit={close} onCloseDelete={vi.fn()} onUpdateDub={update} onDeleteDub={vi.fn()}
+    />);
+    fireEvent.change(screen.getByLabelText("Track title"), { target: { value: "Keep my title" } });
+    const form = container.querySelector("form")!;
+    fireEvent.submit(form);
+    fireEvent.submit(form);
+    expect(update).toHaveBeenCalledOnce();
+    const dialog = screen.getByRole("dialog");
+    expect(screen.getByRole("button", { name: "Close" })).toBeDisabled();
+    fireEvent(dialog, new Event("cancel", { cancelable: true }));
+    fireEvent.click(dialog);
+    expect(close).not.toHaveBeenCalled();
+    await act(async () => { reject(new Error("Track service unavailable.")); });
+    expect(screen.getByRole("alert")).toHaveTextContent("Track service unavailable.");
+    expect(screen.getByLabelText("Track title")).toHaveValue("Keep my title");
+    expect(screen.getByRole("button", { name: "Cancel" })).toBeEnabled();
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+    await waitFor(() => expect(close).toHaveBeenCalledOnce());
+    expect(update).toHaveBeenLastCalledWith(dub.id, expect.objectContaining({ title: "Keep my title" }));
+  });
+
+  it("shows failed saves inline even when the API reports null instead of throwing", async () => {
+    const close = vi.fn();
+    render(<DubManagementDialogs
+      editingDub={dub} deletingDub={null} artists={[{ id: "artist-1", name: "Amber" }]}
+      onCloseEdit={close} onCloseDelete={vi.fn()} onUpdateDub={vi.fn(async () => null)} onDeleteDub={vi.fn()}
+    />);
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("The dub could not be saved.");
+    expect(close).not.toHaveBeenCalled();
+  });
+
+  it("guards deletion, shows failure inline, and permits retry", async () => {
+    let finish!: (value: boolean) => void;
+    const remove = vi.fn()
+      .mockImplementationOnce(() => new Promise<boolean>((resolve) => { finish = resolve; }))
+      .mockResolvedValueOnce(true);
+    const close = vi.fn();
+    render(<DubManagementDialogs
+      editingDub={null} deletingDub={dub} artists={[]}
+      onCloseEdit={vi.fn()} onCloseDelete={close} onUpdateDub={vi.fn()} onDeleteDub={remove}
+    />);
+    fireEvent.click(screen.getByRole("button", { name: "Delete dub" }));
+    expect(screen.getByRole("button", { name: "Cancel" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Close" })).toBeDisabled();
+    const dialog = screen.getByRole("dialog");
+    fireEvent(dialog, new Event("cancel", { cancelable: true }));
+    fireEvent.click(dialog);
+    expect(close).not.toHaveBeenCalled();
+    await act(async () => { finish(false); });
+    expect(screen.getByRole("alert")).toHaveTextContent("The dub could not be deleted.");
+    fireEvent.click(screen.getByRole("button", { name: "Delete dub" }));
+    await waitFor(() => expect(close).toHaveBeenCalledOnce());
+    expect(remove).toHaveBeenCalledTimes(2);
+  });
+
   it("uses the existing dub form and closes after a successful edit", async () => {
     const onUpdateDub = vi.fn(async () => dub);
     const onCloseEdit = vi.fn();

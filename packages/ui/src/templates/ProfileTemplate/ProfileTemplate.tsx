@@ -9,6 +9,7 @@ import { AListBadge } from "../../atoms/AListBadge/AListBadge";
 import { Button } from "../../atoms/Button/Button";
 import { Pagination, usePagination } from "../../molecules/Pagination/Pagination";
 import { DubCard } from "../../organisms/DubCard/DubCard";
+import { DubPackCollection, type DubPackCollectionProps } from "../../organisms/DubPackCard/DubPackCollection";
 import { canShareDub } from "../../organisms/ShareDubDialog/ShareDubDialog";
 import type { Dub, MemberProfile } from "../communityTypes";
 import { formatRelativeTime } from "../templateFormatters";
@@ -18,6 +19,12 @@ import "./ProfileTemplate.css";
 export interface ProfileTemplateProps {
   profile: MemberProfile;
   uploads: Dub[];
+  packs?: DubPackCollectionProps["packs"];
+  likedDubIds?: Set<string>;
+  onPlayPack?: DubPackCollectionProps["onPlayAll"];
+  onOpenPack?: DubPackCollectionProps["onOpenPack"];
+  onDownloadPack?: DubPackCollectionProps["onDownloadPack"];
+  onActivateQueue?: DubPackCollectionProps["onActivateQueue"];
   isOwnProfile: boolean;
   playingDubId: string | null;
   isPlaying: boolean;
@@ -48,6 +55,12 @@ export interface ProfileTemplateProps {
 export function ProfileTemplate({
   profile,
   uploads,
+  packs = [],
+  likedDubIds = new Set<string>(),
+  onPlayPack,
+  onOpenPack,
+  onDownloadPack,
+  onActivateQueue,
   isOwnProfile,
   playingDubId,
   isPlaying,
@@ -146,6 +159,15 @@ export function ProfileTemplate({
         </section>
 
         <section className="profile-uploads">
+          {onPlayPack && onOpenPack && <DubPackCollection
+            packs={packs.filter((pack) => isOwnProfile || pack.distribution === "worldwide" || (pack.distribution === "alist" && pack.aListPublic))}
+            ownerUsername={profile.username} likedDubIds={likedDubIds}
+            nowPlayingId={playingDubId} isPlaying={isPlaying} currentTimeSeconds={currentTimeSeconds}
+            durationSeconds={durationSeconds} volume={volume} shuffle={shuffle} repeat={repeat} playbackError={playbackError}
+            onPlay={onPlay} onPlayAll={onPlayPack} onOpenPack={onOpenPack} onDownloadPack={onDownloadPack}
+            onDownload={onDownload} onOpenProfile={onOpenProfile} onSeek={onSeek} onSeekProgress={onSeekProgress}
+            onActivateQueue={onActivateQueue} onPrevious={onPrevious} onNext={onNext}
+            onShuffleChange={onShuffleChange} onRepeatChange={onRepeatChange} onVolumeChange={onVolumeChange} />}
           <div className="section-heading">
             <div>
               <span className="eyebrow">{isOwnProfile ? "YOUR MUSIC" : "THEIR MUSIC"}</span>
@@ -158,7 +180,7 @@ export function ProfileTemplate({
                 {uploadsPagination.items.map((dub) => (
                   <DubCard
                     dub={dub}
-                    hasLiked={false}
+                    hasLiked={likedDubIds.has(dub.id)}
                     isPlaying={isPlaying && playingDubId === dub.id}
                     isCurrentTrack={playingDubId === dub.id}
                     currentTimeSeconds={currentTimeSeconds}

@@ -20,9 +20,35 @@ vi.mock("../../../apps/web/src/hooks/useMemberSearch", () => ({ useMemberSearch:
 afterEach(() => {
   cleanup();
   vi.resetAllMocks();
+  window.history.replaceState(null, "", "/");
 });
 
 describe("authentication screens", () => {
+  it("returns to the shared dub after successful sign-in but stays on failure", async () => {
+    window.history.replaceState(null, "", "#sign-in?dub=shared-one");
+    mocks.login.mockRejectedValueOnce(new Error("Incorrect password")).mockResolvedValueOnce(undefined);
+    render(<App />);
+    fireEvent.change(screen.getByLabelText("Username"), { target: { value: "amber" } });
+    fireEvent.change(screen.getByLabelText("Password"), { target: { value: "password" } });
+    fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
+    await screen.findByText("Incorrect password");
+    expect(window.location.hash).toBe("#sign-in?dub=shared-one");
+    fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
+    await waitFor(() => expect(window.location.hash).toBe("#share?dub=shared-one"));
+  });
+
+  it("returns to the shared dub after artist registration", async () => {
+    window.history.replaceState(null, "", "#sign-in?dub=shared-two");
+    mocks.register.mockResolvedValue(undefined);
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "Sign up as an artist" }));
+    fireEvent.change(screen.getByLabelText("Artist"), { target: { value: "Amber" } });
+    fireEvent.change(screen.getByLabelText("Password"), { target: { value: "long-password" } });
+    fireEvent.change(screen.getByLabelText("Confirm password"), { target: { value: "long-password" } });
+    fireEvent.click(screen.getByRole("button", { name: "Create artist account" }));
+    await waitFor(() => expect(window.location.hash).toBe("#share?dub=shared-two"));
+  });
+
   it("keeps sign-in and registration flows working in the same full-screen shell", async () => {
     mocks.login.mockResolvedValue(undefined);
     mocks.register.mockResolvedValue(undefined);

@@ -1,0 +1,58 @@
+{
+  "id": "download-to-library",
+  "title": "Download and My Library",
+  "description": "Download a dub, understand its like, and find the saved track in My Library.",
+  "variables": { "artistName": "Demo Artist", "trackTitle": "Night Drive" },
+  "assets": {
+    "audio": { "env": "GUIDE_AUDIO_PATH" },
+    "artwork": { "path": "apps/web/public/cre8-main-logo.png", "env": "GUIDE_ARTWORK_PATH" }
+  },
+  "setup": [
+    { "type": "include", "fragment": "signed-in" },
+    { "type": "include", "fragment": "publish-dub" }
+  ],
+  "steps": [
+    {
+      "caption": "Download a dub to save the audio file and add it to your personal library.",
+      "actions": [{ "type": "waitFor", "target": { "role": "region", "name": "Audio player: {{trackTitle}}" } }]
+    },
+    {
+      "caption": "1. Select Download and Like. Your browser saves the original audio file.",
+      "actions": [{ "type": "download", "target": { "role": "button", "name": "Download \u00b7 Like" } }],
+      "profileOverrides": {
+        "mobile": { "actions": [{ "type": "download", "target": { "role": "button", "name": "Download and like" } }] }
+      },
+      "holdMs": 5500
+    },
+    {
+      "caption": "The track now says You downloaded. A download also counts as a like.",
+      "actions": [{ "type": "waitFor", "target": { "role": "button", "name": "Download again" } }]
+    },
+    {
+      "caption": "2. Open My Library to find the dubs you have downloaded.",
+      "actions": [
+        { "type": "navigate", "destination": "library" },
+        { "type": "waitFor", "target": { "role": "list", "name": "Downloaded dubs" } }
+      ]
+    },
+    {
+      "caption": "3. Search your library by track or artist to find a download quickly.",
+      "actions": [
+        { "type": "fill", "target": { "label": "Search tracks, artists, tags, or genres" }, "value": "Night" },
+        { "type": "waitFor", "target": { "role": "region", "name": "Audio player: {{trackTitle}}" } }
+      ]
+    },
+    {
+      "caption": "4. Select Download again whenever you need another copy of the file.",
+      "actions": [{ "type": "download", "target": { "role": "button", "name": "Download again" } }]
+    },
+    {
+      "caption": "Repeat downloads keep one library card and count your like only once.",
+      "actions": [
+        { "type": "waitFor", "target": { "role": "heading", "name": "My Library" } },
+        { "type": "waitFor", "target": { "text": "1 dub" } }
+      ],
+      "holdMs": 5500
+    }
+  ]
+}

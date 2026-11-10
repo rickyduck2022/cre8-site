@@ -4,8 +4,11 @@ import { randomBytes, scryptSync, timingSafeEqual, randomUUID } from "node:crypt
 import { basename, extname, isAbsolute, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { pipeline } from "node:stream/promises";
+import { Readable } from "node:stream";
 import { WebSocket, WebSocketServer } from "ws";
 import { createPushService, validPushSubscription } from "./push.mjs";
+import { createAudioPreviewService, dubPreviewSeconds, previewDurations } from "./audioPreview.mjs";
+import { storedZip } from "./zipStore.mjs";
 
 const apiDirectory = fileURLToPath(new URL(".", import.meta.url));
 const defaultDataPath = resolve(process.env.COMMUNITY_DATA_PATH ?? resolve(apiDirectory, "../data/community.json"));
@@ -13,10 +16,13 @@ const defaultMediaDirectory = resolve(process.env.COMMUNITY_MEDIA_DIRECTORY ?? r
 const defaultPublicAudioDirectory = resolve(apiDirectory, "../assets/audio");
 const defaultWebDirectory = resolve(process.env.WEB_DIST_DIRECTORY ?? resolve(apiDirectory, "../../web/dist"));
 const defaultAdminDirectory = resolve(process.env.ADMIN_DIST_DIRECTORY ?? resolve(apiDirectory, "../../admin/dist"));
+const defaultGuidesDirectory = resolve(process.env.GUIDES_DIRECTORY ?? resolve(apiDirectory, "../../../docs/guides/videos"));
 const maxAudioUploadBytes = 100 * 1024 * 1024;
 const maxArtworkUploadBytes = 10 * 1024 * 1024;
+const maxPackItems = 50;
+const maxPackBytes = 500 * 1024 * 1024;
 const sessionLifetimeSeconds = 60 * 60 * 24 * 7;
-const dataSchemaVersion = 6;
+const dataSchemaVersion = 7;
 const conversationPageSize = 30;
 const dubTags = new Set(["Jump Up", "Rollers", "Dancefloor", "Jungle", "Liquid", "Neurofunk", "Vocal", "Deep", "Minimal", "Techstep", "Atmospheric", "Old School"]);
 function normalizeDubTags(tags) {
@@ -114,6 +120,7 @@ export function createSeedState() {
     notifications: [],
     dubShares: [],
     pushSubscriptions: [],
+    packs: [],
   };
 }
 
@@ -155,6 +162,10 @@ export function initializeData(dataPath = defaultDataPath, mediaDirectory = defa
     data.dubShares = [];
     data.schemaVersion = 6;
   }
+  if (data.schemaVersion === 6) {
+    data.packs = [];
+    data.schemaVersion = 7;
+  }
   if (data.schemaVersion !== dataSchemaVersion) {
     throw new Error(`Unsupported community data schema version: ${data.schemaVersion}.`);
   }
@@ -166,6 +177,8 @@ export function initializeData(dataPath = defaultDataPath, mediaDirectory = defa
   data.dubs = data.dubs.map((dub) => ({
     ...dub,
     version: dub.version ?? 1,
+    audioBytes: dub.audioBytes ?? (dub.storedAudioName && existsSync(resolve(mediaDirectory, basename(dub.storedAudioName)))
+      ? statSync(resolve(mediaDirectory, basename(dub.storedAudioName))).size : undefined),
     bitrateKbps: Number.isFinite(dub.bitrateKbps) ? Math.round(dub.bitrateKbps) : undefined,
     artistId: dub.artistId ?? "artist-meladee",
     uploaderId: dub.uploaderId ?? meladee.id,
@@ -175,7 +188,7 @@ export function initializeData(dataPath = defaultDataPath, mediaDirectory = defa
   for (const dub of data.dubs) {
     dub.audioUrl ??= `/api/dubs/${dub.id}/audio`;
   }
-  for (const key of ["friendships", "conversations", "likes", "downloads", "crates", "uploads", "dubGrants", "aListApplications", "aListAccessDecisions", "notifications", "dubShares", "pushSubscriptions"]) {
+  for (const key of ["friendships", "conversations", "likes", "downloads", "crates", "uploads", "dubGrants", "aListApplications", "aListAccessDecisions", "notifications", "dubShares", "pushSubscriptions", "packs"]) {
     data[key] ??= [];
   }
   backfillBidirectionalFriendships(data);
@@ -274,37 +287,65 @@ function getAudioPath(dub, mediaDirectory, publicAudioDirectory) {
   return resolve(publicAudioDirectory, basename(dub.audioFileName));
 }
 
-function streamAudio(request, response, filePath, downloadName) {
-  const file = statSync(filePath);
+function audioRange(request, response, size) {
   const range = request.headers.range;
   let start = 0;
-  let end = file.size - 1;
+  let end = size - 1;
   let status = 200;
   if (range) {
     const match = /^bytes=(\d*)-(\d*)$/.exec(range);
     if (!match) {
-      response.writeHead(416, { "content-range": `bytes */${file.size}` });
+      response.writeHead(416, { "content-range": `bytes */${size}` });
       response.end();
-      return;
+      return null;
     }
     start = match[1] ? Number(match[1]) : 0;
     end = match[2] ? Number(match[2]) : end;
     if (!match[1] && match[2]) {
-      start = Math.max(0, file.size - end);
-      end = file.size - 1;
+      start = Math.max(0, size - end);
+      end = size - 1;
     }
-    if (start > end || end >= file.size) {
-      response.writeHead(416, { "content-range": `bytes */${file.size}` });
+    if (start > end || end >= size) {
+      response.writeHead(416, { "content-range": `bytes */${size}` });
       response.end();
-      return;
+      return null;
     }
     status = 206;
   }
+  return { start, end, status };
+}
+
+function streamPreview(request, response, audio) {
+  const range = audioRange(request, response, audio.length);
+  if (!range) return;
+  const { start, end, status } = range;
+  response.writeHead(status, {
+    "accept-ranges": "bytes",
+    "content-length": end - start + 1,
+    "content-type": "audio/wav",
+    "content-disposition": "inline",
+    "cache-control": "private, no-store",
+    "x-content-type-options": "nosniff",
+    ...(status === 206 ? { "content-range": `bytes ${start}-${end}/${audio.length}` } : {}),
+  });
+  response.end(audio.subarray(start, end + 1));
+}
+
+function streamAudio(request, response, filePath, downloadName) {
+  const file = statSync(filePath);
+  const range = audioRange(request, response, file.size);
+  if (!range) return;
+  const { start, end, status } = range;
   const headers = {
     "accept-ranges": "bytes",
     "content-length": end - start + 1,
     "content-type": ({
       ".wav": "audio/wav",
+      ".mp3": "audio/mpeg",
+      ".flac": "audio/flac",
+      ".ogg": "audio/ogg",
+      ".m4a": "audio/mp4",
+      ".aac": "audio/aac",
       ".jpg": "image/jpeg",
       ".jpeg": "image/jpeg",
       ".png": "image/png",
@@ -325,6 +366,50 @@ function streamAudio(request, response, filePath, downloadName) {
     response.destroy();
   });
   stream.pipe(response);
+}
+
+const guideContentTypes = {
+  ".html": "text/html; charset=utf-8",
+  ".json": "application/json; charset=utf-8",
+  ".mp4": "video/mp4",
+  ".png": "image/png",
+  ".srt": "application/x-subrip; charset=utf-8",
+  ".txt": "text/plain; charset=utf-8",
+  ".vtt": "text/vtt; charset=utf-8",
+};
+
+function serveGuidesRequest(request, response, route, guidesDirectory) {
+  if (request.method !== "GET" && request.method !== "HEAD") return false;
+  const requestedPath = decodeURIComponent(route).replace(/^[/\\]+/, "");
+  const filePath = resolve(guidesDirectory, requestedPath || "index.html");
+  const relativePath = relative(guidesDirectory, filePath);
+  if (relativePath.startsWith("..") || isAbsolute(relativePath)) return false;
+  if (!existsSync(filePath) || !statSync(filePath).isFile()) return false;
+  const contentType = guideContentTypes[extname(filePath).toLowerCase()];
+  if (!contentType) return false;
+  const file = statSync(filePath);
+  const range = audioRange(request, response, file.size);
+  if (!range) return true;
+  const { start, end, status } = range;
+  response.writeHead(status, {
+    "accept-ranges": "bytes",
+    "cache-control": contentType.startsWith("text/html") ? "no-cache" : "public, max-age=3600",
+    "content-length": end - start + 1,
+    "content-type": contentType,
+    "x-content-type-options": "nosniff",
+    ...(status === 206 ? { "content-range": `bytes ${start}-${end}/${file.size}` } : {}),
+  });
+  if (request.method === "HEAD") {
+    response.end();
+    return true;
+  }
+  const stream = createReadStream(filePath, { start, end });
+  stream.on("error", () => {
+    if (!response.headersSent) response.writeHead(500);
+    response.destroy();
+  });
+  stream.pipe(response);
+  return true;
 }
 
 function serveWebRequest(request, response, route, webDirectory) {
@@ -453,12 +538,133 @@ function canAccessDub(data, dub, user) {
   if (dub.distribution === "alist") return dub.aListPublic === true || user.aListApproved === true;
   if (dub.distribution === "private") {
     return dub.uploaderId === user.id
-      || data.dubGrants.some((grant) => grant.dubId === dub.id && grant.userId === user.id);
+      || data.dubGrants.some((grant) => grant.dubId === dub.id && grant.userId === user.id)
+      || (data.packs ?? []).some((pack) => pack.status === "published"
+        && pack.distribution === "private"
+        && pack.dubIds?.includes(dub.id)
+        && (pack.grants ?? []).some((grant) => (grant.userId ?? grant.id) === user.id));
   }
   return false;
 }
 
+function canAccessPack(pack, user) {
+  if (!pack || pack.status !== "published" || !user) return false;
+  if (pack.ownerId === user.id) return true;
+  if (pack.distribution === "worldwide") return true;
+  if (pack.distribution === "alist") return pack.aListPublic === true || user.aListApproved === true;
+  return pack.distribution === "private"
+    && (pack.grants ?? []).some((grant) => (grant.userId ?? grant.id) === user.id);
+}
+
+function packResponse(data, pack, user, { includeOwnerGrants = false } = {}) {
+  const owner = data.users.find((item) => item.id === pack.ownerId);
+  const response = {
+    id: pack.id,
+    title: pack.title,
+    description: pack.description,
+    kind: pack.kind,
+    status: pack.status,
+    distribution: pack.distribution,
+    aListPublic: pack.aListPublic === true,
+    licence: pack.licence ?? "",
+    artworkUrl: pack.artworkUploadId || pack.fallbackArtworkName || data.dubs.find((item) => item.id === pack.dubIds[0])?.storedArtworkName
+      ? `/api/${pack.status === "published" && (pack.distribution === "worldwide" || (pack.distribution === "alist" && pack.aListPublic === true)) ? "public/" : ""}packs/${encodeURIComponent(pack.id)}/artwork`
+      : undefined,
+    ownerUsername: owner?.username ?? "unknown",
+    ownerDisplayName: owner?.displayName ?? "Unknown",
+    canManage: Boolean(user && pack.ownerId === user.id),
+    createdAt: pack.createdAt,
+    updatedAt: pack.updatedAt,
+    totalBytes: pack.dubIds.reduce((total, dubId) => {
+      const dub = data.dubs.find((item) => item.id === dubId);
+      return total + (dub?.audioBytes ?? 0);
+    }, 0),
+    items: pack.dubIds.map((dubId) => {
+      const dub = data.dubs.find((item) => item.id === dubId);
+      const key = pack.keys?.[dubId] ?? dub?.key;
+      if (!dub) return undefined;
+      const visibleDub = packDubResponse(data, pack, dub, user);
+      return { dub: visibleDub, ...(key ? { key } : {}) };
+    }).filter(Boolean),
+  };
+  if (includeOwnerGrants && user?.id === pack.ownerId) {
+    response.grants = (pack.grants ?? []).map((grant) => {
+      const member = data.users.find((item) => item.id === (grant.userId ?? grant.id));
+      return member ? { id: member.id, username: member.username, displayName: member.displayName } : undefined;
+    }).filter(Boolean);
+  }
+  return response;
+}
+
+function packDubResponse(data, pack, dub, user) {
+  const response = publicDub(data, dub, user?.id);
+  if (pack.status === "draft" && dub.draftPackId === pack.id) {
+    response.distribution = pack.distribution;
+    response.aListPublic = pack.distribution === "alist" && pack.aListPublic === true;
+  }
+  return response;
+}
+
+function packAudience(dub) {
+  if (dub?.draftPackId && dub.draftAudience) return dub.draftAudience;
+  return { distribution: dub.distribution, aListPublic: dub.distribution === "alist" && dub.aListPublic === true };
+}
+
+function validatePackText(value, label, max, fallback = "") {
+  const text = value === undefined ? fallback : value;
+  if (typeof text !== "string" || text.trim().length > max) {
+    throw Object.assign(new Error(`Provide a valid ${label} up to ${max} characters.`), { status: 400 });
+  }
+  return text.trim();
+}
+
+function packInput(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw Object.assign(new Error("Provide a valid pack request."), { status: 400 });
+  }
+  return value;
+}
+
+function canShareDubExternally(dub) {
+  return dub?.distribution === "worldwide" || (dub?.distribution === "alist" && dub.aListPublic === true);
+}
+
+function externallySharedDub(data, dub, authenticated) {
+  const track = publicDub(data, dub);
+  const baseUrl = `/api/public/dubs/${encodeURIComponent(dub.id)}`;
+  const [minutes, seconds] = String(track.duration ?? "").split(":").map(Number);
+  const fullDuration = minutes * 60 + seconds;
+  return {
+    id: track.id,
+    title: track.title,
+    artist: track.artist,
+    artistAListApproved: track.artistAListApproved,
+    uploader: track.uploader,
+    uploaderDisplayName: track.uploaderDisplayName,
+    uploadedAt: track.uploadedAt,
+    bpm: track.bpm,
+    genre: track.genre,
+    tags: track.tags,
+    duration: authenticated ? track.duration : formatAudioDuration(Math.min(
+      dubPreviewSeconds(dub),
+      audioDurationSeconds(fullDuration) ?? dubPreviewSeconds(dub),
+    )),
+    previewSeconds: dubPreviewSeconds(dub),
+    likes: track.likes,
+    downloads: track.downloads,
+    artwork: track.artwork,
+    message: track.message,
+    distribution: track.distribution,
+    aListPublic: track.aListPublic,
+    audioUrl: authenticated ? `/api/dubs/${encodeURIComponent(dub.id)}/audio` : `${baseUrl}/audio`,
+    artworkUrl: dub.storedArtworkName ? `${baseUrl}/artwork` : undefined,
+  };
+}
+
 function visibleMessage(data, user, message) {
+  if (message.packId && !canAccessPack(data.packs?.find((pack) => pack.id === message.packId), user)) {
+    return { ...message, packId: undefined, text: "This pack is no longer available." };
+  }
   if (!message.dubId || canAccessDub(data, data.dubs.find((dub) => dub.id === message.dubId), user)) return message;
   return { ...message, dubId: undefined, text: "This dub is no longer available." };
 }
@@ -468,6 +674,10 @@ function publicDub(data, dub, currentUserId) {
     storedAudioName,
     storedArtworkName,
     audioSource,
+    audioBytes,
+    draftPackId,
+    draftAudience,
+    packUploadId,
     ...publicFields
   } = dub;
   const uploader = data.users.find((item) => item.id === dub.uploaderId);
@@ -543,7 +753,7 @@ function communitySnapshot(data, user) {
       .flatMap((conversation) => conversation.messages.filter((message) => message.sender === "them" && message.dubId).map((message) => message.dubId)),
   ]);
   const accessibleDubs = data.dubs
-    .filter((dub) => canAccessDub(data, dub, user))
+    .filter((dub) => !dub.draftPackId && canAccessDub(data, dub, user))
     .sort((left, right) => Date.parse(right.uploadedAt) - Date.parse(left.uploadedAt));
   const conversations = data.conversations
     .filter((conversation) => conversation.ownerId === user.id)
@@ -595,6 +805,8 @@ function communitySnapshot(data, user) {
     },
     artists,
     dubs: accessibleDubs.map((dub) => publicDub(data, dub, user.id)),
+    packs: data.packs.filter((pack) => pack.status === "published" && canAccessPack(pack, user))
+      .map((pack) => packResponse(data, pack, user)),
     sharedDubIds: accessibleDubs.filter((dub) => receivedDubIds.has(dub.id)).map((dub) => dub.id),
     buddies,
     conversations,
@@ -803,6 +1015,7 @@ export function createApiServer({
   publicAudioDirectory = defaultPublicAudioDirectory,
   webDirectory = defaultWebDirectory,
   adminDirectory = defaultAdminDirectory,
+  guidesDirectory = defaultGuidesDirectory,
   adminSeed = { username: process.env.ADMIN_SEED_USERNAME, password: process.env.ADMIN_SEED_PASSWORD },
   pushService = createPushService({
     publicKey: process.env.VAPID_PUBLIC_KEY,
@@ -820,6 +1033,7 @@ export function createApiServer({
   const socketExpiryTimers = new WeakMap();
   const webSocketServer = new WebSocketServer({ noServer: true, maxPayload: 16 * 1024 });
   const persist = () => saveData(dataPath, data);
+  const audioPreview = createAudioPreviewService();
 
   const server = createServer(async (request, response) => {
     const url = new URL(request.url ?? "/", "http://localhost");
@@ -830,6 +1044,9 @@ export function createApiServer({
       : undefined;
     const route = url.pathname;
     const match = route.match(/^\/api\/(dubs|buddies|crates|conversations)\/([^/]+)(?:\/([^/]+))?(?:\/([^/]+))?$/);
+    const packRouteMatch = route.match(/^\/api\/packs\/([^/]+)(?:\/(.*))?$/);
+    const publicPackMatch = route.match(/^\/api\/public\/packs\/([^/]+)$/);
+    const publicPackArtworkMatch = route.match(/^\/api\/public\/packs\/([^/]+)\/artwork$/);
 
     try {
       if (request.method === "GET" && route === "/api/health") {
@@ -840,6 +1057,17 @@ export function createApiServer({
         if (route === "/admin" || route.startsWith("/admin/")) {
           if (!serveWebRequest(request, response, route.replace(/^\/admin/, "") || "/", adminDirectory)) {
             json(response, 404, { error: "Admin app is not built." });
+          }
+          return;
+        }
+        if (route === "/guides") {
+          response.writeHead(301, { location: "/guides/" });
+          response.end();
+          return;
+        }
+        if (route.startsWith("/guides/")) {
+          if (!serveGuidesRequest(request, response, route.slice("/guides".length), guidesDirectory)) {
+            json(response, 404, { error: "Guide library is not published. Run pnpm guides:publish." });
           }
           return;
         }
@@ -952,8 +1180,661 @@ export function createApiServer({
         });
         return;
       }
+      const publicDubMatch = route.match(/^\/api\/public\/dubs\/([^/]+)(?:\/(audio|artwork))?$/);
+      if (request.method === "GET" && publicDubMatch) {
+        response.setHeader("cache-control", "private, no-store");
+        const dub = data.dubs.find((item) => item.id === decodeURIComponent(publicDubMatch[1]));
+        if (!canShareDubExternally(dub)) {
+          json(response, 404, { error: "This shared dub is unavailable or is not public." });
+          return;
+        }
+        if (url.searchParams.has("download")) {
+          json(response, user ? 403 : 401, { error: "Sign in and use the download action to download this dub." });
+          return;
+        }
+        const mediaType = publicDubMatch[2];
+        if (!mediaType) {
+          json(response, 200, { dub: externallySharedDub(data, dub, Boolean(user)), authenticated: Boolean(user) });
+          return;
+        }
+        const filePath = mediaType === "artwork"
+          ? dub.storedArtworkName && resolve(mediaDirectory, basename(dub.storedArtworkName))
+          : dub.audioSource === "upload"
+            ? dub.storedAudioName && resolve(mediaDirectory, basename(dub.storedAudioName))
+            : getAudioPath(dub, mediaDirectory, publicAudioDirectory);
+        if (!filePath || !existsSync(filePath)) {
+          json(response, 404, { error: mediaType === "artwork" ? "Track artwork file not found." : "Audio file not found." });
+          return;
+        }
+        response.setHeader("content-disposition", "inline");
+        if (mediaType === "audio" && !user) {
+          const seconds = dubPreviewSeconds(dub);
+          const preview = await audioPreview(filePath, seconds);
+          const currentDub = data.dubs.find((item) => item.id === dub.id);
+          if (!canShareDubExternally(currentDub) || dubPreviewSeconds(currentDub) !== seconds) {
+            json(response, 404, { error: "This shared dub is unavailable or has changed. Reload the page." });
+            return;
+          }
+          if (!response.destroyed) streamPreview(request, response, preview);
+          return;
+        }
+        streamAudio(request, response, filePath);
+        return;
+      }
+      if (request.method === "GET" && publicPackMatch) {
+        response.setHeader("cache-control", "private, no-store");
+        const pack = data.packs.find((item) => item.id === decodeURIComponent(publicPackMatch[1]));
+        const publiclyAvailable = pack?.status === "published"
+          && (pack.distribution === "worldwide" || (pack.distribution === "alist" && pack.aListPublic === true));
+        if (!pack || pack.status !== "published" || (!canAccessPack(pack, user) && !publiclyAvailable)) {
+          json(response, 404, { error: "This pack is unavailable or is not accessible." });
+          return;
+        }
+        const result = packResponse(data, pack, user, { includeOwnerGrants: true });
+        if (!user) {
+          result.items = pack.dubIds.map((dubId) => data.dubs.find((item) => item.id === dubId))
+            .filter(Boolean)
+            .map((dub) => {
+              const key = pack.keys?.[dub.id] ?? dub.key;
+              return { dub: externallySharedDub(data, dub, false), ...(key ? { key } : {}) };
+            });
+        }
+        json(response, 200, { pack: result, authenticated: Boolean(user) });
+        return;
+      }
+      if (request.method === "GET" && publicPackArtworkMatch) {
+        response.setHeader("cache-control", "private, no-store");
+        const pack = data.packs.find((item) => item.id === decodeURIComponent(publicPackArtworkMatch[1]));
+        const publiclyAvailable = pack?.status === "published"
+          && (pack.distribution === "worldwide" || (pack.distribution === "alist" && pack.aListPublic === true));
+        if (!pack || pack.status !== "published" || (!canAccessPack(pack, user) && !(publiclyAvailable && !user))) {
+          json(response, 404, { error: "Pack artwork not found." });
+          return;
+        }
+        const upload = pack.artworkUploadId
+          ? data.uploads.find((item) => item.id === pack.artworkUploadId && item.userId === pack.ownerId && item.type === "artwork")
+          : undefined;
+        const dubArtwork = pack.fallbackArtworkName
+          ?? data.dubs.find((item) => item.id === pack.dubIds[0])?.storedArtworkName;
+        const filePath = upload
+          ? resolve(mediaDirectory, basename(upload.storedName))
+          : dubArtwork ? resolve(mediaDirectory, basename(dubArtwork)) : undefined;
+        if (!filePath || !existsSync(filePath)) {
+          json(response, 404, { error: "Pack artwork not found." });
+          return;
+        }
+        streamAudio(request, response, filePath);
+        return;
+      }
       if (!user) {
         json(response, 401, { error: "Sign in to continue." });
+        return;
+      }
+      if (request.method === "GET" && route === "/api/packs") {
+        const packs = data.packs
+          .filter((pack) => pack.ownerId === user.id || canAccessPack(pack, user))
+          .sort((left, right) => Date.parse(right.updatedAt) - Date.parse(left.updatedAt))
+          .map((pack) => packResponse(data, pack, user, { includeOwnerGrants: true }));
+        json(response, 200, { packs });
+        return;
+      }
+      if (request.method === "POST" && route === "/api/packs") {
+        const input = packInput(await readJson(request));
+        const title = validatePackText(input?.title, "pack title", 100, "Untitled pack") || "Untitled pack";
+        const description = validatePackText(input?.description, "pack description", 2000);
+        const kind = input?.kind ?? "dub";
+        const distribution = input?.distribution ?? "private";
+        const aListPublic = input?.aListPublic ?? false;
+        if (!["dub", "sample"].includes(kind) || !["worldwide", "private", "alist"].includes(distribution)
+          || typeof aListPublic !== "boolean" || (distribution !== "alist" && aListPublic)) {
+          json(response, 400, { error: "Provide a valid pack kind and audience." });
+          return;
+        }
+        if (distribution === "alist" && user.aListApproved !== true) {
+          json(response, 403, { error: "A-List approval is required for this pack audience." });
+          return;
+        }
+        const now = new Date().toISOString();
+        const pack = {
+          id: randomUUID(),
+          title,
+          description,
+          kind,
+          status: "draft",
+          distribution,
+          aListPublic,
+          licence: validatePackText(input?.licence, "licence text", 5000),
+          ownerId: user.id,
+          dubIds: [],
+          keys: {},
+          grants: [],
+          createdAt: now,
+          updatedAt: now,
+        };
+        data.packs.push(pack);
+        persist();
+        json(response, 201, { pack: packResponse(data, pack, user, { includeOwnerGrants: true }) });
+        return;
+      }
+      if (packRouteMatch) {
+        const packId = decodeURIComponent(packRouteMatch[1]);
+        const action = packRouteMatch[2] ?? "";
+        const pack = data.packs.find((item) => item.id === packId);
+        const isOwner = pack?.ownerId === user.id;
+        const packForUser = () => pack && (isOwner || canAccessPack(pack, user));
+        const currentPack = () => packResponse(data, pack, user, { includeOwnerGrants: true });
+        const resolveDubMedia = (dub) => dub?.audioSource === "upload"
+          ? resolve(mediaDirectory, basename(dub.storedAudioName ?? ""))
+          : dub ? getAudioPath(dub, mediaDirectory, publicAudioDirectory) : undefined;
+        const validatePackFiles = () => {
+          if (!pack || pack.status !== "published" || pack.dubIds.length === 0) {
+            throw Object.assign(new Error("This pack is not available for download."), { status: 404 });
+          }
+          const entries = [];
+          let total = 0;
+          for (let index = 0; index < pack.dubIds.length; index += 1) {
+            const dub = data.dubs.find((item) => item.id === pack.dubIds[index]);
+            if (!dub || dub.uploaderId !== pack.ownerId || !canAccessDub(data, dub, user)) {
+              throw Object.assign(new Error("A track in this pack is no longer available to you."), { status: 404 });
+            }
+            const filePath = resolveDubMedia(dub);
+            if (!filePath || !existsSync(filePath) || !statSync(filePath).isFile()) {
+              throw Object.assign(new Error("A track's original audio file is unavailable."), { status: 404 });
+            }
+            const size = statSync(filePath).size;
+            total += size;
+            const extension = extname(dub.audioFileName ?? filePath).toLowerCase().replace(/[^.a-z0-9]/g, "") || ".bin";
+            const title = String(dub.title ?? "Track").replace(/[<>:"/\\|?*\x00-\x1f]/g, "-").trim().slice(0, 80) || "Track";
+            entries.push({ name: `${String(index + 1).padStart(2, "0")} - ${title}${extension}`, path: filePath });
+          }
+          if (total > maxPackBytes) {
+            throw Object.assign(new Error("Pack exceeds the 500 MB download limit."), { status: 413 });
+          }
+          if (pack.kind === "sample" && pack.licence) entries.push({ name: "LICENCE.txt", content: `${pack.licence}\n` });
+          const artwork = pack.artworkUploadId
+            ? data.uploads.find((item) => item.id === pack.artworkUploadId && item.userId === pack.ownerId && item.type === "artwork")
+            : undefined;
+          if (pack.artworkUploadId && !artwork) {
+            throw Object.assign(new Error("Pack artwork is unavailable."), { status: 404 });
+          }
+          if (artwork) {
+            const artworkPath = resolve(mediaDirectory, basename(artwork.storedName));
+            if (!existsSync(artworkPath) || !statSync(artworkPath).isFile()) {
+              throw Object.assign(new Error("Pack artwork is unavailable."), { status: 404 });
+            }
+            entries.push({ name: `cover${extname(artwork.audioFileName).toLowerCase()}`, path: artworkPath });
+          }
+          return entries;
+        };
+        if (request.method === "GET" && !action) {
+          if (!packForUser()) {
+            json(response, 404, { error: "Pack not found." });
+            return;
+          }
+          json(response, 200, { pack: currentPack(), authenticated: true });
+          return;
+        }
+        if (request.method === "GET" && action === "artwork") {
+          if (!packForUser()) {
+            json(response, 404, { error: "Pack artwork not found." });
+            return;
+          }
+          const upload = pack.artworkUploadId
+            ? data.uploads.find((item) => item.id === pack.artworkUploadId && item.userId === pack.ownerId && item.type === "artwork")
+            : undefined;
+          const dubArtwork = pack.fallbackArtworkName
+            ?? data.dubs.find((item) => item.id === pack.dubIds[0])?.storedArtworkName;
+          const filePath = upload
+            ? resolve(mediaDirectory, basename(upload.storedName))
+            : dubArtwork ? resolve(mediaDirectory, basename(dubArtwork)) : undefined;
+          if (!filePath || !existsSync(filePath)) {
+            json(response, 404, { error: "Pack artwork not found." });
+            return;
+          }
+          streamAudio(request, response, filePath);
+          return;
+        }
+        if (request.method === "GET" && action === "archive") {
+          if (!packForUser()) {
+            json(response, 404, { error: "Pack not found." });
+            return;
+          }
+          const entries = validatePackFiles();
+          const safeTitle = String(pack.title || "pack").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 60) || "pack";
+          response.writeHead(200, {
+            "cache-control": "private, no-store",
+            "content-type": "application/zip",
+            "content-disposition": `attachment; filename="${safeTitle}.zip"; filename*=UTF-8''${encodeURIComponent(`${safeTitle}.zip`)}`,
+            "x-content-type-options": "nosniff",
+          });
+          await pipeline(Readable.from(storedZip(entries)), response);
+          return;
+        }
+        if (request.method === "POST" && action === "download") {
+          if (!packForUser() || pack.status !== "published") {
+            json(response, 404, { error: "Pack not found." });
+            return;
+          }
+          validatePackFiles();
+          const downloadedAt = new Date().toISOString();
+          for (const dubId of pack.dubIds) {
+            data.downloads.push({ id: randomUUID(), userId: user.id, dubId, downloadedAt });
+            if (!data.likes.some((like) => like.userId === user.id && like.dubId === dubId)) {
+              data.likes.push({ userId: user.id, dubId, likedAt: downloadedAt });
+            }
+          }
+          persist();
+          broadcastCommunity(user.id);
+          json(response, 200, {
+            downloadUrl: `/api/packs/${encodeURIComponent(pack.id)}/archive`,
+            fileName: `${String(pack.title || "pack").replace(/[^a-z0-9._ -]/gi, "").trim() || "pack"}.zip`,
+          });
+          return;
+        }
+        if (!isOwner) {
+          json(response, 404, { error: "Pack not found." });
+          return;
+        }
+        if (request.method === "PATCH" && !action) {
+          const input = packInput(await readJson(request));
+          const title = input.title === undefined ? pack.title : validatePackText(input.title, "pack title", 100, "Untitled pack");
+          const description = input.description === undefined ? pack.description : validatePackText(input.description, "pack description", 2000);
+          const kind = input.kind === undefined ? pack.kind : input.kind;
+          const distribution = input.distribution === undefined ? pack.distribution : input.distribution;
+          let aListPublic = input.aListPublic === undefined ? pack.aListPublic === true : input.aListPublic;
+          const licence = input.licence === undefined ? pack.licence : validatePackText(input.licence, "licence text", 5000);
+          if (input.aListPublic !== undefined && typeof input.aListPublic !== "boolean") {
+            json(response, 400, { error: "A-List public access must be true or false." });
+            return;
+          }
+          if (!title || !["dub", "sample"].includes(kind) || !["worldwide", "private", "alist"].includes(distribution)) {
+            json(response, 400, { error: "Provide a title, pack kind, and valid distribution." });
+            return;
+          }
+          if (distribution !== "alist") {
+            if (input.aListPublic === true) {
+              json(response, 400, { error: "A-List public access is only available for A-List packs." });
+              return;
+            }
+            aListPublic = false;
+          } else if (typeof aListPublic !== "boolean") {
+            json(response, 400, { error: "A-List public access must be true or false." });
+            return;
+          }
+          if (distribution === "alist" && user.aListApproved !== true) {
+            json(response, 403, { error: "A-List approval is required for this pack audience." });
+            return;
+          }
+          if (pack.status === "published" && distribution !== pack.distribution) {
+            json(response, 409, { error: "A pack's distribution cannot be changed after publishing." });
+            return;
+          }
+          if (pack.status === "published" && pack.distribution === "alist" && aListPublic !== (pack.aListPublic === true)) {
+            json(response, 409, { error: "A published A-List pack's audience cannot be changed." });
+            return;
+          }
+          if (pack.status === "published" && input.dubIds !== undefined && Array.isArray(input.dubIds) && input.dubIds.length === 0) {
+            json(response, 400, { error: "A published pack must contain at least one track." });
+            return;
+          }
+          if (pack.status === "published" && kind === "sample" && !licence?.trim()) {
+            json(response, 400, { error: "Sample packs require user-written usage terms before publishing." });
+            return;
+          }
+          let dubIds = pack.dubIds;
+          if (input.dubIds !== undefined) {
+            if (!Array.isArray(input.dubIds) || input.dubIds.length > maxPackItems
+              || input.dubIds.some((id) => typeof id !== "string") || new Set(input.dubIds).size !== input.dubIds.length) {
+              json(response, 400, { error: "Packs can contain up to 50 unique tracks in a specified order." });
+              return;
+            }
+            dubIds = input.dubIds;
+          }
+          for (const dubId of dubIds) {
+            const dub = data.dubs.find((item) => item.id === dubId && item.uploaderId === user.id);
+            if (!dub) {
+              json(response, 400, { error: `Track ${dubId} is not one of your tracks.` });
+              return;
+            }
+            const audience = packAudience(dub);
+            if (dub.draftPackId && dub.draftPackId !== pack.id) {
+              json(response, 409, { error: "A track created inside another draft cannot be moved between packs." });
+              return;
+            }
+            if (!(pack.status === "draft" && dub.draftPackId === pack.id)
+              && (audience.distribution !== distribution || audience.aListPublic !== aListPublic)) {
+              json(response, 409, { error: `Track "${dub.title}" has an incompatible audience (${audience.distribution}${audience.distribution === "alist" ? `, public=${audience.aListPublic}` : ""}).` });
+              return;
+            }
+          }
+          if (pack.status === "published" && dubIds.some((id) => !pack.dubIds.includes(id))
+            && pack.grants?.length && input.confirmNewAccess !== true) {
+            json(response, 409, { error: "Adding tracks will share them with current pack recipients; confirmNewAccess is required." });
+            return;
+          }
+          const artworkUploadId = input.artworkUploadId === null ? undefined
+            : input.artworkUploadId === undefined ? pack.artworkUploadId : input.artworkUploadId;
+          if (artworkUploadId && !data.uploads.some((item) => item.id === artworkUploadId && item.userId === user.id && item.type === "artwork")) {
+            json(response, 400, { error: "Choose an artwork upload owned by you." });
+            return;
+          }
+          const totalBytes = dubIds.reduce((total, dubId) => {
+            const dub = data.dubs.find((item) => item.id === dubId);
+            const filePath = resolveDubMedia(dub);
+            return total + (filePath && existsSync(filePath) ? statSync(filePath).size : 0);
+          }, 0);
+          if (totalBytes > maxPackBytes) {
+            json(response, 413, { error: "Packs cannot exceed 500 MB of audio." });
+            return;
+          }
+          for (const removedId of pack.dubIds.filter((id) => !dubIds.includes(id))) {
+            const removedDub = data.dubs.find((item) => item.id === removedId);
+            if (removedDub?.draftPackId === pack.id) {
+              removedDub.distribution = "private";
+              removedDub.aListPublic = false;
+              delete removedDub.draftPackId;
+            }
+          }
+          if (pack.status === "draft" && (distribution !== pack.distribution || aListPublic !== (pack.aListPublic === true))) {
+            for (const dubId of dubIds) {
+              const draftDub = data.dubs.find((item) => item.id === dubId && item.draftPackId === pack.id);
+              if (draftDub) draftDub.draftAudience = { distribution, aListPublic };
+            }
+          }
+          pack.title = title;
+          pack.description = description;
+          pack.kind = kind;
+          pack.distribution = distribution;
+          pack.aListPublic = aListPublic;
+          pack.licence = licence;
+          pack.dubIds = [...dubIds];
+          pack.artworkUploadId = artworkUploadId;
+          if (!artworkUploadId) {
+            pack.fallbackArtworkName = data.dubs.find((item) => item.id === pack.dubIds[0])?.storedArtworkName;
+          }
+          pack.updatedAt = new Date().toISOString();
+          persist();
+          json(response, 200, { pack: currentPack() });
+          return;
+        }
+        if (request.method === "POST" && action === "tracks") {
+          const input = packInput(await readJson(request));
+          if (pack.distribution === "alist" && user.aListApproved !== true) {
+            json(response, 403, { error: "A-List approval is required to add tracks to this pack." });
+            return;
+          }
+          const requestId = input.requestId === undefined ? undefined : validatePackText(input.requestId, "request ID", 100);
+          const requestedDubId = requestId && pack.trackRequests?.[requestId];
+          const replayDubId = (requestedDubId && pack.dubIds.includes(requestedDubId) ? requestedDubId : undefined)
+            || (input.uploadId && pack.dubIds.find((id) => data.dubs.find((item) => item.id === id)?.packUploadId === input.uploadId));
+          if (replayDubId) {
+            const replayDub = data.dubs.find((item) => item.id === replayDubId);
+            if (replayDub) {
+              json(response, 201, { pack: currentPack(), dub: publicDub(data, replayDub, user.id) });
+              return;
+            }
+          }
+          if (pack.dubIds.length >= maxPackItems) {
+            json(response, 400, { error: "Packs can contain at most 50 tracks." });
+            return;
+          }
+          const title = validatePackText(input.title, "track title", 100);
+          const artist = data.artists.find((item) => item.id === input.artistId && item.userId === user.id);
+          const upload = data.uploads.find((item) => item.id === input.uploadId && item.userId === user.id && item.type === "audio");
+          if (!title || !artist || !upload) {
+            json(response, 400, { error: "Provide a title, your artist profile, and an uploaded audio file." });
+            return;
+          }
+          if (pack.status === "published" && pack.grants?.length && input.confirmNewAccess !== true) {
+            json(response, 409, { error: "Adding a track will share it with current pack recipients; confirmNewAccess is required." });
+            return;
+          }
+          const durationSeconds = audioDurationSeconds(Number(input.durationSeconds));
+          const trackKey = validatePackText(input.key, "track key", 20);
+          const dub = {
+            id: randomUUID(),
+            distribution: "private",
+            ...(pack.distribution === "alist" ? { aListPublic: false } : {}),
+            title,
+            artist: artist.name,
+            artistId: artist.id,
+            uploaderId: user.id,
+            uploader: user.username,
+            uploaderDisplayName: user.displayName,
+            uploadedAt: new Date().toISOString(),
+            version: 1,
+            bpm: Number.isInteger(input.bpm) && input.bpm >= 1 && input.bpm <= 300 ? input.bpm : 0,
+            key: typeof input.key === "string" ? input.key.trim().slice(0, 20) || undefined : undefined,
+            tags: normalizeDubTags(input.tags),
+            genre: normalizeDubTags(input.tags).join(", ").slice(0, 160) || "Uncategorized",
+            duration: formatAudioDuration(durationSeconds),
+            audioFormat: audioFormat(upload.audioFileName),
+            audioBytes: upload.bytes,
+            audioBytes: upload.bytes,
+            bitrateKbps: averageBitrateKbps(upload.bytes, durationSeconds),
+            artwork: "whitelabel",
+            message: String(input.message ?? "").trim().slice(0, 400) || "A new dub from the studio.",
+            key: trackKey || undefined,
+            audioUrl: `/api/dubs/${randomUUID()}/audio`,
+            audioFileName: upload.audioFileName,
+            storedAudioName: upload.storedName,
+            audioSource: "upload",
+            draftPackId: pack.id,
+            draftAudience: { distribution: pack.distribution, aListPublic: pack.aListPublic === true },
+            packUploadId: upload.id,
+          };
+          dub.audioUrl = `/api/dubs/${dub.id}/audio`;
+          const nextTotal = [...pack.dubIds, dub.id].reduce((total, id) => {
+            const item = id === dub.id ? dub : data.dubs.find((entry) => entry.id === id);
+            return total + (item?.audioBytes ?? 0);
+          }, 0);
+          if (nextTotal > maxPackBytes) {
+            json(response, 413, { error: "Packs cannot exceed 500 MB of audio." });
+            return;
+          }
+          data.dubs.unshift(dub);
+          data.uploads = data.uploads.filter((item) => item.id !== upload.id);
+          pack.dubIds.push(dub.id);
+          pack.keys ??= {};
+          if (trackKey) pack.keys[dub.id] = trackKey;
+          if (requestId) {
+            pack.trackRequests ??= {};
+            pack.trackRequests[requestId] = dub.id;
+          }
+          pack.updatedAt = new Date().toISOString();
+          if (pack.status === "published") {
+            dub.distribution = pack.distribution;
+            dub.aListPublic = pack.distribution === "alist" && pack.aListPublic === true;
+            delete dub.draftPackId;
+            delete dub.draftAudience;
+          }
+          persist();
+          json(response, 201, { pack: currentPack(), dub: packDubResponse(data, pack, dub, user) });
+          return;
+        }
+        const trackMetadataMatch = action.match(/^tracks\/([^/]+)$/);
+        if (request.method === "PATCH" && trackMetadataMatch) {
+          const dubId = decodeURIComponent(trackMetadataMatch[1]);
+          const dub = data.dubs.find((item) => item.id === dubId && item.uploaderId === user.id);
+          if (!dub || !pack.dubIds.includes(dub.id)) {
+            json(response, 404, { error: "Track not found in this pack." });
+            return;
+          }
+          const input = packInput(await readJson(request));
+          const next = {};
+          if (input.title !== undefined) {
+            next.title = validatePackText(input.title, "track title", 100);
+            if (!next.title) { json(response, 400, { error: "Track title is required." }); return; }
+          }
+          if (input.artistId !== undefined) {
+            const artist = data.artists.find((item) => item.id === input.artistId && item.userId === user.id);
+            if (!artist) { json(response, 400, { error: "Choose one of your artist profiles." }); return; }
+            next.artistId = artist.id;
+            next.artist = artist.name;
+          }
+          if (input.tags !== undefined) {
+            next.tags = normalizeDubTags(input.tags);
+            next.genre = next.tags.join(", ").slice(0, 160) || "Uncategorized";
+          }
+          if (input.bpm !== undefined) next.bpm = Number.isInteger(input.bpm) && input.bpm >= 1 && input.bpm <= 300 ? input.bpm : 0;
+          if (input.key !== undefined) {
+            next.key = validatePackText(input.key, "track key", 20) || undefined;
+          }
+          if (input.message !== undefined) next.message = validatePackText(input.message, "track message", 400);
+          Object.assign(dub, next);
+          if (input.key !== undefined) {
+            pack.keys ??= {};
+            if (dub.key) pack.keys[dub.id] = dub.key;
+            else delete pack.keys[dub.id];
+          }
+          pack.updatedAt = new Date().toISOString();
+          persist();
+          for (const connectedUserId of socketsByUser.keys()) broadcastCommunity(connectedUserId);
+          json(response, 200, { pack: currentPack(), dub: packDubResponse(data, pack, dub, user) });
+          return;
+        }
+        if (request.method === "POST" && action === "publish") {
+          if (pack.distribution === "alist" && user.aListApproved !== true) {
+            json(response, 403, { error: "A-List approval is required to publish this pack." });
+            return;
+          }
+          if (!["dub", "sample"].includes(pack.kind) || pack.dubIds.length === 0 || pack.dubIds.length > maxPackItems) {
+            json(response, 400, { error: "A pack must contain between 1 and 50 tracks before publishing." });
+            return;
+          }
+          if (pack.kind === "sample" && !pack.licence?.trim()) {
+            json(response, 400, { error: "Sample packs require user-written usage terms before publishing." });
+            return;
+          }
+          for (const dubId of pack.dubIds) {
+            const dub = data.dubs.find((item) => item.id === dubId && item.uploaderId === user.id);
+            const audience = dub && packAudience(dub);
+            if (!dub || audience.distribution !== pack.distribution || audience.aListPublic !== (pack.aListPublic === true)) {
+              json(response, 409, { error: `Track "${dub?.title ?? dubId}" has an incompatible audience and cannot be published in this pack.` });
+              return;
+            }
+            const filePath = resolveDubMedia(dub);
+            if (!filePath || !existsSync(filePath)) {
+              json(response, 404, { error: `Audio file for "${dub.title}" is unavailable.` });
+              return;
+            }
+          }
+          const totalBytes = pack.dubIds.reduce((total, dubId) => total + statSync(resolveDubMedia(data.dubs.find((item) => item.id === dubId))).size, 0);
+          if (totalBytes > maxPackBytes) {
+            json(response, 413, { error: "Packs cannot exceed 500 MB of audio." });
+            return;
+          }
+          pack.status = "published";
+          for (const dubId of pack.dubIds) {
+            const dub = data.dubs.find((item) => item.id === dubId);
+            if (dub) delete dub.draftPackId;
+            if (dub) {
+              dub.distribution = pack.distribution;
+              dub.aListPublic = pack.distribution === "alist" && pack.aListPublic === true;
+              delete dub.draftAudience;
+            }
+          }
+          if (!pack.artworkUploadId) {
+            const firstArtwork = data.dubs.find((item) => item.id === pack.dubIds[0])?.storedArtworkName;
+            if (firstArtwork) pack.fallbackArtworkName = firstArtwork;
+          }
+          pack.updatedAt = new Date().toISOString();
+          persist();
+          for (const connectedUserId of socketsByUser.keys()) broadcastCommunity(connectedUserId);
+          json(response, 200, { pack: currentPack() });
+          return;
+        }
+        if (request.method === "DELETE" && !action) {
+          for (const dub of data.dubs.filter((item) => item.draftPackId === pack.id)) {
+            dub.distribution = "private";
+            dub.aListPublic = false;
+            delete dub.draftPackId;
+          }
+          data.packs = data.packs.filter((item) => item.id !== pack.id);
+          persist();
+          json(response, 200, { id: pack.id });
+          return;
+        }
+        if (request.method === "POST" && action === "share") {
+          const input = packInput(await readJson(request));
+          if (pack.status !== "published" || pack.distribution !== "private") {
+            json(response, 400, { error: "Only published private packs can be shared with selected friends." });
+            return;
+          }
+          if (!Array.isArray(input.buddyIds) || input.buddyIds.some((id) => typeof id !== "string")) {
+            json(response, 400, { error: "Provide the selected friend IDs." });
+            return;
+          }
+          const friends = input.buddyIds.map((buddyId) => data.friendships.find((item) => item.id === buddyId && item.ownerId === user.id));
+          if (friends.some((friend) => !friend)) {
+            json(response, 400, { error: "Every selected recipient must be an existing friend." });
+            return;
+          }
+          const userIds = [...new Set(friends.map((friend) => friend.friendUserId))];
+          const oldIds = new Set((pack.grants ?? []).map((grant) => grant.userId ?? grant.id));
+          const additions = userIds.filter((id) => !oldIds.has(id));
+          if (additions.length && oldIds.size && input.confirmNewAccess !== true) {
+            json(response, 409, { error: "Adding recipients grants them pack access; confirmNewAccess is required." });
+            return;
+          }
+          pack.grants = userIds.map((userId) => ({ userId, grantedAt: oldIds.has(userId)
+            ? pack.grants.find((grant) => (grant.userId ?? grant.id) === userId)?.grantedAt
+            : new Date().toISOString() }));
+          pack.updatedAt = new Date().toISOString();
+          for (const recipientId of additions) {
+            const recipient = data.users.find((item) => item.id === recipientId);
+            if (!recipient) continue;
+            const recipientFriendship = findOrCreateFriendship(data, recipient, user);
+            const senderFriendship = findOrCreateFriendship(data, user, recipient);
+            const sentAt = new Date().toISOString();
+            const messageId = randomUUID();
+            const text = `${user.displayName} shared “${pack.title}”: /#pack?id=${encodeURIComponent(pack.id)}`;
+            findOrCreateConversation(data, user.id, senderFriendship.id).messages.push({
+              id: messageId, sender: "you", text, sentAt, packId: pack.id,
+            });
+            findOrCreateConversation(data, recipient.id, recipientFriendship.id).messages.push({
+              id: messageId, sender: "them", text, sentAt, packId: pack.id,
+            });
+            recipientFriendship.unread = (recipientFriendship.unread ?? 0) + 1;
+          }
+          persist();
+          for (const connectedUserId of new Set([...oldIds, ...userIds])) broadcastCommunity(connectedUserId);
+          json(response, 200, { pack: currentPack() });
+          return;
+        }
+        const revokePackGrantMatch = action.match(/^grants\/([^/]+)$/);
+        if (request.method === "DELETE" && revokePackGrantMatch) {
+          const userId = decodeURIComponent(revokePackGrantMatch[1]);
+          const oldLength = pack.grants?.length ?? 0;
+          pack.grants = (pack.grants ?? []).filter((grant) => (grant.userId ?? grant.id) !== userId);
+          if (pack.grants.length === oldLength) {
+            json(response, 404, { error: "Pack recipient not found." });
+            return;
+          }
+          pack.updatedAt = new Date().toISOString();
+          persist();
+          broadcastCommunity(userId);
+          json(response, 200, { pack: currentPack() });
+          return;
+        }
+        json(response, 404, { error: "Pack route not found." });
+        return;
+      }
+      if (match && match[1] === "dubs" && match[3] === "preview" && request.method === "PATCH") {
+        const dub = data.dubs.find((item) => item.id === match[2] && item.uploaderId === user.id);
+        if (!dub || !canShareDubExternally(dub)) {
+          json(response, 404, { error: "Public dub not found." });
+          return;
+        }
+        const input = await readJson(request);
+        if (!previewDurations.includes(input?.previewSeconds)) {
+          json(response, 400, { error: "Choose a 30, 60 or 90 second preview." });
+          return;
+        }
+        dub.previewSeconds = input.previewSeconds;
+        persist();
+        for (const connectedUserId of socketsByUser.keys()) broadcastCommunity(connectedUserId);
+        json(response, 200, { previewSeconds: dub.previewSeconds });
         return;
       }
       if (route === "/api/push/config" && request.method === "GET") {
@@ -1017,7 +1898,7 @@ export function createApiServer({
       }
       if (route === "/api/admin/overview" && request.method === "GET") {
         const since = Date.now() - 7 * 24 * 60 * 60 * 1000;
-        const accessibleDubs = data.dubs.filter((dub) => canAccessDub(data, dub, user));
+        const accessibleDubs = data.dubs.filter((dub) => !dub.draftPackId && canAccessDub(data, dub, user));
         const accessibleDubIds = new Set(accessibleDubs.map((dub) => dub.id));
         const recentDubs = accessibleDubs.filter((dub) => Date.parse(dub.uploadedAt) >= since);
         const recentUsers = data.users.filter((account) => Date.parse(account.createdAt ?? 0) >= since);
@@ -1247,12 +2128,17 @@ export function createApiServer({
           json(response, 400, { error: "Provide BPM values from 0 to 300 and bitrate values from 0 to 1000, with minimums no greater than maximums." });
           return;
         }
+        const matchingPackDubIds = new Set(query ? data.packs
+          .filter((pack) => pack.status === "published" && canAccessPack(pack, user)
+            && `${pack.title} ${pack.description} ${pack.kind === "sample" ? "Sample Pack" : "Dub Pack"}`.toLocaleLowerCase().includes(query))
+          .flatMap((pack) => pack.dubIds) : []);
         const filtered = data.dubs.filter((dub) => {
+          if (dub.draftPackId) return false;
           if ((distribution === "feed" ? !(distributionTypes.length ? distributionTypes : ["worldwide", "alist"]).includes(dub.distribution) : dub.distribution !== distribution) || !canAccessDub(data, dub, user)) return false;
           const dubTags = dub.tags ?? [];
           const format = dub.audioFormat ?? audioFormat(dub.audioFileName);
           const searchable = [dub.title, dub.artist, dub.uploader, dub.uploaderDisplayName, dub.genre, dub.message, format, ...dubTags].filter(Boolean).join(" ").toLocaleLowerCase();
-          if (query && !searchable.includes(query)) return false;
+          if (query && !searchable.includes(query) && !matchingPackDubIds.has(dub.id)) return false;
           if (tags.length && !tags.some((tag) => dubTags.includes(tag))) return false;
           if (fileType && format?.toLocaleUpperCase() !== fileType) return false;
           if (minBpm !== undefined && (!Number.isFinite(dub.bpm) || dub.bpm < minBpm)) return false;
@@ -1344,6 +2230,10 @@ export function createApiServer({
       }
       if (request.method === "DELETE" && route.startsWith("/api/uploads/")) {
         const uploadId = route.slice("/api/uploads/".length);
+        if (data.packs.some((pack) => pack.ownerId === user.id && pack.artworkUploadId === uploadId)) {
+          json(response, 409, { error: "This upload is in use as pack artwork." });
+          return;
+        }
         const uploadIndex = data.uploads.findIndex((item) => item.id === uploadId && item.userId === user.id);
         if (uploadIndex !== -1) {
           const [upload] = data.uploads.splice(uploadIndex, 1);
@@ -1526,6 +2416,19 @@ export function createApiServer({
         data.downloads = data.downloads.filter((item) => item.dubId !== dub.id);
         data.dubGrants = data.dubGrants.filter((item) => item.dubId !== dub.id);
         data.dubShares = data.dubShares.filter((item) => item.dubId !== dub.id);
+        for (const pack of data.packs) {
+          if (!pack.dubIds.includes(dub.id)) continue;
+          pack.dubIds = pack.dubIds.filter((id) => id !== dub.id);
+          if (pack.keys) delete pack.keys[dub.id];
+          if (!pack.artworkUploadId) {
+            pack.fallbackArtworkName = data.dubs.find((item) => item.id === pack.dubIds[0])?.storedArtworkName;
+          }
+          pack.updatedAt = new Date().toISOString();
+          if (pack.status === "published" && pack.dubIds.length === 0) {
+            pack.status = "draft";
+            pack.grants = [];
+          }
+        }
         persist();
         for (const storedName of [dub.storedAudioName, dub.storedArtworkName]) {
           if (!storedName) continue;

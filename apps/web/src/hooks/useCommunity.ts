@@ -6,6 +6,7 @@ import type {
   ChatMessagePage,
   Conversation,
   Dub,
+  DubPack,
   DubUploadFormValues,
   MemberProfile,
   UploadProgressState,
@@ -20,6 +21,7 @@ import { readAudioDurationSeconds } from "../services/readAudioDuration";
 import { useAudioPlayback, type PlaybackPosition } from "./useAudioPlayback";
 import { useChatConnection } from "./useChatConnection";
 import { useNotifications } from "./useNotifications";
+import { downloadDubFile } from "../services/downloadDubFile";
 
 export interface Crate {
   id: string;
@@ -32,6 +34,7 @@ interface CommunitySnapshot {
   lastPlayback: PlaybackPosition | null;
   artists: ArtistOption[];
   dubs: Dub[];
+  packs?: DubPack[];
   sharedDubIds: string[];
   buddies: Buddy[];
   conversations: Conversation[];
@@ -48,6 +51,7 @@ interface CommunityState {
   lastPlayback: PlaybackPosition | null;
   artists: ArtistOption[];
   dubs: Dub[];
+  packs: DubPack[];
   sharedDubIds: Set<string>;
   buddies: Buddy[];
   conversations: Conversation[];
@@ -68,6 +72,7 @@ const initialState: CommunityState = {
   lastPlayback: null,
   artists: [],
   dubs: [],
+  packs: [],
   sharedDubIds: new Set(),
   buddies: [],
   conversations: [],
@@ -149,6 +154,7 @@ export function useCommunity() {
       lastPlayback: snapshot.lastPlayback,
       artists: snapshot.artists,
       dubs: snapshot.dubs,
+      packs: snapshot.packs ?? [],
       sharedDubIds: new Set(snapshot.sharedDubIds),
       buddies: snapshot.buddies,
       conversations: snapshot.conversations.map((conversation) => {
@@ -274,21 +280,22 @@ export function useCommunity() {
 
   async function downloadDub(dub: Dub) {
     try {
-      const entitlement = await requestApi<{ audioUrl: string; audioFileName: string }>(
-        `/api/dubs/${encodeURIComponent(dub.id)}/download`,
-        { method: "POST" },
-      );
-      const link = document.createElement("a");
-      link.href = entitlement.audioUrl;
-      link.download = entitlement.audioFileName;
-      document.body.append(link);
-      link.click();
-      link.remove();
+      await downloadDubFile(dub.id);
       await refreshCommunity();
-      notify(`Download recorded for ${dub.title}. Your like is counted once.`);
+      notify(`Downloaded and liked ${dub.title}. Saved in My Library; your like is counted once.`);
     } catch (requestError) {
       notify(requestError instanceof Error ? requestError.message : "The download failed.", "error");
     }
+  }
+
+  async function updateDubPreview(dubId: string, previewSeconds: number): Promise<void> {
+    await requestApi(`/api/dubs/${encodeURIComponent(dubId)}/preview`, {
+      method: "PATCH", body: jsonBody({ previewSeconds }),
+    });
+    setState((current) => ({
+      ...current,
+      dubs: current.dubs.map((dub) => dub.id === dubId ? { ...dub, previewSeconds } : dub),
+    }));
   }
 
   async function addDub(values: DubUploadFormValues): Promise<Dub | null> {
@@ -677,7 +684,9 @@ export function useCommunity() {
     retryConnection,
     refreshCommunity,
     downloadDub,
+    updateDubPreview,
     togglePlayback: playback.togglePlayback,
+    closePlayer: playback.closePlayer,
     seekPlayback: playback.seekPlayback,
     seekPlaybackProgress: playback.seekPlaybackProgress,
     setVolume: playback.setVolume,
@@ -685,6 +694,8 @@ export function useCommunity() {
     setRepeat: playback.setRepeat,
     playNextDub: playback.playNextDub,
     playPreviousDub: playback.playPreviousDub,
+    playPack: playback.playQueue,
+    activatePackQueue: playback.activateQueue,
     addDub,
     updateDub,
     deleteDub,

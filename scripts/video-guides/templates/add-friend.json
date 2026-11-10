@@ -1,0 +1,75 @@
+{
+  "id": "add-friend",
+  "title": "Add an artist as a friend",
+  "description": "Find Holik by username, inspect the artist profile, add the contact and open a conversation.",
+  "variables": { "artistName": "Demo Artist" },
+  "setup": [
+    { "type": "include", "fragment": "signed-in" }
+  ],
+  "steps": [
+    {
+      "caption": "1. Select Friend List to find artists and manage your contacts.",
+      "actions": [
+        { "type": "navigate", "destination": "buddies" },
+        { "type": "waitFor", "target": { "role": "heading", "name": "Friend List" } }
+      ]
+    },
+    {
+      "caption": "2. Select Find artists to focus the global artist lookup.",
+      "actions": [
+        { "type": "click", "target": { "role": "button", "name": "Find artists" } }
+      ]
+    },
+    {
+      "caption": "3. Enter an artist username or ID. Here we search for holik.",
+      "actions": [
+        { "type": "fill", "target": { "label": "Find artists by username or ID" }, "value": "holik" },
+        { "type": "waitFor", "target": { "role": "button", "name": "Add Holik", "within": { "role": "region", "name": "Find artists" } } }
+      ]
+    },
+    {
+      "caption": "4. Select the matching artist's profile picture to check their profile before adding them.",
+      "actions": [
+        { "type": "click", "target": { "role": "button", "name": "View Holik's profile", "within": { "role": "region", "name": "Find artists" } } },
+        { "type": "waitFor", "target": { "role": "heading", "name": "About" } }
+      ]
+    },
+    {
+      "caption": "5. Return to Friend List. Your artist lookup is still available.",
+      "actions": [
+        { "type": "navigate", "destination": "buddies" },
+        { "type": "waitFor", "target": { "role": "button", "name": "Add Holik", "within": { "role": "region", "name": "Find artists" } } }
+      ]
+    },
+    {
+      "caption": "6. Select Add friend. The result changes to Added, with a Message shortcut.",
+      "actions": [
+        { "type": "click", "target": { "role": "button", "name": "Add Holik", "within": { "role": "region", "name": "Find artists" } } },
+        { "type": "waitFor", "target": { "role": "button", "name": "Message Holik", "within": { "role": "region", "name": "Find artists" } } },
+        { "type": "waitFor", "target": { "role": "button", "name": "Message Holik", "within": { "role": "region", "name": "Contacts" } } }
+      ]
+    },
+    {
+      "caption": "7. Use Search friends to find Holik in your saved contacts, not the artist lookup.",
+      "actions": [
+        { "type": "fill", "target": { "label": "Search friends" }, "value": "holik" },
+        { "type": "waitFor", "target": { "role": "button", "name": "Message Holik", "within": { "role": "region", "name": "Contacts" } } }
+      ]
+    },
+    {
+      "caption": "8. Select Holik's profile picture in Contacts to revisit your new friend's artist page.",
+      "actions": [
+        { "type": "click", "target": { "role": "button", "name": "View Holik's profile", "within": { "role": "region", "name": "Contacts" } } },
+        { "type": "waitFor", "target": { "role": "heading", "name": "About" } }
+      ]
+    },
+    {
+      "caption": "9. Select Message on the artist page. Your new contact's conversation is ready.",
+      "actions": [
+        { "type": "click", "target": { "role": "button", "name": "Message" } },
+        { "type": "waitFor", "target": { "label": "Message Holik" } },
+        { "type": "waitFor", "target": { "role": "log", "name": "Conversation messages" } }
+      ]
+    }
+  ]
+}

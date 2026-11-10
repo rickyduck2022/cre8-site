@@ -1,5 +1,9 @@
 import type { Meta, StoryObj } from "@storybook/react";
 import { AudioPlayer } from "./AudioPlayer";
+import { PlayerTab } from "../../atoms/PlayerTab/PlayerTab";
+import { PlayerPositionMenu } from "../../molecules/PlayerPositionMenu/PlayerPositionMenu";
+import { AudioLines } from "@craft/icons";
+import "../../templates/CommunityPageTemplates.css";
 
 const meta = {
   title: "Organisms/AudioPlayer",
@@ -43,4 +47,30 @@ export const Controller: Story = {
 
 export const ControllerMinimized: Story = {
   args: { colorVariant: "controller", minimized: true, onMinimizedChange: () => {} },
+};
+
+export const FloatingTabs: Story = {
+  args: {
+    className: "app-player",
+    colorVariant: "controller",
+    minimized: true,
+    onMinimizedChange: () => {},
+    onClose: () => {},
+    dragHandle: <PlayerTab aria-label="Move audio player" className="audio-player__drag" leadingIcon={<AudioLines aria-hidden="true" />} />,
+    positionMenu: <PlayerPositionMenu positions={["header", "footer", "floating"]} onSelect={() => {}} />,
+  },
+  render: (args) => (
+    <div className="community-dashboard-template community-dashboard-template--player-minimized">
+      <AudioPlayer {...args} />
+    </div>
+  ),
+};
+
+export const SidebarTabs: Story = {
+  ...FloatingTabs,
+  render: (args) => (
+    <div className="community-dashboard-template community-dashboard-template--player-minimized community-dashboard-template--player-docked">
+      <AudioPlayer {...args} />
+    </div>
+  ),
 };

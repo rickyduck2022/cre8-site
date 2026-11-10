@@ -3,3 +3,8 @@
   gap: 1.25rem;
   min-width: 0;
 }
+
+.buddy-list__search { display: grid; gap: 0.625rem; }
+.buddy-list__search h2,
+.buddy-list__search p { margin: 0; }
+.buddy-list__search p { color: var(--text-secondary); }

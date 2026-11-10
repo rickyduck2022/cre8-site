@@ -1,0 +1,107 @@
+{
+  "id": "external-share-link",
+  "title": "Create an external link",
+  "description": "Set a logged-out preview length and capture a public dub's share link.",
+  "variables": {
+    "artistName": "Demo Artist",
+    "trackTitle": "Night Drive"
+  },
+  "assets": {
+    "audio": { "env": "GUIDE_AUDIO_PATH" },
+    "artwork": {
+      "path": "apps/web/public/cre8-main-logo.png",
+      "env": "GUIDE_ARTWORK_PATH"
+    }
+  },
+  "setup": [
+    { "type": "include", "fragment": "signed-in" },
+    { "type": "include", "fragment": "publish-dub" }
+  ],
+  "steps": [
+    {
+      "caption": "Open My Dubs to share your public release.",
+      "actions": [
+        { "type": "navigate", "destination": "my-dubs" },
+        { "type": "waitFor", "target": { "role": "heading", "name": "My Dubs" } },
+        { "type": "waitFor", "target": { "role": "region", "name": "Audio player: {{trackTitle}}" } }
+      ],
+      "holdMs": 4500
+    },
+    {
+      "caption": "Open Share for Night Drive, then choose the External link tab.",
+      "actions": [
+        { "type": "click", "target": { "role": "button", "name": "Share {{trackTitle}}" } },
+        { "type": "waitFor", "target": { "role": "dialog", "name": "Share {{trackTitle}}" } },
+        { "type": "click", "target": { "role": "tab", "name": "External link" } },
+        { "type": "waitFor", "target": { "role": "tabpanel", "name": "External link" } }
+      ],
+      "holdMs": 5000
+    },
+    {
+      "caption": "Set the logged-out preview to 60 seconds.",
+      "actions": [
+        {
+          "type": "select",
+          "target": {
+            "role": "combobox",
+            "name": "Logged-out preview length",
+            "within": { "role": "dialog", "name": "Share {{trackTitle}}" }
+          },
+          "value": "60"
+        }
+      ],
+      "holdMs": 5000
+    },
+    {
+      "caption": "Save the preview setting for every link to this dub.",
+      "actions": [
+        {
+          "type": "click",
+          "target": {
+            "role": "button",
+            "name": "Save preview length",
+            "within": { "role": "dialog", "name": "Share {{trackTitle}}" }
+          }
+        },
+        {
+          "type": "waitFor",
+          "target": {
+            "text": "Preview length saved for all external links.",
+            "within": { "role": "dialog", "name": "Share {{trackTitle}}" }
+          }
+        }
+      ],
+      "holdMs": 5000
+    },
+    {
+      "caption": "Copy the external link to share with listeners outside cre8.",
+      "actions": [
+        {
+          "type": "click",
+          "target": {
+            "role": "button",
+            "name": "Copy link",
+            "within": { "role": "dialog", "name": "Share {{trackTitle}}" }
+          }
+        },
+        {
+          "type": "waitFor",
+          "target": {
+            "text": "Link copied.",
+            "within": { "role": "dialog", "name": "Share {{trackTitle}}" }
+          }
+        },
+        {
+          "type": "captureLink",
+          "target": {
+            "role": "textbox",
+            "name": "External share link",
+            "within": { "role": "dialog", "name": "Share {{trackTitle}}" }
+          },
+          "variable": "sharedUrl"
+        }
+      ],
+      "holdMs": 6500
+    }
+  ]
+}

@@ -14,6 +14,35 @@ afterEach(() => {
 });
 
 describe("DubUploadForm", () => {
+  it.each(["false", "rejection"])("preserves metadata, tags and selected files after %s", async (failure) => {
+    const file = new File(["audio"], "keep.wav", { type: "audio/wav" });
+    vi.stubGlobal("FormData", class {
+      constructor(private form: HTMLFormElement) {}
+      get(name: string) {
+        if (name === "audioFile") return file;
+        const field = this.form.elements.namedItem(name);
+        return field instanceof HTMLInputElement || field instanceof HTMLSelectElement || field instanceof HTMLTextAreaElement
+          ? field.value : null;
+      }
+    });
+    const onSubmit = vi.fn()
+      .mockImplementationOnce(() => failure === "false" ? false : Promise.reject(new Error("Upload unavailable.")))
+      .mockResolvedValueOnce(true);
+    const { container } = render(<DubUploadForm
+      artists={[{ id: "artist-1", name: "Artist" }]} onCancel={vi.fn()} onSubmit={onSubmit}
+    />);
+    fireEvent.change(screen.getByLabelText("Track title"), { target: { value: "Keep title" } });
+    fireEvent.click(screen.getByRole("button", { name: "Jungle" }));
+    fireEvent.submit(container.querySelector("form")!);
+    expect(await screen.findByRole("alert")).toHaveTextContent(failure === "false" ? "The dub could not be shared" : "Upload unavailable.");
+    expect(screen.getByLabelText("Track title")).toHaveValue("Keep title");
+    expect(screen.getByRole("button", { name: "Jungle" })).toHaveAttribute("aria-pressed", "true");
+    fireEvent.submit(container.querySelector("form")!);
+    await act(async () => {});
+    expect(onSubmit).toHaveBeenLastCalledWith(expect.objectContaining({ title: "Keep title", tags: ["Jungle"], audioFile: file }));
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
   it("submits public A-List visibility on upload and offers the right recipients on edit", async () => {
     const file = new File(["audio"], "track.wav", { type: "audio/wav" });
     vi.stubGlobal("FormData", class {

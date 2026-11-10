@@ -10,6 +10,7 @@ node_modules/
 **/.turbo/
 **/.vite/
 **/.cache/
+docs/guides/videos/
 
 # Local data and environment
 apps/api/data/

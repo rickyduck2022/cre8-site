@@ -31,6 +31,7 @@ describe("LibraryTemplate", () => {
     fireEvent.click(screen.getByRole("button", { name: /Filters/ }));
     fireEvent.click(screen.getByRole("button", { name: "Clear search" }));
     expect(screen.getByRole("region", { name: "Audio player: Sunrise" })).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Filters" }));
     fireEvent.change(screen.getByRole("spinbutton", { name: "Minimum BPM" }), { target: { value: "180" } });
     fireEvent.change(screen.getByRole("spinbutton", { name: "Maximum BPM" }), { target: { value: "160" } });
     fireEvent.click(screen.getByRole("button", { name: "Apply filters" }));
@@ -46,6 +47,28 @@ describe("LibraryTemplate", () => {
     render(<LibraryTemplate downloads={downloads} onDownload={vi.fn()} onPlay={vi.fn()} />);
     expect(screen.getByRole("region", { name: "Audio player: Track 6" })).toBeVisible();
     expect(screen.queryByRole("group", { name: /pagination/ })).not.toBeInTheDocument();
+  });
+
+  it("shows each dub once with its latest download date without mutating download history", () => {
+    const dub = {
+      id: "one", title: "Night Drive", artist: "Amber", uploader: "amber", uploaderDisplayName: "Amber",
+      uploadedAt: "2026-11-01T12:00:00Z", bpm: 174, genre: "Jungle", duration: "03:30",
+      likes: 1, downloads: 3, artwork: "", message: "",
+    };
+    const history = [
+      { dub, downloadedAt: "2026-11-02T12:00:00Z" },
+      { dub, downloadedAt: "2026-11-04T12:00:00Z" },
+      { dub, downloadedAt: "2026-11-03T12:00:00Z" },
+    ];
+    const onDownload = vi.fn();
+    render(<LibraryTemplate downloads={history} onDownload={onDownload} onPlay={vi.fn()} />);
+    expect(screen.getAllByRole("region", { name: "Audio player: Night Drive" })).toHaveLength(1);
+    expect(screen.getByText("1 dub")).toBeInTheDocument();
+    expect(screen.getByText(/^Downloaded /)).toHaveAttribute("datetime", "2026-11-04T12:00:00Z");
+    fireEvent.click(screen.getByRole("button", { name: "Download again" }));
+    expect(onDownload).toHaveBeenCalledWith(dub);
+    expect(history).toHaveLength(3);
+    expect(history[0].downloadedAt).toBe("2026-11-02T12:00:00Z");
   });
 
   it("lists saved downloads and supports downloading a dub again", () => {
@@ -113,9 +136,9 @@ describe("LibraryTemplate", () => {
     const received = { ...dub, id: "private", title: "Private", distribution: "private" as const };
     const owned = { ...received, id: "owned", title: "Mine", uploader: "meladee" };
     render(<LibraryTemplate downloads={[dub, received, owned].map((item) => ({ dub: item, downloadedAt: "2026-11-02T12:00:00Z" }))} onDownload={vi.fn()} onPlay={vi.fn()} currentUsername="meladee" onShareWithFriend={onShareWithFriend} />);
-    fireEvent.click(screen.getByRole("button", { name: "Share Public with a friend" }));
-    fireEvent.click(screen.getByRole("button", { name: "Share Mine with a friend" }));
-    expect(screen.queryByRole("button", { name: "Share Private with a friend" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Share Public" }));
+    fireEvent.click(screen.getByRole("button", { name: "Share Mine" }));
+    expect(screen.queryByRole("button", { name: "Share Private" })).not.toBeInTheDocument();
     expect(onShareWithFriend).toHaveBeenNthCalledWith(1, dub);
     expect(onShareWithFriend).toHaveBeenNthCalledWith(2, owned);
   });

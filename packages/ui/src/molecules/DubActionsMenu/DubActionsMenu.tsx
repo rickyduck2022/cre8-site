@@ -11,9 +11,10 @@ export interface DubActionsMenuProps {
   onEdit: () => void;
   onDelete: () => void;
   iconOnly?: boolean;
+  onAddToPack?: () => void;
 }
 
-export function DubActionsMenu({ title, onEdit, onDelete, iconOnly = false }: DubActionsMenuProps) {
+export function DubActionsMenu({ title, onEdit, onDelete, onAddToPack, iconOnly = false }: DubActionsMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
   const actionsId = useId();
   const actionsRef = useRef<HTMLDivElement>(null);
@@ -42,6 +43,8 @@ export function DubActionsMenu({ title, onEdit, onDelete, iconOnly = false }: Du
   }, [isOpen, mobile]);
 
   const actions = (
+    <>
+    {onAddToPack && <Button variant="tertiary" size="small" onClick={() => { setIsOpen(false); onAddToPack(); }}>Add to pack</Button>}
     <DubManagementActions
       onDelete={() => {
         setIsOpen(false);
@@ -54,6 +57,7 @@ export function DubActionsMenu({ title, onEdit, onDelete, iconOnly = false }: Du
       showIcons
       title={title}
     />
+    </>
   );
 
   return (

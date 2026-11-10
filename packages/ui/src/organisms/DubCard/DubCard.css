@@ -103,6 +103,7 @@
   box-shadow: var(--shadow-control-accent);
   color: var(--text-on-accent);
 }
+.dub-card__manage-access { grid-column: 1 / -1; justify-self: start; }
 
 .dub-card--compact { gap: 0.5rem; padding: 0.625rem; }
 .dub-card--compact .now-playing { min-width: 0; }
@@ -126,7 +127,31 @@
 .dub-card__you-liked { color: var(--audio-active); font-size: var(--type-size-micro); margin-left: 0.125rem; }
 .dub-card__download { margin-left: auto; }
 
+.dub-card--playlist { gap: 0.5rem; padding: 0.75rem; box-shadow: none; }
+.dub-card--playlist.dub-card--current { border-color: var(--audio-active); }
+.dub-card__playlist-track { align-items: center; display: flex; gap: 0.5rem; min-width: 0; }
+.dub-card__track-number { color: var(--text-secondary); font-family: var(--font-mono); flex: 0 0 1.5rem; text-align: center; }
+.dub-card__playlist-player { border: 0; flex: 1; margin: 0; min-width: 0; padding: 0; }
+.dub-card__playlist-player:disabled { opacity: 0.6; }
+.dub-card__playlist-footer { align-items: center; display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.dub-card--playlist .organism-card.audio-player {
+  background: transparent;
+  box-shadow: none;
+  grid-template-columns: minmax(8rem, 1fr) auto minmax(8rem, 1fr);
+  padding: 0.25rem;
+}
+.dub-card--playlist .audio-player--inline .now-playing { grid-column: 1; grid-row: 1; }
+.dub-card--playlist .audio-player--inline .transport-controls { grid-column: 2; grid-row: 1; }
+.dub-card--playlist .audio-player--inline .audio-player__timeline { grid-column: 3; grid-row: 1; }
+.dub-card--playlist.dub-card--current { background: var(--surface-media-section); }
+.dub-card--playlist .organism-card.audio-player.dub-card__player--current { background: transparent; }
+
 @media (max-width: 760px) {
+  .dub-card.dub-card--playlist { padding: 0.625rem; }
+  .dub-card.dub-card--playlist .organism-card.audio-player { grid-template-columns: auto minmax(0, 1fr); padding: 0; }
+  .dub-card--playlist .audio-player--inline .now-playing { grid-column: 1 / -1; grid-row: 1; }
+  .dub-card--playlist .audio-player--inline .transport-controls { grid-column: 1; grid-row: 2; }
+  .dub-card--playlist .audio-player--inline .audio-player__timeline { grid-column: 2; grid-row: 2; }
   .dub-card {
     gap: 0.5rem;
     padding: 1rem 0.625rem 0.5rem;
@@ -193,6 +218,11 @@
     min-height: 2rem;
     min-width: 2.75rem;
     padding: var(--spacing-1) var(--spacing-2);
+  }
+
+  .dub-card__mobile-actions .dub-card__download--mobile-label {
+    font-size: var(--type-size-caption);
+    white-space: nowrap;
   }
 
   .dub-card__metadata {

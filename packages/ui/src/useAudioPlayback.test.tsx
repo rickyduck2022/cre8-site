@@ -43,6 +43,201 @@ afterEach(() => {
 });
 
 describe("useAudioPlayback", () => {
+  it("preserves shuffle selected before Play all and starts inside the pack", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.9);
+    const { result } = renderHook(() => useAudioPlayback(dubs, vi.fn(), "user", null));
+    act(() => result.current.setShuffle(true));
+    act(() => result.current.playQueue([dubs[0], dubs[2]]));
+    expect(result.current.state.shuffle).toBe(true);
+    expect(FakeAudio.latest.src).toBe("/audio/three");
+    act(() => FakeAudio.latest.dispatchEvent(new Event("ended")));
+    expect(FakeAudio.latest.src).toBe("/audio/one");
+  });
+
+  it("keeps a single-file pack scoped when shuffled and stops without repeat", () => {
+    const { result } = renderHook(() => useAudioPlayback(dubs, vi.fn(), "user", null));
+    act(() => result.current.playQueue([dubs[2]]));
+    act(() => result.current.setShuffle(true));
+    act(() => result.current.playNextDub());
+    expect(FakeAudio.latest.src).toBe("/audio/three");
+    act(() => {
+      FakeAudio.latest.paused = true;
+      FakeAudio.latest.dispatchEvent(new Event("ended"));
+    });
+    expect(result.current.state.isPlaying).toBe(false);
+    act(() => result.current.setRepeat(true));
+    act(() => FakeAudio.latest.dispatchEvent(new Event("ended")));
+    expect(result.current.state.isPlaying).toBe(true);
+    expect(FakeAudio.latest.loop).toBe(false);
+    expect(FakeAudio.latest.src).toBe("/audio/three");
+  });
+
+  it("rejects incomplete queues explicitly without replacing a valid active pack", () => {
+    const onError = vi.fn();
+    const { result } = renderHook(() => useAudioPlayback(dubs, onError, "user", null));
+    act(() => result.current.playQueue([dubs[0], dubs[2]]));
+    act(() => {
+      expect(result.current.activateQueue([dubs[0], { ...dubs[1], id: "removed" }])).toBe(false);
+    });
+    expect(onError).toHaveBeenCalledWith(expect.stringContaining("Some pack files are unavailable"), "error");
+    act(() => result.current.playNextDub());
+    expect(FakeAudio.latest.src).toBe("/audio/three");
+  });
+
+  it("activates a queue when seeking into a pack track and retains its scope", () => {
+    const { result } = renderHook(() => useAudioPlayback(dubs, vi.fn(), "user", null));
+    act(() => {
+      result.current.activateQueue([dubs[0], dubs[2]]);
+      result.current.seekPlaybackProgress(0.5, dubs[0]);
+    });
+    act(() => FakeAudio.latest.loadMetadata(100));
+    expect(FakeAudio.latest.currentTime).toBe(50);
+    act(() => result.current.playNextDub());
+    expect(FakeAudio.latest.src).toBe("/audio/three");
+  });
+
+  it("scopes direct track playback and manual navigation without starting at the first track", () => {
+    const { result } = renderHook(() => useAudioPlayback(dubs, vi.fn(), "user", null));
+    act(() => {
+      result.current.activateQueue([dubs[0], dubs[2]]);
+      result.current.togglePlayback(dubs[2]);
+    });
+    expect(FakeAudio.latest.src).toBe("/audio/three");
+    act(() => result.current.playNextDub());
+    expect(FakeAudio.latest.src).toBe("/audio/one");
+    act(() => result.current.playPreviousDub());
+    expect(FakeAudio.latest.src).toBe("/audio/three");
+  });
+
+  it("loops the whole pack instead of setting native single-track looping", () => {
+    const { result } = renderHook(() => useAudioPlayback(dubs, vi.fn(), "user", null));
+    act(() => result.current.playQueue([dubs[0], dubs[2]]));
+    act(() => result.current.setRepeat(true));
+    expect(FakeAudio.latest.loop).toBe(false);
+    act(() => FakeAudio.latest.dispatchEvent(new Event("ended")));
+    expect(FakeAudio.latest.src).toBe("/audio/three");
+    act(() => FakeAudio.latest.dispatchEvent(new Event("ended")));
+    expect(FakeAudio.latest.src).toBe("/audio/one");
+    act(() => result.current.togglePlayback(dubs[1]));
+    expect(FakeAudio.latest.loop).toBe(true);
+  });
+
+  it("shuffles every pack track once, supports history, and stops without looping", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const { result } = renderHook(() => useAudioPlayback(dubs, vi.fn(), "user", null));
+    act(() => {
+      result.current.activateQueue([dubs[0], dubs[2]]);
+      result.current.togglePlayback(dubs[2]);
+    });
+    act(() => result.current.setShuffle(true));
+    act(() => FakeAudio.latest.dispatchEvent(new Event("ended")));
+    expect(FakeAudio.latest.src).toBe("/audio/one");
+    act(() => {
+      FakeAudio.latest.paused = true;
+      FakeAudio.latest.dispatchEvent(new Event("ended"));
+    });
+    expect(result.current.state.isPlaying).toBe(false);
+    expect(FakeAudio.latest.src).toBe("/audio/one");
+    act(() => result.current.playPreviousDub());
+    expect(FakeAudio.latest.src).toBe("/audio/three");
+  });
+
+  it("loops shuffled packs and can switch between packs sharing the current dub", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const { result } = renderHook(() => useAudioPlayback(dubs, vi.fn(), "user", null));
+    act(() => result.current.playQueue([dubs[0], dubs[2]]));
+    act(() => result.current.setShuffle(true));
+    act(() => result.current.setRepeat(true));
+    act(() => FakeAudio.latest.dispatchEvent(new Event("ended")));
+    expect(FakeAudio.latest.src).toBe("/audio/three");
+    act(() => FakeAudio.latest.dispatchEvent(new Event("ended")));
+    expect(FakeAudio.latest.src).toBe("/audio/one");
+    act(() => result.current.activateQueue([dubs[0], dubs[1]]));
+    act(() => result.current.playNextDub());
+    expect(FakeAudio.latest.src).toBe("/audio/two");
+  });
+
+  it("does not silently start a partial pack queue", () => {
+    const notify = vi.fn();
+    const { result } = renderHook(() => useAudioPlayback([dubs[0]], notify, "user", null));
+    act(() => result.current.playQueue([dubs[0], dubs[1]]));
+    expect(result.current.state.nowPlayingId).toBeNull();
+    expect(notify).toHaveBeenCalledWith("Some pack files are unavailable. Refresh the pack before playing it.", "error");
+  });
+  it("plays an explicit pack queue in order and stops after its last file", () => {
+    const { result } = renderHook(() => useAudioPlayback(dubs, vi.fn(), "user", null));
+    act(() => result.current.playQueue([dubs[2], dubs[0]]));
+    expect(FakeAudio.latest.src).toBe("/audio/three");
+    act(() => FakeAudio.latest.dispatchEvent(new Event("ended")));
+    expect(FakeAudio.latest.src).toBe("/audio/one");
+    act(() => {
+      FakeAudio.latest.paused = true;
+      FakeAudio.latest.dispatchEvent(new Event("ended"));
+    });
+    expect(FakeAudio.latest.src).toBe("/audio/one");
+    expect(result.current.state.isPlaying).toBe(false);
+    act(() => result.current.togglePlayback(dubs[1]));
+    act(() => result.current.playNextDub());
+    expect(FakeAudio.latest.src).toBe("/audio/three");
+  });
+  it.each(["seconds", "progress"])("clears the pack queue when seeking outside it using %s", (mode) => {
+    const { result } = renderHook(() => useAudioPlayback(dubs, vi.fn(), "user", null));
+    act(() => result.current.playQueue([dubs[0]]));
+    act(() => {
+      if (mode === "seconds") result.current.seekPlayback(20, dubs[1]);
+      else result.current.seekPlaybackProgress(0.5, dubs[1]);
+    });
+    expect(FakeAudio.latest.src).toBe("/audio/two");
+    act(() => result.current.playNextDub());
+    expect(FakeAudio.latest.src).toBe("/audio/three");
+  });
+  it("supports standalone playback without persistence or automatic queue advancement", async () => {
+    const notify = vi.fn();
+    const { result, unmount } = renderHook(() => useAudioPlayback(dubs, notify, undefined, null, undefined, { autoAdvance: false }));
+    await act(async () => result.current.togglePlayback(dubs[0]));
+    act(() => FakeAudio.latest.loadMetadata(180));
+    act(() => {
+      FakeAudio.latest.currentTime = 180;
+      FakeAudio.latest.paused = true;
+      FakeAudio.latest.dispatchEvent(new Event("ended"));
+    });
+    expect(result.current.state.isPlaying).toBe(false);
+    expect(result.current.state.nowPlayingId).toBe("one");
+    expect(FakeAudio.latest.src).toBe("/audio/one");
+    expect(notify).not.toHaveBeenCalled();
+    unmount();
+    expect(FakeAudio.latest.paused).toBe(true);
+    expect(FakeAudio.latest.src).toBe("");
+  });
+
+  it("closes playback without restoring it on refresh and preserves listening preferences", async () => {
+    const save = vi.fn().mockResolvedValue(undefined);
+    const savedPosition = { dubId: "one", positionSeconds: 42 };
+    const { result, rerender } = renderHook(
+      ({ tracks }) => useAudioPlayback(tracks, vi.fn(), "user", savedPosition, save),
+      { initialProps: { tracks: dubs } },
+    );
+    act(() => FakeAudio.latest.loadMetadata(180));
+    act(() => {
+      result.current.setVolume(0.4);
+      result.current.setShuffle(true);
+      result.current.setRepeat(true);
+      result.current.togglePlayback(dubs[0]);
+    });
+    await act(async () => result.current.closePlayer());
+    expect(FakeAudio.latest.paused).toBe(true);
+    expect(FakeAudio.latest.src).toBe("");
+    expect(result.current.state).toMatchObject({
+      nowPlayingId: null, isPlaying: false, volume: 0.4, shuffle: true, repeat: true,
+    });
+    expect(save).toHaveBeenLastCalledWith(savedPosition);
+    rerender({ tracks: [...dubs] });
+    expect(result.current.state.nowPlayingId).toBeNull();
+    act(() => result.current.togglePlayback(dubs[1]));
+    expect(result.current.state.nowPlayingId).toBe("two");
+    expect(FakeAudio.latest.paused).toBe(false);
+  });
+
   it("keeps adjacent playback within the current tier and stops when access is revoked", () => {
     const tracks: Dub[] = [
       { ...dubs[0], distribution: "worldwide" },

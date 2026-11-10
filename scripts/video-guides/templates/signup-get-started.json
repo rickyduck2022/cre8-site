@@ -1,0 +1,73 @@
+{
+  "id": "signup-get-started",
+  "title": "Sign up and get started",
+  "description": "Create an artist account and find your way around cre8.",
+  "variables": { "artistName": "Demo Artist" },
+  "steps": [
+    {
+      "caption": "Welcome to cre8. Create an artist account to join the community.",
+      "actions": [
+        { "type": "waitFor", "target": { "role": "heading", "name": "Sign in to cre8" } }
+      ],
+      "holdMs": 5000
+    },
+    {
+      "caption": "1. Choose Sign up as an artist.",
+      "actions": [
+        { "type": "click", "target": { "role": "button", "name": "Sign up as an artist" } },
+        { "type": "waitFor", "target": { "role": "heading", "name": "Create your artist account" } }
+      ]
+    },
+    {
+      "caption": "2. Enter the artist name you want people to see.",
+      "actions": [
+        { "type": "fill", "target": { "label": "Artist" }, "value": "{{artistName}}" }
+      ]
+    },
+    {
+      "caption": "3. Choose a password of at least 8 characters, then confirm it.",
+      "actions": [
+        { "type": "fill", "target": { "label": "Password" }, "value": "{{demoPassword}}" },
+        { "type": "fill", "target": { "label": "Confirm password" }, "value": "{{demoPassword}}" }
+      ]
+    },
+    {
+      "caption": "4. Select Create artist account. You are signed in automatically.",
+      "actions": [
+        { "type": "click", "target": { "role": "button", "name": "Create artist account" } },
+        { "type": "waitFor", "target": { "role": "heading", "name": "Dub Vault" } }
+      ],
+      "holdMs": 5500
+    },
+    {
+      "caption": "5. Dub Vault is where you discover community uploads.",
+      "actions": [
+        { "type": "waitFor", "target": { "role": "heading", "name": "Dub Vault" } }
+      ]
+    },
+    {
+      "caption": "6. Open My Profile to see your new artist profile.",
+      "actions": [
+        { "type": "navigate", "destination": "profile" },
+        { "type": "waitFor", "target": { "role": "button", "name": "Edit profile" } }
+      ],
+      "holdMs": 5500
+    },
+    {
+      "caption": "7. My Library keeps the dubs you download. Downloads also count as likes.",
+      "actions": [
+        { "type": "navigate", "destination": "library" },
+        { "type": "waitFor", "target": { "role": "heading", "name": "My Library" } }
+      ],
+      "holdMs": 5500
+    },
+    {
+      "caption": "You are ready. Explore the Dub Vault, find friends, or share your first dub.",
+      "actions": [
+        { "type": "navigate", "destination": "dubs" },
+        { "type": "waitFor", "target": { "role": "heading", "name": "Dub Vault" } }
+      ],
+      "holdMs": 6500
+    }
+  ]
+}

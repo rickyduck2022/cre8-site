@@ -8,6 +8,11 @@ other component changes are reflected without rebuilding the UI bundle.
 
 ## Installable web app and offline behavior
 
+The app's header, footer, floating and docked audio players include a Close
+control. Closing stops playback and hides the player until another dub is
+played. The current listening position is saved, and volume, shuffle and repeat
+preferences are retained for the session.
+
 The production web build is an installable PWA. Serve it over HTTPS (or
 localhost); service workers are disabled in the Vite development server.
 Supported browsers can offer an Install app button. On iPhone and iPad, use the
@@ -109,6 +114,66 @@ for new and existing dubs. Restricted A-List dubs are accessible only to
 approved members and can be sent to any other approved member; sharing with a
 non-friend adds them to the sender's Friend List and sends a Messenger message.
 Public A-List dubs are accessible to all members and can be shared with friends.
+Worldwide and public A-List dubs also offer **Share externally / Copy link** in
+the sharing dialog, including when there are no friends to send to. Links use
+`/#share?dub=<id>` and open a standalone player without the community navigation
+or Messenger. Logged-out listeners hear only a preview from the beginning.
+
+## Dub and sample packs
+
+Authenticated artists can keep Dub Packs and Sample Packs as private drafts,
+publish them to one audience (Worldwide, Private, or A-List), and share
+published private packs with existing friends. Pack access is checked from
+current pack membership; removing a pack recipient does not remove independent
+track grants. Deleting a pack retains its tracks, and tracks created for a
+discarded draft are kept private. Sample packs require the owner's usage-terms
+text before publishing; that text is included as `LICENCE.txt` in downloads.
+
+Community snapshots include accessible published `packs` for compact release
+cards in the Dub Vault; drafts are excluded. Dub search also matches titles
+and descriptions of accessible published packs while retaining per-file
+distribution, media-format and metadata filters. Revoking pack access removes
+its metadata from both surfaces, even when separate track grants remain.
+
+Pack archives are streamed as uncompressed ZIPs and limited to 500 MiB of
+audio across at most 50 tracks. Each upload retains the existing 100 MiB
+per-file limit. Archive requests validate current access and all media before
+counting downloads; the archive URL rechecks access before streaming.
+The uploader chooses 30, 60 or 90 seconds in the sharing dialog and saves the
+setting for **all** external links to that dub; other members cannot change it.
+Existing dubs default to 30 seconds. Shorter tracks are not padded.
+Full listening and downloads require sign-in (or artist registration) and then
+return to the shared dub. Signed-in downloads use the
+existing download endpoint, recording each request and one like per member.
+
+`GET /api/public/dubs/:id` exposes an explicit public metadata allowlist and an
+authentication flag. Anonymous metadata describes the preview duration and audio
+URL; authenticated metadata supplies the original `/api/dubs/:id/audio` URL.
+Its `/audio` and `/artwork` endpoints support byte ranges. Anonymous audio
+requests receive only a transcoded, length-limited WAV, never the original file;
+range requests operate on that clip and cannot seek into the rest of the track.
+Authenticated playback remains full length.
+`PATCH /api/dubs/:id/preview` accepts `{ "previewSeconds": 30 | 60 | 90 }`
+only from the uploader of an externally shareable dub and persists the setting.
+All three endpoints recheck worldwide/public A-List eligibility on each request;
+private, restricted, deleted and unknown dubs return the same unavailable
+response, even to their owner. Public endpoints reject `?download` requests;
+attachment downloads remain authenticated under `/api/dubs/:id`. Public metadata
+and streams are not cached by the API or service worker. Removing public access
+blocks subsequent requests but cannot revoke buffered or already received bytes.
+This is access control, not DRM: the public preview and authenticated playback
+can still be captured by their listeners.
+
+Preview encoding uses FFmpeg, supplied by the `ffmpeg-static` API dependency for
+local development. `FFMPEG_PATH` can select an existing executable. The production
+Docker image installs Alpine's FFmpeg and sets that path explicitly. Encoding
+failures return 503 with a retry message; there is no full-track fallback.
+Encoding is limited to two concurrent jobs, with a 30-second timeout, fixed
+16 kHz mono PCM output, bounded output size and a 16-clip in-memory LRU cache.
+Cache keys include source path, size, modification time and preview length;
+visibility and preview settings are rechecked after encoding. No preview files
+are written to the media directory. Restarting clears the cache.
+
 Changing Public on an existing dub creates a new version. Restricting it removes
 API access for unapproved members and redacts existing messages, but cannot
 recall downloaded files. The dedicated A-List feed still requires approval.

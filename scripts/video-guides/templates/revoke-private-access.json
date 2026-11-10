@@ -1,0 +1,64 @@
+{
+  "id": "revoke-private-access",
+  "title": "Revoke private access",
+  "description": "Remove a friend's access to a private dub while explaining what cannot be recalled.",
+  "variables": {
+    "artistName": "Demo Artist",
+    "trackTitle": "Night Drive"
+  },
+  "assets": {
+    "audio": { "env": "GUIDE_AUDIO_PATH" },
+    "artwork": {
+      "path": "apps/web/public/cre8-main-logo.png",
+      "env": "GUIDE_ARTWORK_PATH"
+    }
+  },
+  "setup": [
+    { "type": "include", "fragment": "signed-in" },
+    { "type": "include", "fragment": "add-holik" },
+    { "type": "include", "fragment": "publish-private-dub" }
+  ],
+  "steps": [
+    {
+      "caption": "Open My Dubs to manage private access.",
+      "actions": [
+        { "type": "navigate", "destination": "my-dubs" },
+        { "type": "waitFor", "target": { "role": "heading", "name": "My Dubs" } },
+        { "type": "waitFor", "target": { "role": "region", "name": "Audio player: {{trackTitle}}" } }
+      ],
+      "holdMs": 4500
+    },
+    {
+      "caption": "Select Manage access to go directly to the private recipient list.",
+      "actions": [
+        { "type": "click", "target": { "role": "button", "name": "Manage access for {{trackTitle}}, 1 recipient" } },
+        { "type": "waitFor", "target": { "role": "list", "name": "Private access to {{trackTitle}}" } }
+      ],
+      "holdMs": 4500
+    },
+    {
+      "caption": "Holik currently has access to this private dub.",
+      "actions": [
+        { "type": "waitFor", "target": { "role": "button", "name": "Revoke access for Holik" }, "reveal": true }
+      ],
+      "holdMs": 5000
+    },
+    {
+      "caption": "Select Revoke to remove Holik's future access.",
+      "actions": [
+        { "type": "click", "target": { "role": "button", "name": "Revoke access for Holik" } },
+        { "type": "waitFor", "target": { "role": "button", "name": "Revoke access for Holik" }, "state": "hidden" }
+      ],
+      "holdMs": 5500
+    },
+    {
+      "caption": "The grant is removed; files already downloaded cannot be recalled.",
+      "actions": [
+        { "type": "waitFor", "target": { "role": "list", "name": "Private access to {{trackTitle}}" }, "state": "hidden" },
+        { "type": "waitFor", "target": { "text": "No friends currently have access." } },
+        { "type": "waitFor", "target": { "role": "button", "name": "Revoke access for Holik" }, "state": "hidden" }
+      ],
+      "holdMs": 6500
+    }
+  ]
+}

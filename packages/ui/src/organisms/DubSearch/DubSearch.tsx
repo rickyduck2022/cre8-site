@@ -1,7 +1,8 @@
 import { useId, useState } from "react";
-import { Settings2 } from "@craft/icons";
+import { Settings2, X } from "@craft/icons";
 import { Badge } from "../../atoms/Badge/Badge";
 import { Button } from "../../atoms/Button/Button";
+import { ModalFooter } from "../../molecules/ModalFooter/ModalFooter";
 import { SearchField } from "../../molecules/SearchField/SearchField";
 import { TagSelector } from "../../molecules/TagSelector/TagSelector";
 import type { Dub } from "../../types/domain";
@@ -147,13 +148,66 @@ export function DubSearch({
     key: K,
     value: DubSearchFilters[K],
   ) => setDraft((current) => ({ ...current, [key]: value }));
+  function applyFilters(next: DubSearchFilters) {
+    setDraft(next);
+    onFiltersChange(next);
+    onSearch?.();
+  }
+  function resetFilters() {
+    applyFilters({ ...createEmptyDubSearchFilters(), distributions: [...defaultDistributions] });
+    setExpanded(false);
+  }
+  const chips: Array<{ label: string; remove: () => void }> = filters.tags.map((tag) => ({
+    label: tag,
+    remove: () => applyFilters({ ...filters, tags: filters.tags.filter((item) => item !== tag) }),
+  }));
+  if (filters.distributions.length !== defaultDistributions.length || defaultDistributions.some((item) => !filters.distributions.includes(item))) {
+    const labels = { worldwide: "Worldwide", private: "Private", alist: "A-List" };
+    chips.push({
+      label: `Distribution: ${filters.distributions.map((item) => labels[item]).join(", ") || "None"}`,
+      remove: () => applyFilters({ ...filters, distributions: [...defaultDistributions] }),
+    });
+  }
+  for (const [label, minKey, maxKey] of [["BPM", "minBpm", "maxBpm"], ["kbps", "minBitrate", "maxBitrate"]] as const) {
+    if (filters[minKey] || filters[maxKey]) chips.push({
+      label: `${label}: ${filters[minKey] || "0"} - ${filters[maxKey] || "any"}`,
+      remove: () => applyFilters({ ...filters, [minKey]: "", [maxKey]: "" }),
+    });
+  }
+  if (filters.fileType) chips.push({
+    label: `Format: ${filters.fileType}`,
+    remove: () => applyFilters({ ...filters, fileType: "" }),
+  });
+
+  const footer = (
+    <>
+      <span aria-live="polite">
+        {isSearching
+          ? "Searching…"
+          : `${resultCount} ${resultCount === 1 ? "dub" : "dubs"} found`}
+      </span>
+      <div className="dub-search__actions">
+        {(filterCount > 0 || getDubSearchFilterCount(draft, defaultDistributions) > 0 || query) && (
+          <Button
+            onClick={() => {
+              onQueryChange("");
+              resetFilters();
+            }}
+            variant="tertiary"
+          >
+            Clear search
+          </Button>
+        )}
+        <Button form={panelId} type="submit">Apply filters</Button>
+      </div>
+    </>
+  );
 
   const panel = (
     <form className="dub-search__panel" id={panelId} onSubmit={(event) => {
       event.preventDefault();
-      onFiltersChange(draft);
+      applyFilters(draft);
       setExpanded(false);
-      onSearch?.();
     }}>
       {showDistributionFilter && (
         <fieldset className="dub-search__distributions">
@@ -220,29 +274,9 @@ export function DubSearch({
           onMaxChange={(value) => updateFilter("maxBitrate", value)}
         />
       </div>
-      <div className="dub-search__footer">
-        <span aria-live="polite">
-          {isSearching
-            ? "Searching…"
-            : `${resultCount} ${resultCount === 1 ? "dub" : "dubs"} found`}
-        </span>
-        <div className="dub-search__actions">
-          {(filterCount > 0 || getDubSearchFilterCount(draft, defaultDistributions) > 0 || query) && (
-            <Button
-              onClick={() => {
-                onQueryChange("");
-                const empty = { ...createEmptyDubSearchFilters(), distributions: [...defaultDistributions] };
-                setDraft(empty);
-                onFiltersChange(empty);
-              }}
-              variant="tertiary"
-            >
-              Clear search
-            </Button>
-          )}
-          <Button type="submit">Apply filters</Button>
-        </div>
-      </div>
+      {mobile
+        ? <ModalFooter className="dub-search__footer">{footer}</ModalFooter>
+        : <div className="dub-search__footer">{footer}</div>}
     </form>
   );
 
@@ -274,6 +308,15 @@ export function DubSearch({
           <span className="dub-search__toggle-label">Filters</span> {filterCount > 0 && <Badge className="dub-search__count">{filterCount}</Badge>}
         </Button>
       </div>
+      {filterCount > 0 && (
+        <div className="dub-search__active" role="group" aria-label="Active filters">
+          {chips.map((chip) => <Button key={chip.label} size="small" variant="tertiary"
+            aria-label={`Remove ${chip.label} filter`} leadingIcon={<X aria-hidden="true" />} onClick={chip.remove}>
+            {chip.label}
+          </Button>)}
+          <Button size="small" variant="secondary" onClick={resetFilters}>Clear filters</Button>
+        </div>
+      )}
       {expanded && (mobile ? (
         <Modal className="dub-search__dialog" isOpen onClose={() => setExpanded(false)} title="Filter dubs">
           {panel}

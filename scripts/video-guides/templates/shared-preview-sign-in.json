@@ -1,0 +1,153 @@
+{
+  "id": "shared-preview-sign-in",
+  "title": "Preview, then sign in",
+  "description": "Open a captured external link while signed out, then sign in to hear and download the dub.",
+  "variables": {
+    "artistName": "Demo Artist",
+    "artistUsername": "demo.artist",
+    "trackTitle": "Night Drive"
+  },
+  "assets": {
+    "audio": { "env": "GUIDE_AUDIO_PATH" },
+    "artwork": {
+      "path": "apps/web/public/cre8-main-logo.png",
+      "env": "GUIDE_ARTWORK_PATH"
+    }
+  },
+  "setup": [
+    { "type": "include", "fragment": "signed-in" },
+    { "type": "include", "fragment": "publish-dub" },
+    { "type": "navigate", "destination": "my-dubs" },
+    { "type": "waitFor", "target": { "role": "heading", "name": "My Dubs" } },
+    { "type": "click", "target": { "role": "button", "name": "Share {{trackTitle}}" } },
+    { "type": "waitFor", "target": { "role": "dialog", "name": "Share {{trackTitle}}" } },
+    { "type": "click", "target": { "role": "tab", "name": "External link" } },
+    { "type": "waitFor", "target": { "role": "tabpanel", "name": "External link" } },
+    {
+      "type": "select",
+      "target": {
+        "role": "combobox",
+        "name": "Logged-out preview length",
+        "within": { "role": "dialog", "name": "Share {{trackTitle}}" }
+      },
+      "value": "60"
+    },
+    {
+      "type": "click",
+      "target": {
+        "role": "button",
+        "name": "Save preview length",
+        "within": { "role": "dialog", "name": "Share {{trackTitle}}" }
+      }
+    },
+    {
+      "type": "waitFor",
+      "target": {
+        "text": "Preview length saved for all external links.",
+        "within": { "role": "dialog", "name": "Share {{trackTitle}}" }
+      }
+    },
+    {
+      "type": "captureLink",
+      "target": {
+        "role": "textbox",
+        "name": "External share link",
+        "within": { "role": "dialog", "name": "Share {{trackTitle}}" }
+      },
+      "variable": "sharedUrl"
+    },
+    {
+      "type": "click",
+      "target": {
+        "role": "button",
+        "name": "Close",
+        "within": { "role": "dialog", "name": "Share {{trackTitle}}" }
+      }
+    },
+    { "type": "waitFor", "target": { "role": "dialog", "name": "Share {{trackTitle}}" }, "state": "hidden" }
+  ],
+  "steps": [
+    {
+      "caption": "Start signed in, then open the account menu.",
+      "actions": [
+        { "type": "navigate", "destination": "my-dubs" },
+        { "type": "waitFor", "target": { "role": "heading", "name": "My Dubs" } },
+        { "type": "click", "target": { "role": "button", "name": "Account menu for {{artistName}}" } }
+      ],
+      "holdMs": 4500
+    },
+    {
+      "caption": "Log out to preview the shared link as a guest.",
+      "actions": [
+        {
+          "type": "click",
+          "target": {
+            "role": "menuitem",
+            "name": "Log out",
+            "within": { "role": "menu", "name": "Account options" }
+          }
+        },
+        { "type": "waitFor", "target": { "label": "Username" } }
+      ],
+      "holdMs": 5000
+    },
+    {
+      "caption": "Open the captured URL while signed out.",
+      "actions": [
+        { "type": "visit", "value": "{{sharedUrl}}" },
+        { "type": "waitFor", "target": { "role": "region", "name": "Shared dub" } },
+        { "type": "waitFor", "target": { "role": "button", "name": "Sign in to listen in full" } },
+        { "type": "waitFor", "target": { "role": "button", "name": "Sign in to download" } }
+      ],
+      "holdMs": 5500
+    },
+    {
+      "caption": "Guest playback is limited to the saved 60-second preview.",
+      "actions": [
+        {
+          "type": "click",
+          "target": { "role": "button", "name": "Play", "within": { "role": "region", "name": "Audio player: Night Drive" } }
+        },
+        {
+          "type": "waitFor",
+          "target": { "role": "button", "name": "Pause", "within": { "role": "region", "name": "Audio player: Night Drive" } }
+        }
+      ],
+      "holdMs": 6000
+    },
+    {
+      "caption": "Choose Sign in to listen in full.",
+      "actions": [
+        { "type": "click", "target": { "role": "button", "name": "Sign in to listen in full" } },
+        { "type": "waitFor", "target": { "label": "Username" } }
+      ],
+      "holdMs": 4500
+    },
+    {
+      "caption": "Sign in with the artist account used to publish the dub.",
+      "actions": [
+        { "type": "fill", "target": { "label": "Username" }, "value": "{{artistUsername}}" },
+        { "type": "fill", "target": { "label": "Password" }, "value": "{{demoPassword}}" },
+        { "type": "click", "target": { "role": "button", "name": "Sign in" } },
+        { "type": "waitFor", "target": { "role": "button", "name": "Download dub" } }
+      ],
+      "holdMs": 6000
+    },
+    {
+      "caption": "With access restored, play the full dub and download it.",
+      "actions": [
+        {
+          "type": "click",
+          "target": { "role": "button", "name": "Play", "within": { "role": "region", "name": "Audio player: Night Drive" } }
+        },
+        {
+          "type": "waitFor",
+          "target": { "role": "button", "name": "Pause", "within": { "role": "region", "name": "Audio player: Night Drive" } }
+        },
+        { "type": "download", "target": { "role": "button", "name": "Download dub" } },
+        { "type": "waitFor", "target": { "text": "Download started. Your like is counted once." } }
+      ],
+      "holdMs": 7000
+    }
+  ]
+}

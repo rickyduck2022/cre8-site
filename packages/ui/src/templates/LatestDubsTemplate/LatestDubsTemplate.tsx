@@ -8,6 +8,7 @@ import type { Dub } from "../communityTypes";
 import { formatLocalTimestamp, formatRelativeTime } from "../templateFormatters";
 import { TrackArtwork } from "../shared/TrackArtwork";
 import { DubCard } from "../../organisms/DubCard/DubCard";
+import { DubPackCard, type DubPack } from "../../organisms/DubPackCard/DubPackCard";
 import { canShareDub } from "../../organisms/ShareDubDialog/ShareDubDialog";
 import { DubSearch, createEmptyDubSearchFilters, type DubSearchFilters } from "../../organisms/DubSearch/DubSearch";
 import { DubSearchToolbar } from "../shared/DubSearchToolbar";
@@ -19,6 +20,11 @@ type FeedOrder = "newest" | "liked";
 
 export interface LatestDubsTemplateProps {
   dubs: Dub[];
+  packs?: DubPack[];
+  onPlayPack?: (dubs: Dub[]) => void;
+  onOpenPack?: (pack: DubPack) => void;
+  onDownloadPack?: (pack: DubPack) => Promise<void>;
+  onActivateQueue?: (dubs: Dub[]) => boolean | void;
   crateId?: string;
   crateName?: string;
   likedDubIds: Set<string>;
@@ -65,6 +71,11 @@ export interface LatestDubsTemplateProps {
 
 export function LatestDubsTemplate({
   dubs,
+  packs = [],
+  onPlayPack,
+  onOpenPack,
+  onDownloadPack,
+  onActivateQueue,
   crateId,
   crateName,
   likedDubIds,
@@ -115,10 +126,13 @@ export function LatestDubsTemplate({
 
   const visibleDubs = useMemo(() => {
     const needle = query.trim().toLocaleLowerCase();
+    const matchingPackDubIds = new Set(!crateId && onPlayPack && onOpenPack && needle ? packs
+      .filter((pack) => pack.status === "published" && `${pack.title} ${pack.description} ${pack.kind === "sample" ? "Sample Pack" : "Dub Pack"}`.toLocaleLowerCase().includes(needle))
+      .flatMap((pack) => pack.items.map(({ dub }) => dub.id)) : []);
     return [...dubs]
       .filter(
         (dub) =>
-          queryAlreadyFiltered || !needle ||
+          queryAlreadyFiltered || !needle || matchingPackDubIds.has(dub.id) ||
           [dub.title, dub.artist, dub.uploader, dub.genre, ...(dub.tags ?? [])].some((value) =>
             value.toLocaleLowerCase().includes(needle),
           ),
@@ -129,8 +143,33 @@ export function LatestDubsTemplate({
           ? Date.parse(b.uploadedAt) - Date.parse(a.uploadedAt)
           : b.likes - a.likes),
       );
-  }, [dubs, order, query, prioritizeAList, queryAlreadyFiltered]);
-  const pagination = usePagination(visibleDubs, `${query}|${order}|${crateId ?? ""}|${JSON.stringify(filters)}`);
+  }, [dubs, order, query, prioritizeAList, queryAlreadyFiltered, packs, crateId, onPlayPack, onOpenPack]);
+  const visibleDubIds = useMemo(() => new Set(visibleDubs.map((dub) => dub.id)), [visibleDubs]);
+  const entries = useMemo(() => {
+    type Entry = { type: "dub"; dub: Dub } | { type: "pack"; pack: DubPack };
+    const result: Entry[] = [];
+    const added = new Set<string>();
+    const packsByDub = new Map<string, DubPack[]>();
+    if (!crateId && onPlayPack && onOpenPack) {
+      for (const pack of packs.filter((pack) => pack.status === "published")) {
+        for (const { dub } of pack.items) {
+          packsByDub.set(dub.id, [...(packsByDub.get(dub.id) ?? []), pack]);
+        }
+      }
+    }
+    for (const dub of visibleDubs) {
+      const containing = packsByDub.get(dub.id);
+      if (!containing?.length) result.push({ type: "dub", dub });
+      else for (const pack of containing) {
+        if (!added.has(pack.id)) {
+          result.push({ type: "pack", pack });
+          added.add(pack.id);
+        }
+      }
+    }
+    return result;
+  }, [visibleDubs, packs, crateId, onPlayPack, onOpenPack]);
+  const pagination = usePagination(entries, `${query}|${order}|${crateId ?? ""}|${JSON.stringify(filters)}`);
 
   const collectionHeader = (
     <>
@@ -210,21 +249,30 @@ export function LatestDubsTemplate({
             Searching dubs…
           </div>
         )}
-        {!isSearching && pagination.items.map((dub) => (
+        {!isSearching && pagination.items.map((entry) => entry.type === "pack" && onPlayPack && onOpenPack ? (
+          <DubPackCard key={`pack-${entry.pack.id}`} pack={entry.pack} likedDubIds={likedDubIds}
+            onActivateQueue={onActivateQueue} onPrevious={onPrevious} onNext={onNext}
+            shuffle={shuffle} repeat={repeat} onShuffleChange={onShuffleChange} onRepeatChange={onRepeatChange}
+            nowPlayingId={nowPlayingId} isPlaying={isPlaying} currentTimeSeconds={currentTimeSeconds}
+            durationSeconds={durationSeconds} volume={volume} playbackError={playbackError}
+            onPlay={onPlay} onPlayAll={onPlayPack} onOpenPack={onOpenPack} onDownloadPack={onDownloadPack}
+            onDownload={onDownload} onOpenProfile={onOpenProfile} onSeek={onSeek} onSeekProgress={onSeekProgress}
+            onVolumeChange={onVolumeChange} matchingDubIds={visibleDubIds} />
+        ) : entry.type === "dub" ? (
           <DubCard
-            dub={dub}
+            dub={entry.dub}
             crateId={crateId}
             onAddToCrate={onAddToCrate}
             onRemoveFromCrate={onRemoveFromCrate}
-            hasLiked={likedDubIds.has(dub.id)}
-            isPlaying={isPlaying && nowPlayingId === dub.id}
-            isCurrentTrack={nowPlayingId === dub.id}
+            hasLiked={likedDubIds.has(entry.dub.id)}
+            isPlaying={isPlaying && nowPlayingId === entry.dub.id}
+            isCurrentTrack={nowPlayingId === entry.dub.id}
             currentTimeSeconds={currentTimeSeconds}
             durationSeconds={durationSeconds}
             volume={volume}
             shuffle={shuffle}
             repeat={repeat}
-            playbackError={nowPlayingId === dub.id ? playbackError : undefined}
+            playbackError={nowPlayingId === entry.dub.id ? playbackError : undefined}
             onSeek={onSeek}
             onSeekProgress={onSeekProgress}
             onPrevious={onPrevious}
@@ -232,16 +280,16 @@ export function LatestDubsTemplate({
             onVolumeChange={onVolumeChange}
             onShuffleChange={onShuffleChange}
             onRepeatChange={onRepeatChange}
-            key={dub.id}
+            key={entry.dub.id}
             onDownload={onDownload}
             onOpenProfile={onOpenProfile}
             onPlay={onPlay}
-            manageable={Boolean(currentUsername && dub.uploader === currentUsername)}
+            manageable={Boolean(currentUsername && entry.dub.uploader === currentUsername)}
             onEdit={onEditDub}
             onDelete={onDeleteDub}
-            onShareWithFriend={currentUsername && canShareDub(dub, currentUsername) ? onShareWithFriend : undefined}
+            onShareWithFriend={currentUsername && canShareDub(entry.dub, currentUsername) ? onShareWithFriend : undefined}
           />
-        ))}
+        ) : null)}
         {visibleDubs.length === 0 && !isSearching && !searchError && (
           <div className="empty-state">
             <Search aria-hidden="true" />
@@ -251,8 +299,8 @@ export function LatestDubsTemplate({
         )}
       </section>
       {!isSearching && <Pagination
-        itemCount={visibleDubs.length}
-        label="Dubs"
+        itemCount={entries.length}
+        label={entries.some((entry) => entry.type === "pack") ? "Releases" : "Dubs"}
         onPageChange={pagination.setPage}
         onPageSizeChange={pagination.setPageSize}
         page={pagination.page}

@@ -7,6 +7,7 @@ import { TagSelector } from "../TagSelector/TagSelector";
 import { FriendPicker } from "../FriendPicker/FriendPicker";
 import type { UploadProgressState } from "../notificationTypes";
 import type { Buddy, Dub } from "../../types/domain";
+import { useAsyncSubmission } from "../../utils/useAsyncSubmission";
 import "../Molecules.css";
 
 export interface DubUploadFormValues {
@@ -51,7 +52,8 @@ export function DubUploadForm({
   const formId = `dub-upload-form-${useId()}`;
   const [tags, setTags] = useState<string[]>(initialDub?.tags ?? [initialDub?.genre ?? ""].filter(Boolean));
   const [fileError, setFileError] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const submission = useAsyncSubmission(isEditing ? "The dub could not be saved. Check the notification and try again." : "The dub could not be shared. Check the notification and try again.");
+  const isSubmitting = submission.pending;
   const [distribution, setDistribution] = useState<"worldwide" | "private" | "alist">("worldwide");
   const [aListPublic, setAListPublic] = useState(initialDub?.aListPublic === true);
   const [buddyIds, setBuddyIds] = useState<string[]>(initialBuddyIds);
@@ -75,39 +77,34 @@ export function DubUploadForm({
     }
 
     const bpmValue = String(formData.get("bpm") ?? "").trim();
-    setIsSubmitting(true);
-    try {
-      const result = await onSubmit({
-        title: String(formData.get("title") ?? ""),
-        artistId: String(formData.get("artistId") ?? ""),
-        tags,
-        bpm: bpmValue ? Number(bpmValue) : undefined,
-        message: String(formData.get("message") ?? ""),
-        distribution: isEditing ? initialDub?.distribution : distribution,
-        aListPublic: effectiveDistribution === "alist" ? aListPublic : undefined,
-        buddyIds: isEditing || distribution === "private" ? buddyIds.filter((id) => eligibleRecipients.some((buddy) => buddy.id === id)) : undefined,
-        audioFile: selectedAudioFile,
-        artworkFile:
-          artworkFile instanceof File && artworkFile.size > 0
-            ? artworkFile
-            : undefined,
-      });
-      if (result !== false && result !== null) {
-        form.reset();
-        setTags([]);
-        setDistribution("worldwide");
-        setAListPublic(false);
-        setBuddyIds([]);
-        setFileError("");
-      }
-    } finally {
-      setIsSubmitting(false);
+    const saved = await submission.run(() => onSubmit({
+      title: String(formData.get("title") ?? ""),
+      artistId: String(formData.get("artistId") ?? ""),
+      tags,
+      bpm: bpmValue ? Number(bpmValue) : undefined,
+      message: String(formData.get("message") ?? ""),
+      distribution: isEditing ? initialDub?.distribution : distribution,
+      aListPublic: effectiveDistribution === "alist" ? aListPublic : undefined,
+      buddyIds: isEditing || distribution === "private" ? buddyIds.filter((id) => eligibleRecipients.some((buddy) => buddy.id === id)) : undefined,
+      audioFile: selectedAudioFile,
+      artworkFile:
+        artworkFile instanceof File && artworkFile.size > 0
+          ? artworkFile
+          : undefined,
+    }));
+    if (saved) {
+      form.reset();
+      setTags([]);
+      setDistribution("worldwide");
+      setAListPublic(false);
+      setBuddyIds([]);
+      setFileError("");
     }
   }
 
   return (
     <>
-    <form className="dub-upload-form" id={formId} onSubmit={submit}>
+    <form aria-busy={isSubmitting} className="dub-upload-form" id={formId} onSubmit={submit}>
       <fieldset className="dub-upload-form__fields" disabled={isSubmitting}>
         <label className="dub-upload-form__field">
           <span>Track title</span>
@@ -208,9 +205,9 @@ export function DubUploadForm({
           <textarea defaultValue={initialDub?.message} maxLength={400} name="message" rows={3} />
         </label>
       </fieldset>
-      {submissionError && (
+      {(submissionError || submission.error) && (
         <p className="dub-upload-form__error" role="alert">
-          {submissionError}
+          {submissionError || submission.error}
         </p>
       )}
     </form>

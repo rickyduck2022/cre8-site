@@ -1,0 +1,68 @@
+{
+  "id": "send-message",
+  "title": "Send a message to a friend",
+  "description": "Send Holik a message in Messenger, then reopen the conversation from Friend List.",
+  "variables": { "artistName": "Demo Artist" },
+  "setup": [
+    { "type": "include", "fragment": "signed-in" },
+    { "type": "include", "fragment": "add-holik" }
+  ],
+  "steps": [
+    {
+      "caption": "1. Select Messenger to see your conversations. Holik is already in your Friend List.",
+      "actions": [
+        { "type": "navigate", "destination": "messenger" },
+        { "type": "waitFor", "target": { "role": "heading", "name": "Messages" } }
+      ]
+    },
+    {
+      "caption": "2. Select Holik's conversation to open the message thread.",
+      "actions": [
+        { "type": "click", "target": { "role": "button", "name": "Open conversation with Holik" } },
+        { "type": "waitFor", "target": { "label": "Message Holik" } }
+      ]
+    },
+    {
+      "caption": "3. Write your message in the composer. It is not sent until you select Send.",
+      "actions": [
+        { "type": "fill", "target": { "label": "Message Holik" }, "value": "Hi Holik! Great to connect. What are you working on?" }
+      ]
+    },
+    {
+      "caption": "4. Select Send. Your message appears in the conversation with its timestamp.",
+      "actions": [
+        { "type": "click", "target": { "role": "button", "name": "Send message" } },
+        { "type": "waitFor", "target": { "role": "button", "name": "Unsend message", "within": { "role": "log", "name": "Conversation messages" } } }
+      ]
+    },
+    {
+      "caption": "5. Select Friend List to leave the thread. Your sent message stays in Messenger.",
+      "actions": [
+        { "type": "navigate", "destination": "buddies" },
+        { "type": "waitFor", "target": { "role": "heading", "name": "Friend List" } }
+      ]
+    },
+    {
+      "caption": "6. Search your saved friends for Holik.",
+      "actions": [
+        { "type": "fill", "target": { "label": "Search friends" }, "value": "holik" },
+        { "type": "waitFor", "target": { "role": "button", "name": "Message Holik", "within": { "role": "region", "name": "Contacts" } } }
+      ]
+    },
+    {
+      "caption": "7. Select Holik's Message button to reopen the same conversation.",
+      "actions": [
+        { "type": "click", "target": { "role": "button", "name": "Message Holik", "within": { "role": "region", "name": "Contacts" } } },
+        { "type": "waitFor", "target": { "role": "button", "name": "Unsend message", "within": { "role": "log", "name": "Conversation messages" } } }
+      ]
+    },
+    {
+      "caption": "Your message is still in the thread. Use the composer whenever you want to send a follow-up.",
+      "actions": [
+        { "type": "waitFor", "target": { "label": "Message Holik" } },
+        { "type": "waitFor", "target": { "role": "log", "name": "Conversation messages" } }
+      ],
+      "holdMs": 5500
+    }
+  ]
+}

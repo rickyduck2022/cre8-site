@@ -3,6 +3,7 @@ import "./foundations/Scrollbar.css";
 
 export * from "./atoms/Button";
 export * from "./atoms/EdgeTab/EdgeTab";
+export * from "./atoms/PlayerTab/PlayerTab";
 export * from "./atoms/Action/Action";
 export * from "./atoms/AListBadge/AListBadge";
 export * from "./atoms/Avatar/Avatar";
@@ -17,5 +18,7 @@ export * from "./molecules";
 export * from "./molecules/HistoryNavigation/HistoryNavigation";
 export * from "./molecules/PlayerPositionMenu/PlayerPositionMenu";
 export * from "./organisms";
+export * from "./organisms/EditProfileDialog/EditProfileDialog";
 export * from "./templates";
+export * from "./templates/shared/TrackArtwork";
 export * from "@craft/icons";

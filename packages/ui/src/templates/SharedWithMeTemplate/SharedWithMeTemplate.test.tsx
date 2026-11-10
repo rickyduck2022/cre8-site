@@ -30,6 +30,8 @@ describe("SharedWithMeTemplate", () => {
     expect(screen.getByText("No shared dubs match your filters")).toBeVisible();
     fireEvent.click(screen.getByRole("button", { name: /Filters/ }));
     fireEvent.click(screen.getByRole("button", { name: "Clear search" }));
+    expect(screen.queryByRole("checkbox", { name: "Private" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Filters" }));
     expect(screen.getByRole("checkbox", { name: "Private" })).toBeChecked();
     expect(screen.getByRole("checkbox", { name: "A-List" })).toBeChecked();
     expect(screen.getByRole("region", { name: "Audio player: Secret track" })).toBeVisible();
@@ -58,8 +60,8 @@ describe("SharedWithMeTemplate", () => {
     expect(screen.getByText("3 shared dubs")).toBeVisible();
     expect(screen.getByRole("region", { name: "Audio player: Worldwide" })).toBeVisible();
     expect(screen.getByRole("region", { name: "Audio player: Exclusive" })).toBeVisible();
-    fireEvent.click(screen.getByRole("button", { name: "Share Worldwide with a friend" }));
-    fireEvent.click(screen.getByRole("button", { name: "Share Exclusive with a friend" }));
+    fireEvent.click(screen.getByRole("button", { name: "Share Worldwide" }));
+    fireEvent.click(screen.getByRole("button", { name: "Share Exclusive" }));
     expect(onShareWithFriend).toHaveBeenNthCalledWith(1, publicDub);
     expect(onShareWithFriend).toHaveBeenNthCalledWith(2, alist);
   });
@@ -69,7 +71,7 @@ describe("SharedWithMeTemplate", () => {
     render(<SharedWithMeTemplate dubs={[dub]} currentUsername="meladee" onPlay={onPlay} onDownload={onDownload} onShareWithFriend={vi.fn()} onEdit={vi.fn()} onDelete={vi.fn()} />);
     expect(screen.getByText("1 shared dub")).toBeVisible();
     expect(screen.getByRole("region", { name: "Audio player: Secret track" }).closest("article")).toHaveClass("dub-card--private");
-    expect(screen.queryByRole("button", { name: "Share Secret track with a friend" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Share Secret track" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Actions for Secret track" })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Play" }));
     fireEvent.click(screen.getByRole("button", { name: "Download · Like" }));

@@ -1,0 +1,99 @@
+{
+  "id": "edit-dub-details",
+  "title": "Edit dub details",
+  "description": "Update descriptive details for a published dub without replacing its audio.",
+  "variables": {
+    "artistName": "Demo Artist",
+    "trackTitle": "Night Drive"
+  },
+  "assets": {
+    "audio": { "env": "GUIDE_AUDIO_PATH" },
+    "artwork": {
+      "path": "apps/web/public/cre8-main-logo.png",
+      "env": "GUIDE_ARTWORK_PATH"
+    }
+  },
+  "setup": [
+    { "type": "include", "fragment": "signed-in" },
+    { "type": "include", "fragment": "publish-dub" }
+  ],
+  "steps": [
+    {
+      "caption": "Open My Dubs to manage your published release.",
+      "actions": [
+        { "type": "navigate", "destination": "my-dubs" },
+        { "type": "waitFor", "target": { "role": "heading", "name": "My Dubs" } },
+        { "type": "waitFor", "target": { "role": "region", "name": "Audio player: {{trackTitle}}" } }
+      ],
+      "holdMs": 4500
+    },
+    {
+      "caption": "Open the actions menu for Night Drive.",
+      "actions": [
+        { "type": "click", "target": { "role": "button", "name": "Actions for {{trackTitle}}" } },
+        { "type": "waitFor", "target": { "role": "button", "name": "Edit {{trackTitle}}" } }
+      ],
+      "profileOverrides": {
+        "mobile": {
+          "actions": [
+            { "type": "click", "target": { "role": "button", "name": "Actions for {{trackTitle}}" } },
+            { "type": "waitFor", "target": { "role": "dialog", "name": "Actions for {{trackTitle}}" } }
+          ]
+        }
+      }
+    },
+    {
+      "caption": "Choose Edit to update this dub's details.",
+      "actions": [
+        {
+          "type": "click",
+          "target": {
+            "role": "button",
+            "name": "Edit {{trackTitle}}"
+          }
+        },
+        { "type": "waitFor", "target": { "role": "dialog", "name": "Edit {{trackTitle}}" } }
+      ],
+      "holdMs": 4500
+    },
+    {
+      "caption": "Update the optional BPM and message; the audio stays as uploaded.",
+      "actions": [
+        {
+          "type": "fill",
+          "target": { "role": "spinbutton", "name": "BPM", "within": { "role": "dialog", "name": "Edit {{trackTitle}}" } },
+          "value": "172"
+        },
+        {
+          "type": "fill",
+          "target": { "role": "textbox", "name": "Message", "within": { "role": "dialog", "name": "Edit {{trackTitle}}" } },
+          "value": "Updated details for Night Drive."
+        }
+      ],
+      "holdMs": 5000
+    },
+    {
+      "caption": "Save changes to publish the updated details.",
+      "actions": [
+        {
+          "type": "click",
+          "target": {
+            "role": "button",
+            "name": "Save changes",
+            "within": { "role": "dialog", "name": "Edit {{trackTitle}}" }
+          }
+        },
+        { "type": "waitFor", "target": { "role": "dialog", "name": "Edit {{trackTitle}}" }, "state": "hidden" }
+      ],
+      "holdMs": 5000
+    },
+    {
+      "caption": "Night Drive remains in My Dubs with its original audio.",
+      "actions": [
+        { "type": "waitFor", "target": { "role": "region", "name": "Audio player: {{trackTitle}}" } },
+        { "type": "waitFor", "target": { "role": "button", "name": "Actions for {{trackTitle}}" } }
+      ],
+      "holdMs": 6000
+    }
+  ]
+}

@@ -18,6 +18,9 @@ RUN pnpm --filter @craft/tokens build \
 
 FROM node:22-alpine AS runtime
 
+RUN apk add --no-cache ffmpeg
+ENV FFMPEG_PATH="/usr/bin/ffmpeg"
+
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
 ENV NODE_ENV="production"
@@ -39,6 +42,7 @@ COPY packages/ui/package.json ./packages/ui/package.json
 RUN pnpm install --prod --frozen-lockfile --filter @craft/api
 
 COPY apps/api/src ./apps/api/src
+COPY docs/guides ./docs/guides
 COPY --from=build /app/apps/web/dist ./apps/web/dist
 COPY --from=build /app/apps/admin/dist ./apps/admin/dist
 

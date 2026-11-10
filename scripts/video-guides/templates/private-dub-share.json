@@ -1,0 +1,85 @@
+{
+  "id": "private-dub-share",
+  "title": "Share a private dub with a contact",
+  "description": "Choose Private distribution, send a dub to a selected friend and find it in Messenger.",
+  "variables": { "artistName": "Demo Artist", "trackTitle": "new one 123 - Private" },
+  "assets": {
+    "audio": { "env": "GUIDE_AUDIO_PATH" },
+    "artwork": { "path": "apps/web/public/cre8-main-logo.png", "env": "GUIDE_ARTWORK_PATH" }
+  },
+  "setup": [
+    { "type": "include", "fragment": "signed-in" },
+    { "type": "include", "fragment": "add-holik" }
+  ],
+  "steps": [
+    {
+      "caption": "Keep a dub private and send it directly to a contact. Start with a friend already added.",
+      "actions": [{ "type": "waitFor", "target": { "role": "heading", "name": "Dub Vault" } }],
+      "holdMs": 5500
+    },
+    {
+      "caption": "1. Open Share a dub and enter your track title.",
+      "actions": [
+        { "type": "click", "target": { "role": "button", "name": "Share a dub" } },
+        { "type": "fill", "target": { "label": "Track title" }, "value": "{{trackTitle}}" }
+      ]
+    },
+    {
+      "caption": "2. Change Distribution to Private. Only you and friends you explicitly share with get access.",
+      "actions": [{ "type": "select", "target": { "label": "Distribution" }, "value": "private" }],
+      "holdMs": 6500
+    },
+    {
+      "caption": "3. Select Holik from Choose friends. Publishing will also send the dub in Messenger.",
+      "actions": [{ "type": "click", "target": { "role": "checkbox", "name": "Holik @holik" } }],
+      "holdMs": 5500
+    },
+    {
+      "caption": "4. Choose the audio file. We are using new one 123.wav.",
+      "actions": [{ "type": "upload", "target": { "label": "Audio fileUp to 100 MB" }, "asset": "audio" }],
+      "holdMs": 5000
+    },
+    {
+      "caption": "5. Add artwork and an optional introduction. Here we use the cre8 logo.",
+      "actions": [
+        { "type": "upload", "target": { "label": "Track artwork Optional \u00b7 up to 10 MB" }, "asset": "artwork" },
+        { "type": "fill", "target": { "label": "Message" }, "value": "A private dub for Holik. Thanks for listening!" }
+      ]
+    },
+    {
+      "caption": "6. Select Share dub. Wait for the upload and message delivery to finish.",
+      "actions": [
+        { "type": "click", "target": { "role": "button", "name": "Share dub" } },
+        { "type": "waitFor", "target": { "role": "dialog", "name": "Share a dub" }, "state": "hidden" }
+      ],
+      "holdMs": 5500
+    },
+    {
+      "caption": "7. Open My Dubs to find your upload. It is marked Private, not published worldwide.",
+      "actions": [
+        { "type": "navigate", "destination": "my-dubs" },
+        { "type": "waitFor", "target": { "role": "region", "name": "Audio player: {{trackTitle}}" } }
+      ],
+      "holdMs": 6000
+    },
+    {
+      "caption": "8. Open Messenger and your conversation with Holik.",
+      "actions": [
+        { "type": "navigate", "destination": "messenger" },
+        { "type": "click", "target": { "role": "button", "name": "Open conversation with Holik" } },
+        { "type": "waitFor", "target": { "role": "region", "name": "Audio player: {{trackTitle}}" } }
+      ],
+      "holdMs": 6000
+    },
+    {
+      "caption": "The dub is now in your conversation. Holik has private access to listen and download.",
+      "actions": [{ "type": "waitFor", "target": { "role": "button", "name": "Download {{trackTitle}}" } }],
+      "holdMs": 6500
+    },
+    {
+      "caption": "Unsend does not revoke access. Manage private access in My Dubs; downloaded files cannot be recalled.",
+      "actions": [{ "type": "waitFor", "target": { "role": "region", "name": "Messenger" } }],
+      "holdMs": 7500
+    }
+  ]
+}

@@ -4,6 +4,7 @@ import { Button } from "../../atoms/Button/Button";
 import "../Molecules.css";
 
 export interface TransportControlsProps {
+  variant?: "full" | "minimal";
   playing?: boolean;
   shuffle?: boolean;
   repeat?: boolean;
@@ -16,6 +17,7 @@ export interface TransportControlsProps {
 }
 
 export function TransportControls({
+  variant = "full",
   className,
   onNext,
   onPlayChange,
@@ -54,25 +56,29 @@ export function TransportControls({
 
   return (
     <div className={["transport-controls", className].filter(Boolean).join(" ")}>
-      <Button
-        aria-label={shuffle ? "Disable shuffle" : "Enable shuffle"}
-        aria-pressed={shuffle}
-        className={`transport-controls__button${shuffle ? " is-active" : ""}`}
-        leadingIcon={<Shuffle aria-hidden="true" />}
-        onClick={toggleShuffle}
-        size="small"
-        variant="tertiary"
-        type="button"
-      />
-      <Button
-        aria-label="Previous track"
-        className="transport-controls__button"
-        leadingIcon={<SkipBack aria-hidden="true" />}
-        onClick={onPrevious}
-        size="small"
-        variant="tertiary"
-        type="button"
-      />
+      {variant === "full" && (
+        <Button
+          aria-label={shuffle ? "Disable shuffle" : "Enable shuffle"}
+          aria-pressed={shuffle}
+          className={`transport-controls__button transport-controls__shuffle${shuffle ? " is-active" : ""}`}
+          leadingIcon={<Shuffle aria-hidden="true" />}
+          onClick={toggleShuffle}
+          size="small"
+          variant="tertiary"
+          type="button"
+        />
+      )}
+      {variant === "full" && (
+        <Button
+          aria-label="Previous track"
+          className="transport-controls__button transport-controls__previous"
+          leadingIcon={<SkipBack aria-hidden="true" />}
+          onClick={onPrevious}
+          size="small"
+          variant="tertiary"
+          type="button"
+        />
+      )}
       <Button
         aria-label={playing ? "Pause" : "Play"}
         className={`transport-controls__play${playing ? " is-playing" : ""}`}
@@ -84,25 +90,29 @@ export function TransportControls({
         variant="secondary"
         type="button"
       />
-      <Button
-        aria-label="Next track"
-        className="transport-controls__button"
-        leadingIcon={<SkipForward aria-hidden="true" />}
-        onClick={onNext}
-        size="small"
-        variant="tertiary"
-        type="button"
-      />
-      <Button
-        aria-label={repeat ? "Disable repeat" : "Enable repeat"}
-        aria-pressed={repeat}
-        className={`transport-controls__button${repeat ? " is-active" : ""}`}
-        leadingIcon={<Repeat aria-hidden="true" />}
-        onClick={toggleRepeat}
-        size="small"
-        variant="tertiary"
-        type="button"
-      />
+      {variant === "full" && (
+        <Button
+          aria-label="Next track"
+          className="transport-controls__button transport-controls__next"
+          leadingIcon={<SkipForward aria-hidden="true" />}
+          onClick={onNext}
+          size="small"
+          variant="tertiary"
+          type="button"
+        />
+      )}
+      {variant === "full" && (
+        <Button
+          aria-label={repeat ? "Disable repeat" : "Enable repeat"}
+          aria-pressed={repeat}
+          className={`transport-controls__button transport-controls__repeat${repeat ? " is-active" : ""}`}
+          leadingIcon={<Repeat aria-hidden="true" />}
+          onClick={toggleRepeat}
+          size="small"
+          variant="tertiary"
+          type="button"
+        />
+      )}
     </div>
   );
 }

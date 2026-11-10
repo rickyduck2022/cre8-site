@@ -4,13 +4,18 @@ import { ModalFooterOutlet } from "../../molecules/ModalFooter/ModalFooter";
 import { cn } from "../../utils/cn";
 import "../Organisms.css";
 
-/** Modal dialogs fill the viewport at mobile widths and keep their content scrollable. */
+/**
+ * Mobile dialogs use dark, shadowed header/footer surfaces around scrollable content.
+ * Place actions in ModalFooter; submit buttons must reference their form's id.
+ * Use closeDisabled for non-cancellable submissions, with guarded onClose handlers.
+ */
 export interface ModalProps {
   title: string;
   isOpen: boolean;
   onClose: () => void;
   children: ReactNode;
   className?: string;
+  closeDisabled?: boolean;
 }
 
 export function Modal({
@@ -19,9 +24,13 @@ export function Modal({
   isOpen,
   onClose,
   title,
+  closeDisabled = false,
 }: ModalProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const titleId = useId();
+  function requestClose() {
+    if (!closeDisabled) onClose();
+  }
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -36,23 +45,26 @@ export function Modal({
       className={cn("modal", className)}
       onCancel={(event) => {
         event.preventDefault();
-        onClose();
+        requestClose();
       }}
       onClick={(event) => {
-        if (event.target === event.currentTarget) onClose();
+        if (event.target === event.currentTarget) requestClose();
       }}
-      onClose={onClose}
+      onClose={requestClose}
       ref={dialogRef}
     >
       <div className="modal__surface">
         <header className="modal__header">
           <h2 id={titleId}>{title}</h2>
-          <Button onClick={onClose} size="small" variant="tertiary">
+          <Button disabled={closeDisabled} onClick={requestClose} size="small" variant="tertiary">
             Close
           </Button>
         </header>
         <ModalFooterOutlet>
-          <div className="modal__content">{children}</div>
+          <div className="modal__content">
+            {closeDisabled && <p role="status">Please wait for the current action to finish before closing.</p>}
+            {children}
+          </div>
         </ModalFooterOutlet>
       </div>
     </dialog>

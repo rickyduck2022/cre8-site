@@ -20,22 +20,32 @@ export function LibraryTemplate({ downloads, onEditDub, onDeleteDub, ...cardProp
   const [query, setQuery] = useState("");
   const headerTarget = useContext(CollectionHeaderContext);
   const [filters, setFilters] = useState(() => ({ ...createEmptyDubSearchFilters(), distributions: [...allDistributions] }));
+  const collection = useMemo(() => {
+    const latest = new Map<string, LibraryDownload>();
+    for (const download of downloads) {
+      const previous = latest.get(download.dub.id);
+      if (!previous || Date.parse(download.downloadedAt) > Date.parse(previous.downloadedAt)) {
+        latest.set(download.dub.id, download);
+      }
+    }
+    return [...latest.values()].sort((a, b) => Date.parse(b.downloadedAt) - Date.parse(a.downloadedAt));
+  }, [downloads]);
   const invalidRange = hasInvalidDubSearchRange(filters);
   const filteredDownloads = useMemo(
-    () => invalidRange ? [] : downloads.filter(({ dub }) => matchesDubSearch(dub, query, filters)),
-    [downloads, filters, invalidRange, query],
+    () => invalidRange ? [] : collection.filter(({ dub }) => matchesDubSearch(dub, query, filters)),
+    [collection, filters, invalidRange, query],
   );
   const collectionHeader = (
     <>
       <section className="page-intro">
         <div><span className="eyebrow">YOUR COLLECTION</span><h1>My Library</h1>
           <p>Your downloaded dubs, ready to listen to again.</p></div>
-        <Badge>{downloads.length} downloads</Badge>
+        <Badge>{collection.length} {collection.length === 1 ? "dub" : "dubs"}</Badge>
       </section>
       <DubSearchToolbar query={query}>
         {(onSearch) => <DubSearch query={query} onQueryChange={setQuery} filters={filters} onFiltersChange={setFilters} onSearch={onSearch}
           defaultDistributions={allDistributions} distributionHint="Filter your downloaded dubs by distribution."
-          fileTypes={[...new Set(downloads.map(({ dub }) => dubFileType(dub)).filter(Boolean))].sort()}
+          fileTypes={[...new Set(collection.map(({ dub }) => dubFileType(dub)).filter(Boolean))].sort()}
           resultCount={filteredDownloads.length} error={invalidRange ? "Minimum values must be less than or equal to maximum values." : null} />}
       </DubSearchToolbar>
     </>
@@ -47,7 +57,7 @@ export function LibraryTemplate({ downloads, onEditDub, onDeleteDub, ...cardProp
         <DubCardList {...cardProps} entries={filteredDownloads} label="Downloaded dubs" onEdit={onEditDub} onDelete={onDeleteDub} />
       ) : (
         <div className="empty-state"><Disc3 aria-hidden="true" /><strong>{downloads.length ? "No downloaded dubs match your filters" : "Your library is empty"}</strong>
-          <span>{downloads.length ? "Try another search or adjust the filters." : "Download a dub from the feed or a conversation and it will be saved here."}</span></div>
+          <span>{downloads.length ? "Try another search or adjust the filters." : "Download and like a dub from the feed or a conversation to save it here. Repeat downloads keep one copy in your library."}</span></div>
       )}
     </div>
   );

@@ -30,7 +30,7 @@ describe("ModalFooter", () => {
         const rules = Array.from(style.sheet?.cssRules ?? []);
         const mobile = rules.find((rule) => rule instanceof CSSMediaRule && rule.conditionText === "(max-width: 760px)") as CSSMediaRule;
         const findRule = (selector: string) => {
-          const rule = Array.from(mobile.cssRules).find((candidate) => candidate instanceof CSSStyleRule && candidate.selectorText === selector);
+          const rule = Array.from(mobile.cssRules).find((candidate) => candidate instanceof CSSStyleRule && candidate.selectorText.replace(/\s+/g, " ") === selector);
           if (!(rule instanceof CSSStyleRule)) throw new Error(`Missing mobile modal rule: ${selector}`);
           return rule.style;
         };
@@ -42,6 +42,14 @@ describe("ModalFooter", () => {
         expect(dialog.getPropertyValue("margin")).toBe("0");
         expect(surface.getPropertyValue("height")).toBe("100%");
         expect(surface.getPropertyValue("border-radius")).toBe("0");
+        expect(surface.getPropertyValue("padding")).toBe("0");
+        const chrome = findRule(".modal__header, .modal__footer");
+        expect(chrome.getPropertyValue("background")).toBe("var(--surface-canvas)");
+        expect(chrome.getPropertyValue("flex")).toBe("none");
+        expect(chrome.getPropertyValue("z-index")).toBe("1");
+        expect(findRule(".modal__header").getPropertyValue("box-shadow")).toBe("var(--shadow-edge-bottom)");
+        expect(findRule(".modal__footer").getPropertyValue("box-shadow")).toBe("var(--shadow-edge-top)");
+        expect(findRule(".modal__footer").getPropertyValue("padding")).toContain("safe-area-inset-bottom");
         const content = rules.find((rule) => rule instanceof CSSStyleRule && rule.selectorText === ".modal__content") as CSSStyleRule;
         expect(content.style.getPropertyValue("overflow-y")).toBe("auto");
       } finally {

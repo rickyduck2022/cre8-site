@@ -22,6 +22,7 @@ import { AudioPlayer } from "../../organisms/AudioPlayer/AudioPlayer";
 import { CompactDubCard } from "../../organisms/DubCard/DubCard";
 import { Modal } from "../../organisms/Modal/Modal";
 import { useMobileLayout } from "../../utils/useMobileLayout";
+import { useAsyncSubmission } from "../../utils/useAsyncSubmission";
 import { TrackArtwork } from "../shared/TrackArtwork";
 import { PresenceIndicator } from "../shared/PresenceIndicator";
 import { formatTime } from "../templateFormatters";
@@ -65,7 +66,6 @@ export interface MessengerTemplateProps {
   onStartConversation: () => void;
   onCreateAndShareDub?: (buddyId: string) => void;
   onSelectConversation: (buddyId: string) => void;
-  onShowConversations?: () => void;
   onLoadOlderMessages: (buddyId: string, beforeId: string) => Promise<unknown>;
   onSendMessage: (
     buddyId: string,
@@ -104,7 +104,6 @@ export function MessengerTemplate({
   onStartConversation,
   onCreateAndShareDub,
   onSelectConversation,
-  onShowConversations,
   onLoadOlderMessages,
   onSendMessage,
   onUnsendMessage,
@@ -122,8 +121,7 @@ export function MessengerTemplate({
   const mobile = useMobileLayout();
   const shareMenuRef = useRef<HTMLDivElement>(null);
   const shareMenuTriggerRef = useRef<HTMLButtonElement>(null);
-  const backButtonRef = useRef<HTMLButtonElement>(null);
-  const conversationButtonsRef = useRef(new Map<string, HTMLButtonElement>());
+  const conversationProfileRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     setSelectedBuddyId(initialBuddyId);
@@ -136,6 +134,8 @@ export function MessengerTemplate({
     (conversation) => conversation.buddyId === selectedBuddy?.id,
   );
   const message = selectedBuddy ? drafts[selectedBuddy.id] ?? "" : "";
+  const messageSubmission = useAsyncSubmission("Message could not be sent. Your draft is saved. Try again.");
+  const [sendingTo, setSendingTo] = useState<{ id: string; name: string } | null>(null);
   const visibleBuddies = buddies.slice(0, visibleBuddyCount);
   const filteredDubs = shareableDubs.filter((dub) =>
     (dub.distribution !== "alist" || dub.aListPublic === true || selectedBuddy?.aListApproved === true)
@@ -186,25 +186,20 @@ export function MessengerTemplate({
     setMobileThreadOpen(true);
     onSelectConversation(buddyId);
     if (mobile) {
-      requestAnimationFrame(() => backButtonRef.current?.focus({ preventScroll: true }));
-    }
-  }
-
-  function showConversations() {
-    setMobileThreadOpen(false);
-    setIsShareMenuOpen(false);
-    onShowConversations?.();
-    if (selectedBuddy) {
-      requestAnimationFrame(() => conversationButtonsRef.current.get(selectedBuddy.id)?.focus({ preventScroll: true }));
+      requestAnimationFrame(() => conversationProfileRef.current?.focus({ preventScroll: true }));
     }
   }
 
   async function submitMessage(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const text = message.trim();
-    if (!selectedBuddy || !text) return;
+    if (!selectedBuddy || !text || messageSubmission.pending) return;
     const buddyId = selectedBuddy.id;
-    if (await onSendMessage(buddyId, text)) {
+    const sent = await messageSubmission.run(() => {
+      setSendingTo({ id: buddyId, name: selectedBuddy.displayName });
+      return onSendMessage(buddyId, text);
+    });
+    if (sent) {
       setDrafts((current) => current[buddyId] === message ? { ...current, [buddyId]: "" } : current);
     }
   }
@@ -276,10 +271,6 @@ export function MessengerTemplate({
                   className={`conversation-link${selectedBuddy?.id === buddy.id ? " is-selected" : ""}`}
                   key={buddy.id}
                   onClick={() => selectConversation(buddy.id)}
-                  ref={(element) => {
-                    if (element) conversationButtonsRef.current.set(buddy.id, element);
-                    else conversationButtonsRef.current.delete(buddy.id);
-                  }}
                   type="button"
                 >
                   <span className={`buddy-row__avatar buddy-row__avatar--${buddy.presence}`}>
@@ -306,12 +297,9 @@ export function MessengerTemplate({
         {selectedBuddy ? (
           <div className="chat-panel">
             <header className="chat-panel__header">
-              <button className="text-button chat-panel__back" onClick={showConversations} ref={backButtonRef} type="button">
-                Back
-              </button>
               <button aria-label={`View ${selectedBuddy.displayName}'s profile`} className="buddy-row__avatar" onClick={() => onOpenProfile(selectedBuddy.username)} type="button"><Avatar name={selectedBuddy.displayName} size="small" src={selectedBuddy.avatarUrl} /></button>
               <div>
-                <button className="text-button conversation-link__profile" onClick={() => onOpenProfile(selectedBuddy.username)} type="button"><strong>{selectedBuddy.displayName}{selectedBuddy.aListApproved && <AListBadge />}</strong></button>
+                <button className="text-button conversation-link__profile" onClick={() => onOpenProfile(selectedBuddy.username)} ref={conversationProfileRef} type="button"><strong>{selectedBuddy.displayName}{selectedBuddy.aListApproved && <AListBadge />}</strong></button>
                 <span>
                   <PresenceIndicator presence={selectedBuddy.presence} />
                   {selectedBuddy.presence}
@@ -376,6 +364,10 @@ export function MessengerTemplate({
                       <div className="chat-message__content">
                         {chatMessage.unsent ? (
                           <p className="chat-message__unsent">This message was unsent.</p>
+                        ) : chatMessage.packId ? (
+                          <div className="shared-pack-message"><p>{chatMessage.text}</p>
+                            <a href={`/#pack?id=${encodeURIComponent(chatMessage.packId)}`}>Open pack</a>
+                          </div>
                         ) : sharedDub ? (
                           <div className="shared-dub-message">
                             {chatMessage.text !== `Shared a dub: ${sharedDub.title}` && <p>{chatMessage.text}</p>}
@@ -450,6 +442,7 @@ export function MessengerTemplate({
             </InfiniteScroll>
 
             <ChatComposer
+              disabled={messageSubmission.pending}
               onChange={(value) => setDrafts((current) => ({ ...current, [selectedBuddy.id]: value }))}
               onSubmit={submitMessage}
               recipientName={selectedBuddy.displayName}
@@ -457,6 +450,10 @@ export function MessengerTemplate({
             />
 
             <div className="share-a-dub" ref={shareMenuRef}>
+              {messageSubmission.pending && <p className="chat-panel__submission" role="status">Sending to {sendingTo?.name}…</p>}
+              {messageSubmission.error && sendingTo?.id === selectedBuddy.id && (
+                <p className="chat-panel__submission chat-panel__submission--error" role="alert">{messageSubmission.error}</p>
+              )}
               <Button
                 aria-label="Share one of My Dubs"
                 aria-controls="share-a-dub-menu"

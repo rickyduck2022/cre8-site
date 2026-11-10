@@ -21,18 +21,22 @@ export interface EditProfileFormProps {
   profile: EditableProfile;
   onCancel: () => void;
   onSubmit: (profile: EditableProfile) => void;
+  isSubmitting?: boolean;
+  submissionError?: string;
 }
 
-export function EditProfileForm({ onCancel, onSubmit, profile }: EditProfileFormProps) {
+export function EditProfileForm({ onCancel, onSubmit, profile, isSubmitting = false, submissionError = "" }: EditProfileFormProps) {
   const formId = `edit-profile-form-${useId()}`;
-  const linkLabels = ["SoundCloud", "Spotify", "YouTube", "Bandcamp", "Other website / custom link"];
-  const [genres, setGenres] = useState(profile.genre.split(",").map((item) => item.trim()).filter((item) => ["Drum & Bass", "Jungle"].includes(item)));
+  const linkLabels = [...new Set(["SoundCloud", "Spotify", "YouTube", "Bandcamp", "Other website / custom link", ...(profile.links ?? []).map((link) => link.label)])];
+  const genreOptions = [...new Set(["Drum & Bass", "Jungle", ...profile.genre.split(",").map((item) => item.trim()).filter(Boolean)])];
+  const [genres, setGenres] = useState(profile.genre.split(",").map((item) => item.trim()).filter(Boolean));
   const [links, setLinks] = useState(linkLabels.map((label) => ({
     label,
     url: profile.links?.find((link) => link.label === label)?.url ?? "",
   })));
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (isSubmitting) return;
     const formData = new FormData(event.currentTarget);
     onSubmit({
       displayName: String(formData.get("displayName") ?? "").trim(),
@@ -47,7 +51,8 @@ export function EditProfileForm({ onCancel, onSubmit, profile }: EditProfileForm
 
   return (
     <>
-    <form className="edit-profile-form" id={formId} onSubmit={submit}>
+    <form aria-busy={isSubmitting} className="edit-profile-form" id={formId} onSubmit={submit}>
+      <fieldset className="edit-profile-form__fields" disabled={isSubmitting}>
       <label className="edit-profile-form__field">
         <span>Artist name</span>
         <input autoFocus maxLength={100} name="displayName" required defaultValue={profile.displayName} />
@@ -56,7 +61,7 @@ export function EditProfileForm({ onCancel, onSubmit, profile }: EditProfileForm
         <span>Role</span>
         <input maxLength={100} name="role" defaultValue={profile.role} />
       </label>
-      <TagSelector label="Genres" options={["Drum & Bass", "Jungle"]} onChange={setGenres} value={genres} />
+      <TagSelector label="Genres" options={genreOptions} onChange={setGenres} value={genres} />
       <label className="edit-profile-form__field"><span>Profile picture <small>JPG, PNG or WebP · max 2 MB</small></span><input accept="image/jpeg,image/png,image/webp" name="avatarFile" type="file" /></label>
       <label className="edit-profile-form__field"><span>Cover banner <small>JPG, PNG or WebP · max 10 MB</small></span><input accept="image/jpeg,image/png,image/webp" name="bannerFile" type="file" /></label>
       <label className="edit-profile-form__field">
@@ -70,7 +75,10 @@ export function EditProfileForm({ onCancel, onSubmit, profile }: EditProfileForm
             <span>{link.label}</span>
             <input
               maxLength={300}
-              onChange={(event) => setLinks((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, url: event.currentTarget.value } : item))}
+              onChange={(event) => {
+                const url = event.currentTarget.value;
+                setLinks((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, url } : item));
+              }}
               placeholder="https://"
               type="url"
               value={link.url}
@@ -78,10 +86,12 @@ export function EditProfileForm({ onCancel, onSubmit, profile }: EditProfileForm
           </label>
         ))}
       </fieldset>
+      </fieldset>
+      {submissionError && <p className="edit-profile-form__error" role="alert">{submissionError}</p>}
     </form>
     <ModalFooter>
-      <Button form={formId} onClick={onCancel} type="button" variant="secondary">Cancel</Button>
-      <Button form={formId} type="submit">Save profile</Button>
+      <Button disabled={isSubmitting} form={formId} onClick={onCancel} type="button" variant="secondary">Cancel</Button>
+      <Button disabled={isSubmitting} loading={isSubmitting} form={formId} type="submit">{isSubmitting ? "Saving profile" : "Save profile"}</Button>
     </ModalFooter>
     </>
   );

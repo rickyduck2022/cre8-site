@@ -23,6 +23,56 @@ const dub: Dub = {
 };
 
 describe("DubCard actions", () => {
+  it("offers a streamlined playlist variant with shared artwork, seeking and downloads", () => {
+    const onPlay = vi.fn();
+    const onSeekProgress = vi.fn();
+    const onDownload = vi.fn();
+    render(<DubCard dub={dub} variant="playlist" trackNumber={2} musicalKey="F minor"
+      isCurrentTrack isPlaying currentTimeSeconds={30} durationSeconds={120}
+      onPlay={onPlay} onSeekProgress={onSeekProgress} onDownload={onDownload} />);
+    const card = screen.getByRole("article", { name: dub.title });
+    expect(card).toHaveClass("dub-card--playlist", "dub-card--current");
+    expect(within(card).getByLabelText("Track 2")).toHaveTextContent("2");
+    expect(within(card).getByRole("img", { name: "Night Drive artwork" })).toBeVisible();
+    expect(within(card).getByText("174 BPM")).toBeVisible();
+    expect(within(card).getByText("F minor")).toBeVisible();
+    expect(within(card).queryByText("Fresh dub")).not.toBeInTheDocument();
+    expect(within(card).queryByText("@amber")).not.toBeInTheDocument();
+    expect(within(card).queryByRole("button", { name: "Enable shuffle" })).not.toBeInTheDocument();
+    fireEvent.click(within(card).getByRole("button", { name: "Pause" }));
+    expect(onPlay).toHaveBeenCalledWith(dub);
+    const waveform = within(card).getByRole("slider", { name: "Night Drive playback progress" });
+    expect(waveform).toHaveAttribute("aria-valuenow", "25");
+    fireEvent.keyDown(waveform, { key: "End" });
+    expect(onSeekProgress).toHaveBeenCalledWith(1, dub);
+    fireEvent.click(within(card).getByRole("button", { name: "Download · Like" }));
+    expect(onDownload).toHaveBeenCalledWith(dub);
+  });
+
+  it("disables draft playlist playback including waveform seeking and downloads", () => {
+    const onSeek = vi.fn();
+    const onSeekProgress = vi.fn();
+    render(<DubCard dub={dub} variant="playlist" playbackDisabled downloadDisabled
+      onPlay={vi.fn()} onDownload={vi.fn()} onSeek={onSeek} onSeekProgress={onSeekProgress} />);
+    expect(screen.getByRole("button", { name: "Play" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Download · Like" })).toBeDisabled();
+    expect(screen.queryByRole("slider", { name: "Night Drive playback progress" })).not.toBeInTheDocument();
+    const waveform = screen.getByRole("img", { name: "Night Drive playback progress" });
+    fireEvent.keyDown(waveform, { key: "End" });
+    expect(onSeek).not.toHaveBeenCalled();
+    expect(onSeekProgress).not.toHaveBeenCalled();
+  });
+
+  it("keeps playlist download available and labelled at mobile widths", () => {
+    vi.stubGlobal("matchMedia", vi.fn().mockReturnValue({
+      matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn(),
+    }));
+    const onDownload = vi.fn();
+    render(<DubCard dub={dub} variant="playlist" onPlay={vi.fn()} onDownload={onDownload} />);
+    fireEvent.click(screen.getByRole("button", { name: "Download and like" }));
+    expect(onDownload).toHaveBeenCalledWith(dub);
+  });
+
   it("uses equal player padding on all sides at mobile widths", () => {
     const style = document.createElement("style");
     style.textContent = readFileSync(resolve("src", "organisms", "DubCard", "DubCard.css"), "utf8");
@@ -81,7 +131,7 @@ describe("DubCard actions", () => {
     expect(screen.queryByRole("button", { name: "Actions for Night Drive" })).not.toBeInTheDocument();
   });
 
-  it("places icon-only download and share buttons below the distribution on mobile", () => {
+  it("shows a compact mobile download label and broad sharing action", () => {
     vi.stubGlobal("matchMedia", vi.fn().mockReturnValue({
       matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn(),
     }));
@@ -91,11 +141,12 @@ describe("DubCard actions", () => {
     const tag = screen.getByLabelText("Distribution: Worldwide");
     const actions = tag.parentElement?.querySelector(".dub-card__mobile-actions");
     const download = screen.getByRole("button", { name: "Download and like" });
-    const share = screen.getByRole("button", { name: "Share Night Drive with a friend" });
+    const share = screen.getByRole("button", { name: "Share Night Drive" });
     expect(actions?.previousElementSibling).toBe(tag);
     expect(actions).toContainElement(download);
     expect(actions).toContainElement(share);
-    expect(download).not.toHaveTextContent("Download");
+    expect(download).toHaveTextContent("Download · Like");
+    expect(download).toHaveAttribute("aria-label", "Download and like");
     expect(share).not.toHaveTextContent("Share");
     expect(container.querySelector(".dub-card__footer")).not.toBeInTheDocument();
     const details = container.querySelector(".dub-card__mobile-details")!;
@@ -112,7 +163,7 @@ describe("DubCard actions", () => {
     expect(onShareWithFriend).toHaveBeenCalledWith(dub);
     rerender(<DubCard dub={dub} hasLiked onDownload={onDownload} onPlay={vi.fn()} />);
     expect(screen.getByRole("button", { name: "Download again" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Share Night Drive with a friend" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Share Night Drive" })).not.toBeInTheDocument();
   });
 
   it("opens the uploader profile from their avatar and artist name", () => {
@@ -133,9 +184,11 @@ describe("DubCard actions", () => {
     expect(screen.getByRole("button", { name: "Play" })).not.toHaveClass("is-playing");
     rerender(<DubCard dub={dub} isCurrentTrack isPlaying onDownload={vi.fn()} onPlay={vi.fn()} />);
     expect(player).toHaveClass("dub-card__player--current");
+    expect(player).toHaveTextContent("Now playing");
     expect(screen.getByRole("button", { name: "Pause" })).toHaveClass("is-playing");
     rerender(<DubCard dub={dub} isCurrentTrack isPlaying={false} onDownload={vi.fn()} onPlay={vi.fn()} />);
     expect(player).toHaveClass("dub-card__player--current");
+    expect(player).toHaveTextContent("Paused");
     expect(screen.getByRole("button", { name: "Play" })).not.toHaveClass("is-playing");
     rerender(<DubCard dub={dub} isPlaying={false} onDownload={vi.fn()} onPlay={vi.fn()} />);
     expect(player).not.toHaveClass("dub-card__player--current");

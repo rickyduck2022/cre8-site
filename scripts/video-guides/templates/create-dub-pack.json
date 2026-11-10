@@ -1,0 +1,82 @@
+{
+  "id": "create-dub-pack",
+  "title": "Create a Dub Pack",
+  "description": "Combine an existing dub with a new upload, review their order, publish and download a pack.",
+  "variables": { "artistName": "Demo Artist", "trackTitle": "Night Drive", "packTitle": "Night Sessions" },
+  "assets": {
+    "audio": { "env": "GUIDE_AUDIO_PATH" },
+    "artwork": { "path": "apps/web/public/cre8-main-logo.png", "env": "GUIDE_ARTWORK_PATH" }
+  },
+  "setup": [
+    { "type": "include", "fragment": "signed-in" },
+    { "type": "include", "fragment": "publish-dub" }
+  ],
+  "steps": [
+    {
+      "caption": "1. Open My Dubs and select Create pack.",
+      "actions": [
+        { "type": "navigate", "destination": "my-dubs" },
+        { "type": "click", "target": { "role": "button", "name": "Create pack" } },
+        { "type": "waitFor", "target": { "role": "region", "name": "Pack editor" } }
+      ]
+    },
+    {
+      "caption": "2. Keep Dub Pack selected. Give the release a title and optional artwork.",
+      "actions": [
+        { "type": "fill", "target": { "label": "Pack title" }, "value": "{{packTitle}}" },
+        { "type": "fill", "target": { "label": "Description" }, "value": "Two new sounds from Demo Artist." },
+        { "type": "upload", "target": { "label": "Pack artwork (optional)" }, "asset": "artwork" }
+      ]
+    },
+    {
+      "caption": "3. Open Add files. Choose existing uploads with the same distribution.",
+      "actions": [
+        { "type": "click", "target": { "role": "button", "name": "2. Add files" } },
+        { "type": "click", "target": { "role": "checkbox", "name": "{{trackTitle}} Demo Artist" } }
+      ]
+    },
+    {
+      "caption": "4. Add another audio file. Review its title before uploading.",
+      "actions": [
+        { "type": "upload", "target": { "label": "Upload audio files" }, "asset": "audio" },
+        { "type": "fill", "target": { "label": "File title" }, "value": "After Hours" },
+        { "type": "fill", "target": { "label": "BPM (optional)" }, "value": "174" }
+      ]
+    },
+    {
+      "caption": "5. Upload pending files. Each file has its own progress and retry state.",
+      "actions": [
+        { "type": "click", "target": { "role": "button", "name": "Upload files (1)" } },
+        { "type": "waitFor", "target": { "text": "All files uploaded and saved." } }
+      ]
+    },
+    {
+      "caption": "6. Review the pack. Move After Hours up to make it the opening track.",
+      "actions": [
+        { "type": "click", "target": { "role": "button", "name": "3. Arrange & review" } },
+        { "type": "click", "target": { "role": "button", "name": "Move After Hours up" } }
+      ]
+    },
+    {
+      "caption": "7. Select Publish pack. The release opens with its ordered track list.",
+      "actions": [
+        { "type": "click", "target": { "role": "button", "name": "Publish pack" } },
+        { "type": "waitFor", "target": { "role": "article", "name": "Dub Pack: {{packTitle}}" } }
+      ]
+    },
+    {
+      "caption": "8. Play all follows your chosen order using the persistent player.",
+      "actions": [
+        { "type": "click", "target": { "role": "button", "name": "Play all" } },
+        { "type": "waitFor", "target": { "text": "Now playing from this pack" } }
+      ]
+    },
+    {
+      "caption": "9. Download the ZIP. Each dub's like is counted once, even on repeat downloads.",
+      "actions": [
+        { "type": "download", "target": { "role": "button", "name": "Download pack (ZIP)" } },
+        { "type": "waitFor", "target": { "text": "Pack downloaded. Each dub's like is counted once." } }
+      ]
+    }
+  ]
+}

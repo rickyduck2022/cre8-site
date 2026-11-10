@@ -1,7 +1,9 @@
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
-import { MessengerTemplate } from "./MessengerTemplate";
+import { MessengerTemplate, type MessengerTemplateProps } from "./MessengerTemplate";
 import type { Dub } from "../communityTypes";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 
 beforeAll(() => {
   HTMLDialogElement.prototype.showModal = function () { this.setAttribute("open", ""); };
@@ -9,7 +11,142 @@ beforeAll(() => {
 });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
+describe("MessengerTemplate message submission", () => {
+  function setup(onSendMessage: MessengerTemplateProps["onSendMessage"]) {
+    render(<MessengerTemplate
+      buddies={[
+        { id: "amber", username: "amber", displayName: "Amber", presence: "online", genre: "Jungle", role: "DJ", bio: "", groups: [] },
+        { id: "ben", username: "ben", displayName: "Ben", presence: "offline", genre: "Jungle", role: "DJ", bio: "", groups: [] },
+      ]}
+      conversations={[]} dubs={[]} initialBuddyId="amber"
+      chatConnectionStatus="connected" nowPlayingId={null} isPlaying={false}
+      onOpenProfile={vi.fn()} onPlay={vi.fn()} onStartConversation={vi.fn()} onSelectConversation={vi.fn()}
+      onLoadOlderMessages={vi.fn(async () => null)} onSendMessage={onSendMessage}
+    />);
+    fireEvent.change(screen.getByLabelText("Message Amber"), { target: { value: "  Hello Amber  " } });
+    return screen.getByRole("button", { name: "Send message" }).closest("form")!;
+  }
+
+  it("guards duplicate form submissions, shows sending progress and clears only after success", async () => {
+    let finish!: (value: boolean) => void;
+    const send = vi.fn(() => new Promise<boolean>((resolve) => { finish = resolve; }));
+    const form = setup(send);
+    act(() => { fireEvent.submit(form); fireEvent.submit(form); });
+    expect(send).toHaveBeenCalledOnce();
+    expect(send).toHaveBeenCalledWith("amber", "Hello Amber");
+    expect(screen.getByRole("button", { name: "Send message" })).toBeDisabled();
+    expect(screen.getByRole("status")).toHaveTextContent("Sending to Amber…");
+    expect(screen.getByLabelText("Message Amber")).toHaveValue("  Hello Amber  ");
+    await act(async () => { finish(true); });
+    expect(screen.getByLabelText("Message Amber")).toHaveValue("");
+    expect(screen.queryByText("Sending to Amber…")).not.toBeInTheDocument();
+  });
+
+  it.each(["false", "rejection"])("keeps the draft and allows retry after %s", async (failure) => {
+    const send = vi.fn<MessengerTemplateProps["onSendMessage"]>()
+      .mockImplementationOnce(async () => {
+        if (failure === "rejection") throw new Error("You are offline. Try again.");
+        return false;
+      })
+      .mockResolvedValueOnce(true);
+    setup(send);
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(failure === "rejection" ? "You are offline. Try again." : "Message could not be sent.");
+    expect(screen.getByLabelText("Message Amber")).toHaveValue("  Hello Amber  ");
+    expect(screen.getByRole("button", { name: "Send message" })).toBeEnabled();
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+    await waitFor(() => expect(screen.getByLabelText("Message Amber")).toHaveValue(""));
+    expect(send).toHaveBeenCalledTimes(2);
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it.each([true, false])("does not erase another conversation's draft when a pending send resolves %s", async (success) => {
+    let finish!: (value: boolean) => void;
+    setup(() => new Promise<boolean>((resolve) => { finish = resolve; }));
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+    fireEvent.click(screen.getByRole("button", { name: "Open conversation with Ben" }));
+    fireEvent.change(screen.getByLabelText("Message Ben"), { target: { value: "Ben's unsent draft" } });
+    await act(async () => { finish(success); });
+    expect(screen.getByLabelText("Message Ben")).toHaveValue("Ben's unsent draft");
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Open conversation with Amber" }));
+    expect(screen.getByLabelText("Message Amber")).toHaveValue(success ? "" : "  Hello Amber  ");
+    if (!success) expect(screen.getByRole("alert")).toHaveTextContent("Message could not be sent.");
+  });
+
+  it("preserves edits to the same conversation made while sending", async () => {
+    let finish!: (value: boolean) => void;
+    setup(() => new Promise<boolean>((resolve) => { finish = resolve; }));
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+    fireEvent.change(screen.getByLabelText("Message Amber"), { target: { value: "My next message" } });
+    await act(async () => { finish(true); });
+    expect(screen.getByLabelText("Message Amber")).toHaveValue("My next message");
+    expect(screen.getByRole("button", { name: "Send message" })).toBeEnabled();
+  });
+});
+
 describe("MessengerTemplate shared dubs", () => {
+  it("reserves the playback column and shrinks the waveform between timestamps", () => {
+    const style = document.createElement("style");
+    style.textContent = readFileSync(resolve("src", "organisms", "Organisms.css"), "utf8")
+      + readFileSync(resolve("src", "templates", "MessengerTemplate", "MessengerTemplate.css"), "utf8");
+    document.head.append(style);
+    try {
+      const findRule = (selector: string) => {
+        const rule = Array.from(style.sheet?.cssRules ?? []).find(
+          (candidate) => candidate instanceof CSSStyleRule && candidate.selectorText === selector,
+        ) as CSSStyleRule;
+        return rule.style;
+      };
+      const player = ".shared-dub__player.audio-player--inline";
+      expect(findRule(player).getPropertyValue("grid-template-columns")).toBe("2rem minmax(0, 1fr)");
+      expect(findRule(".audio-player--inline .transport-controls").getPropertyValue("width")).toBe("2rem");
+      const timeline = findRule(".audio-player--inline .audio-player__timeline");
+      expect(timeline.getPropertyValue("display")).toBe("grid");
+      expect(timeline.getPropertyValue("grid-column")).toBe("2");
+      expect(timeline.getPropertyValue("grid-template-columns")).toBe("auto minmax(0, 1fr) auto");
+    } finally {
+      style.remove();
+    }
+  });
+
+  it("aligns desktop headers with shared spacing and directional shadows", () => {
+    const style = document.createElement("style");
+    style.textContent = readFileSync(resolve("src", "templates", "MessengerTemplate", "MessengerTemplate.css"), "utf8");
+    document.head.append(style);
+    try {
+      const desktop = Array.from(style.sheet?.cssRules ?? []).find(
+        (rule) => rule instanceof CSSMediaRule && rule.conditionText === "(min-width: 761px)",
+      ) as CSSMediaRule;
+      const findRule = (selector: string) => {
+        const rule = Array.from(desktop.cssRules).find(
+          (candidate) => candidate instanceof CSSStyleRule && candidate.selectorText.replace(/\s+/g, " ") === selector,
+        ) as CSSStyleRule;
+        return rule.style;
+      };
+      const headers = findRule(".messenger__sidebar-head, .chat-panel__header");
+      expect(headers.getPropertyValue("height")).toBe("4.5rem");
+      expect(headers.getPropertyValue("box-sizing")).toBe("border-box");
+      expect(headers.getPropertyValue("box-shadow")).toBe("var(--shadow-edge-bottom)");
+      expect(headers.getPropertyValue("margin")).toBe("0");
+      expect(headers.getPropertyValue("padding")).toBe("0.75rem 1.125rem");
+      expect(headers.getPropertyValue("border-bottom")).toBe("0");
+      const conversationHeader = findRule(".chat-panel__header");
+      expect(conversationHeader.getPropertyValue("padding")).toBe("0.25rem 0.75rem 0.5rem");
+      expect(conversationHeader.getPropertyValue("height")).toBe("auto");
+      expect(conversationHeader.getPropertyValue("min-height")).toBe("3.5rem");
+      expect(findRule(".messenger__sidebar").getPropertyValue("padding")).toBe("0");
+      expect(findRule(".messenger__conversation-list").getPropertyValue("padding")).toBe("0.75rem");
+      expect(findRule(".messenger__conversation-list").getPropertyValue("gap")).toBe("0.5rem");
+      expect(findRule(".conversation-link").getPropertyValue("background")).toBe("var(--surface-canvas)");
+      expect(findRule(".conversation-link").getPropertyValue("box-shadow")).toBe("inset 0 0 0 1px var(--border-default), var(--shadow-input)");
+      expect(findRule(".conversation-link.is-selected").getPropertyValue("box-shadow")).toBe("inset 0 0 0 1px var(--audio-active), var(--shadow-input)");
+      expect(findRule(".chat-panel__header .conversation-link__profile").getPropertyValue("text-overflow")).toBe("ellipsis");
+    } finally {
+      style.remove();
+    }
+  });
+
   it.each([false, true])("uses compact dub cards in the share picker (mobile: %s)", (mobile) => {
     vi.stubGlobal("matchMedia", vi.fn().mockReturnValue({
       matches: mobile, addEventListener: vi.fn(), removeEventListener: vi.fn(),
@@ -79,7 +216,6 @@ describe("MessengerTemplate shared dubs", () => {
 
   it("navigates between the mobile list and thread, preserving drafts per conversation", async () => {
     const select = vi.fn();
-    const showConversations = vi.fn();
     const start = vi.fn();
     const send = vi.fn(async () => true);
     const buddies = [
@@ -89,7 +225,7 @@ describe("MessengerTemplate shared dubs", () => {
     const props = {
       buddies, conversations: [], dubs: [], initialBuddyId: "", chatConnectionStatus: "connected" as const,
       nowPlayingId: null, isPlaying: false, onOpenProfile: vi.fn(), onPlay: vi.fn(),
-      onStartConversation: start, onSelectConversation: select, onShowConversations: showConversations, onLoadOlderMessages: vi.fn(async () => null), onSendMessage: send,
+      onStartConversation: start, onSelectConversation: select, onLoadOlderMessages: vi.fn(async () => null), onSendMessage: send,
     };
     const { container, rerender } = render(<MessengerTemplate {...props} />);
     const messenger = container.querySelector(".messenger");
@@ -102,23 +238,24 @@ describe("MessengerTemplate shared dubs", () => {
     expect(messenger).toHaveClass("messenger--thread-open");
     expect(select).toHaveBeenCalledWith("friend");
     fireEvent.change(screen.getByLabelText("Message Amber"), { target: { value: "Amber draft" } });
-    fireEvent.click(screen.getByRole("button", { name: "Back" }));
+    expect(screen.queryByRole("button", { name: /Back/ })).not.toBeInTheDocument();
+    rerender(<MessengerTemplate {...props} navigationKey={1} />);
     expect(messenger).not.toHaveClass("messenger--thread-open");
-    expect(showConversations).toHaveBeenCalledOnce();
     fireEvent.click(screen.getByRole("button", { name: "Open conversation with Ben" }));
     expect(screen.getByLabelText("Message Ben")).toHaveValue("");
     fireEvent.change(screen.getByLabelText("Message Ben"), { target: { value: "Hello Ben" } });
     fireEvent.click(screen.getByRole("button", { name: "Send message" }));
     await waitFor(() => expect(send).toHaveBeenCalledWith("other", "Hello Ben"));
     await waitFor(() => expect(screen.getByLabelText("Message Ben")).toHaveValue(""));
-    fireEvent.click(screen.getByRole("button", { name: "Back" }));
+    rerender(<MessengerTemplate {...props} navigationKey={2} />);
     fireEvent.click(screen.getByRole("button", { name: "Open conversation with Amber" }));
     expect(screen.getByLabelText("Message Amber")).toHaveValue("Amber draft");
-    rerender(<MessengerTemplate {...props} initialBuddyId="other" navigationKey={1} />);
+    rerender(<MessengerTemplate {...props} initialBuddyId="other" navigationKey={3} />);
     expect(messenger).toHaveClass("messenger--thread-open");
     expect(screen.getByLabelText("Message Ben")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Back" }));
-    rerender(<MessengerTemplate {...props} initialBuddyId="other" navigationKey={2} />);
+    rerender(<MessengerTemplate {...props} navigationKey={4} />);
+    expect(messenger).not.toHaveClass("messenger--thread-open");
+    rerender(<MessengerTemplate {...props} initialBuddyId="other" navigationKey={5} />);
     expect(messenger).toHaveClass("messenger--thread-open");
   });
 

@@ -1,0 +1,26 @@
+[
+  {
+    "title": "1. Getting started",
+    "journeys": ["signup-get-started", "edit-artist-profile"]
+  },
+  {
+    "title": "2. Discovering and listening",
+    "journeys": ["find-dub", "playback-mini-player", "download-to-library"]
+  },
+  {
+    "title": "3. Publishing and managing dubs",
+    "journeys": ["add-dub", "edit-dub-details", "revoke-private-access"]
+  },
+  {
+    "title": "4. Contacts and Messenger",
+    "journeys": ["add-friend", "send-message", "private-dub-share", "share-existing-dub"]
+  },
+  {
+    "title": "5. External sharing",
+    "journeys": ["external-share-link", "shared-preview-sign-in"]
+  },
+  {
+    "title": "6. Dub and Sample Packs",
+    "journeys": ["create-dub-pack", "create-sample-pack"]
+  }
+]

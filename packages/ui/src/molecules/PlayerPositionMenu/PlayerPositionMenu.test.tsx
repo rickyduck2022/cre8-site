@@ -8,6 +8,7 @@ it("shows position diagrams, selects a position and closes", () => {
   const onSelect = vi.fn();
   render(<PlayerPositionMenu positions={["header", "footer", "sidebar", "default", "floating", "left-edge", "right-edge"]} current="footer" onSelect={onSelect} />);
   const trigger = screen.getByRole("button", { name: "Choose player position" });
+  expect(trigger).toHaveClass("player-tab");
   fireEvent.click(trigger);
   expect(trigger).toHaveAttribute("aria-expanded", "true");
   expect(screen.queryByRole("slider")).not.toBeInTheDocument();

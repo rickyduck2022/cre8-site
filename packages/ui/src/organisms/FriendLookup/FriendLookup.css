@@ -1,0 +1,9 @@
+.friend-lookup h2,
+.friend-lookup__hint { margin: 0; }
+.friend-lookup__hint { color: var(--text-secondary); }
+.friend-lookup__actions { align-items: center; display: flex; flex-wrap: wrap; gap: 0.5rem; }
+
+@media (max-width: 520px) {
+  .friend-lookup__results .artist-card { flex-wrap: wrap; }
+  .friend-lookup__results .artist-card__action { margin-left: auto; }
+}

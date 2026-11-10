@@ -14,4 +14,17 @@ describe("shareDubToFriends", () => {
     expect(await shareDubToFriends([], "dub", "Listen", send)).toEqual({ sent: [], failed: [] });
     expect(send).not.toHaveBeenCalled();
   });
+
+  it("preserves successful sends and reports rejected recipients without aborting the batch", async () => {
+    const error = new Error("Offline");
+    const warning = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    try {
+      const send = vi.fn().mockResolvedValueOnce(true).mockRejectedValueOnce(error).mockResolvedValueOnce(true);
+      expect(await shareDubToFriends(["one", "two", "three"], "dub", "Listen", send))
+        .toEqual({ sent: ["one", "three"], failed: ["two"] });
+      expect(warning).toHaveBeenCalledWith("Unable to share dub with recipient.", error);
+    } finally {
+      warning.mockRestore();
+    }
+  });
 });

@@ -16,7 +16,8 @@
   gap: 1rem;
 }
 
-.dub-upload-form__fields {
+.dub-upload-form__fields,
+.edit-profile-form__fields {
   border: 0;
   display: grid;
   gap: 1rem;
@@ -25,7 +26,8 @@
   padding: 0;
 }
 
-.dub-upload-form__fields:disabled {
+.dub-upload-form__fields:disabled,
+.edit-profile-form__fields:disabled {
   opacity: 0.65;
 }
 
@@ -83,7 +85,8 @@
   height: 2.75rem;
 }
 
-.dub-upload-form__error {
+.dub-upload-form__error,
+.edit-profile-form__error {
   color: var(--status-error, #ff7777);
   font-size: var(--type-size-caption);
 }
@@ -1107,4 +1110,10 @@
   background: color-mix(in srgb, var(--action-primary) 18%, var(--surface-raised));
   border-color: var(--action-primary);
   color: var(--text-primary);
+}
+.now-playing__context {
+  color: var(--text-secondary);
+  font-size: var(--type-size-caption);
+  font-weight: 700;
+  letter-spacing: 0.04em;
 }

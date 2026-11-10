@@ -6,12 +6,13 @@ import { test } from "node:test";
 import WebSocket from "ws";
 import { createApiServer, initializeData } from "../src/server.mjs";
 
-async function startTestServer(directory = mkdtempSync(join(tmpdir(), "cre8-api-")), webDirectory) {
+async function startTestServer(directory = mkdtempSync(join(tmpdir(), "cre8-api-")), webDirectory, guidesDirectory) {
   const server = createApiServer({
     dataPath: join(directory, "community.json"),
     mediaDirectory: join(directory, "audio"),
     publicAudioDirectory: join(directory, "seed-audio"),
     webDirectory,
+    guidesDirectory: guidesDirectory ?? join(directory, "no-guides"),
   });
   await new Promise((resolveListen) => server.listen(0, "127.0.0.1", resolveListen));
   const address = server.address();
@@ -62,6 +63,61 @@ test("the production server serves the web app and its static assets", async () 
   }
 });
 
+test("the production server serves the published guide library at /guides", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "cre8-guides-"));
+  const guidesDirectory = join(directory, "guides");
+  mkdirSync(guidesDirectory, { recursive: true });
+  writeFileSync(join(guidesDirectory, "index.html"), "<h1>cre8 user journey guides</h1>");
+  writeFileSync(join(guidesDirectory, "find-dub.mp4"), Buffer.from("fake-mp4-bytes-0123456789"));
+  writeFileSync(join(guidesDirectory, "find-dub.srt"), "1\n00:00:00,000 --> 00:00:05,000\nOpen the Dub Vault.\n");
+  writeFileSync(join(guidesDirectory, "notes.secret"), "not served");
+  const server = await startTestServer(join(directory, "data"), undefined, guidesDirectory);
+  try {
+    const redirect = await fetch(`${server.baseUrl}/guides`, { redirect: "manual" });
+    assert.equal(redirect.status, 301);
+    assert.equal(redirect.headers.get("location"), "/guides/");
+
+    const page = await fetch(`${server.baseUrl}/guides/`);
+    assert.equal(page.status, 200);
+    assert.match(page.headers.get("content-type"), /text\/html/);
+    assert.equal(page.headers.get("cache-control"), "no-cache");
+    assert.equal(await page.text(), "<h1>cre8 user journey guides</h1>");
+
+    const video = await fetch(`${server.baseUrl}/guides/find-dub.mp4`);
+    assert.equal(video.status, 200);
+    assert.equal(video.headers.get("content-type"), "video/mp4");
+    assert.equal(video.headers.get("accept-ranges"), "bytes");
+
+    const clip = await fetch(`${server.baseUrl}/guides/find-dub.mp4`, { headers: { range: "bytes=0-7" } });
+    assert.equal(clip.status, 206);
+    assert.equal(clip.headers.get("content-range"), "bytes 0-7/25");
+    assert.equal(await clip.text(), "fake-mp4");
+
+    const captions = await fetch(`${server.baseUrl}/guides/find-dub.srt`);
+    assert.equal(captions.status, 200);
+    assert.match(captions.headers.get("content-type"), /application\/x-subrip/);
+
+    assert.equal((await fetch(`${server.baseUrl}/guides/missing.mp4`)).status, 404);
+    assert.equal((await fetch(`${server.baseUrl}/guides/notes.secret`)).status, 404);
+    assert.equal((await fetch(`${server.baseUrl}/guides/..%2Fdata%2Fcommunity.json`)).status, 404);
+  } finally {
+    await server.close();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("the production server reports an unpublished guide library at /guides", async () => {
+  const server = await startTestServer();
+  try {
+    const response = await fetch(`${server.baseUrl}/guides/`);
+    assert.equal(response.status, 404);
+    assert.match((await response.json()).error, /not published/);
+  } finally {
+    await server.close();
+    rmSync(server.directory, { recursive: true, force: true });
+  }
+});
+
 async function registerAccount(baseUrl, username) {
   const response = await fetch(`${baseUrl}/api/register`, {
     method: "POST",
@@ -76,6 +132,158 @@ async function registerAccount(baseUrl, username) {
   assert.equal(response.status, 201);
   return response.headers.get("set-cookie").split(";")[0];
 }
+
+test("external dub links expose only public metadata and streams, preserving authenticated downloads and revocation", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "cre8-public-dub-"));
+  const dataPath = join(directory, "community.json");
+  const audioDirectory = join(directory, "audio");
+  const data = initializeData(dataPath, audioDirectory);
+  const owner = data.users.find((user) => user.username === "meladee");
+  const audio = Buffer.alloc(44 + 100 * 8000 * 2, 7);
+  audio.write("RIFF", 0);
+  audio.writeUInt32LE(audio.length - 8, 4);
+  audio.write("WAVEfmt ", 8);
+  audio.writeUInt32LE(16, 16);
+  audio.writeUInt16LE(1, 20);
+  audio.writeUInt16LE(1, 22);
+  audio.writeUInt32LE(8000, 24);
+  audio.writeUInt32LE(16000, 28);
+  audio.writeUInt16LE(2, 32);
+  audio.writeUInt16LE(16, 34);
+  audio.write("data", 36);
+  audio.writeUInt32LE(audio.length - 44, 40);
+  mkdirSync(audioDirectory, { recursive: true });
+  writeFileSync(join(audioDirectory, "shared.wav"), audio);
+  const artwork = Buffer.from("0123456789");
+  writeFileSync(join(audioDirectory, "shared.png"), artwork);
+  for (const [id, distribution, aListPublic] of [
+    ["worldwide", "worldwide", false],
+    ["public-alist", "alist", true],
+    ["restricted-alist", "alist", false],
+    ["private", "private", false],
+  ]) {
+    data.dubs.push({
+      id, title: id, artistId: "artist-meladee", uploaderId: owner.id,
+      uploadedAt: "2026-01-01", distribution, aListPublic, duration: "03:00",
+      bpm: 140, genre: "Garage", artwork: "custom", message: "Listen",
+      audioSource: "upload", storedAudioName: "shared.wav", storedArtworkName: "shared.png",
+      audioFileName: "original.wav", privateField: "never-expose-this", version: 1,
+    });
+  }
+  data.dubs.push({ ...data.dubs.find((dub) => dub.id === "worldwide"), id: "missing-media", storedAudioName: undefined, storedArtworkName: undefined });
+  writeFileSync(join(audioDirectory, "invalid.wav"), "invalid audio");
+  data.dubs.push({ ...data.dubs.find((dub) => dub.id === "worldwide"), id: "invalid-media", storedAudioName: "invalid.wav" });
+  writeFileSync(dataPath, JSON.stringify(data));
+  const server = await startTestServer(directory);
+  const publicUrl = (id, suffix = "") => `${server.baseUrl}/api/public/dubs/${id}${suffix}`;
+  try {
+    const login = await fetch(`${server.baseUrl}/api/login`, {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ username: "meladee", password: "meladee" }),
+    });
+    assert.equal(login.status, 200);
+    const cookie = login.headers.get("set-cookie").split(";")[0];
+    for (const id of ["worldwide", "public-alist"]) {
+      const metadata = await fetch(publicUrl(id));
+      assert.equal(metadata.status, 200);
+      assert.match(metadata.headers.get("cache-control"), /no-store/);
+      const body = await metadata.json();
+      assert.equal(body.authenticated, false);
+      assert.equal(body.dub.title, id);
+      assert.equal(body.dub.audioUrl, `/api/public/dubs/${id}/audio`);
+      assert.equal(body.dub.artworkUrl, `/api/public/dubs/${id}/artwork`);
+      assert.deepEqual(Object.keys(body.dub).sort(), [
+        "id", "title", "artist", "artistAListApproved", "uploader", "uploaderDisplayName",
+        "uploadedAt", "bpm", "genre", "duration", "likes", "downloads", "artwork",
+        "message", "distribution", "aListPublic", "audioUrl", "artworkUrl",
+        "previewSeconds",
+      ].sort());
+      assert.equal(body.dub.duration, "00:30");
+      assert.equal(body.dub.previewSeconds, 30);
+      const signedIn = await (await fetch(publicUrl(id), { headers: { cookie } })).json();
+      assert.equal(signedIn.authenticated, true);
+      assert.equal(signedIn.dub.audioUrl, `/api/dubs/${id}/audio`);
+      assert.equal(signedIn.dub.duration, "03:00");
+      for (const [media, mime] of [["audio", "audio/wav"], ["artwork", "image/png"]]) {
+        const stream = await fetch(publicUrl(id, `/${media}`), { headers: { range: "bytes=2-5" } });
+        assert.equal(stream.status, 206);
+        assert.equal(stream.headers.get("content-type"), mime);
+        assert.equal(stream.headers.get("content-disposition"), "inline");
+        const totalBytes = media === "audio" ? 44 + 30 * 32000 : artwork.length;
+        assert.equal(stream.headers.get("content-range"), `bytes 2-5/${totalBytes}`);
+        assert.equal((await stream.arrayBuffer()).byteLength, 4);
+        assert.equal((await fetch(publicUrl(id, `/${media}?download=1`))).status, 401);
+        assert.equal((await fetch(publicUrl(id, `/${media}?download=1`), { headers: { cookie } })).status, 403);
+      }
+    }
+    const suffix = await fetch(publicUrl("worldwide", "/audio"), { headers: { range: "bytes=-3" } });
+    assert.equal(suffix.status, 206);
+    assert.equal((await suffix.arrayBuffer()).byteLength, 3);
+    assert.equal((await fetch(publicUrl("worldwide", "/audio"), { headers: { range: "bytes=1000000-" } })).status, 416);
+    const outsiderCookie = await registerAccount(server.baseUrl, "preview-listener");
+    const updatePreview = (previewSeconds, authCookie = cookie, id = "worldwide") => fetch(`${server.baseUrl}/api/dubs/${id}/preview`, {
+      method: "PATCH", headers: { cookie: authCookie, "content-type": "application/json" },
+      body: JSON.stringify({ previewSeconds }),
+    });
+    assert.equal((await updatePreview(60, "")).status, 401);
+    assert.equal((await updatePreview(60, outsiderCookie)).status, 404);
+    for (const invalid of [0, -30, 31, 300, "60", null]) {
+      assert.equal((await updatePreview(invalid)).status, 400);
+    }
+    assert.equal((await updatePreview(60, cookie, "private")).status, 404);
+    assert.equal((await updatePreview(60, cookie, "restricted-alist")).status, 404);
+    for (const seconds of [60, 90, 30]) {
+      assert.equal((await updatePreview(seconds)).status, 200);
+      const preview = Buffer.from(await (await fetch(publicUrl("worldwide", "/audio?seconds=999&start=60"))).arrayBuffer());
+      assert.equal(preview.toString("ascii", 0, 4), "RIFF");
+      assert.equal(preview.length, 44 + seconds * 32000);
+      assert.equal(preview.readUInt32LE(40) / preview.readUInt32LE(28), seconds);
+      assert.equal((await (await fetch(publicUrl("worldwide"))).json()).dub.previewSeconds, seconds);
+      assert.equal(JSON.parse(readFileSync(dataPath, "utf8")).dubs.find((dub) => dub.id === "worldwide").previewSeconds, seconds);
+    }
+    const authenticatedAudio = await fetch(publicUrl("worldwide", "/audio"), { headers: { cookie: outsiderCookie } });
+    assert.deepEqual(Buffer.from(await authenticatedAudio.arrayBuffer()), audio);
+    for (const id of ["private", "restricted-alist", "unknown"]) {
+      for (const suffix of ["", "/audio", "/artwork"]) {
+        assert.equal((await fetch(publicUrl(id, suffix))).status, 404);
+        assert.equal((await fetch(publicUrl(id, suffix), { headers: { cookie } })).status, 404);
+      }
+    }
+    for (const suffix of ["/audio", "/artwork"]) {
+      assert.equal((await fetch(publicUrl("missing-media", suffix))).status, 404);
+    }
+    const invalidPreview = await fetch(publicUrl("invalid-media", "/audio"));
+    assert.equal(invalidPreview.status, 503);
+    assert.match((await invalidPreview.json()).error, /preview could not be prepared/);
+    assert.equal((await fetch(`${server.baseUrl}/api/dubs/worldwide/audio?download=1`)).status, 401);
+    assert.equal((await fetch(`${server.baseUrl}/api/dubs/worldwide/download`, { method: "POST" })).status, 401);
+    const entitlement = await fetch(`${server.baseUrl}/api/dubs/worldwide/download`, { method: "POST", headers: { cookie } });
+    assert.equal(entitlement.status, 200);
+    const download = await entitlement.json();
+    const attachment = await fetch(`${server.baseUrl}${download.audioUrl}`, { headers: { cookie } });
+    assert.equal(attachment.status, 200);
+    assert.match(attachment.headers.get("content-disposition"), /^attachment/);
+    assert.deepEqual(Buffer.from(await attachment.arrayBuffer()), audio);
+    const publicTrack = (await (await fetch(publicUrl("worldwide"))).json()).dub;
+    assert.equal(publicTrack.downloads, 1);
+    assert.equal(publicTrack.likes, 1);
+    assert.equal(JSON.parse(readFileSync(dataPath, "utf8")).dubs.find((dub) => dub.id === "worldwide").previewSeconds, 30);
+
+    const revoke = await fetch(`${server.baseUrl}/api/dubs/public-alist`, {
+      method: "PATCH", headers: { cookie, "content-type": "application/json" },
+      body: JSON.stringify({ title: "public-alist", artistId: "artist-meladee", aListPublic: false }),
+    });
+    assert.equal(revoke.status, 200);
+    for (const suffix of ["", "/audio", "/artwork"]) {
+      assert.equal((await fetch(publicUrl("public-alist", suffix))).status, 404);
+    }
+    assert.equal((await fetch(`${server.baseUrl}/api/dubs/worldwide`, { method: "DELETE", headers: { cookie } })).status, 200);
+    assert.equal((await fetch(publicUrl("worldwide"))).status, 404);
+  } finally {
+    await server.close();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
 
 test("playback positions are authenticated, validated, isolated and persisted", async () => {
   const directory = mkdtempSync(join(tmpdir(), "cre8-playback-"));
@@ -689,7 +897,7 @@ test("schema v3 migration preserves records and defaults existing dubs to Worldw
     writeFileSync(join(mediaDirectory, "legacy.wav"), "audio");
     writeFileSync(dataPath, JSON.stringify(data));
     const migrated = initializeData(dataPath, mediaDirectory);
-    assert.equal(migrated.schemaVersion, 6);
+    assert.equal(migrated.schemaVersion, 7);
     assert.equal(migrated.dubs[0].distribution, "worldwide");
     assert.deepEqual(migrated.downloads, data.downloads);
     assert.equal(readFileSync(join(mediaDirectory, "legacy.wav"), "utf8"), "audio");
@@ -712,7 +920,7 @@ test("schema v4 migration preserves existing grants and A-List status", () => {
     data.dubGrants.push({ dubId: "private", userId: data.users[1].id });
     writeFileSync(dataPath, JSON.stringify(data));
     const migrated = initializeData(dataPath, join(directory, "audio"));
-    assert.equal(migrated.schemaVersion, 6);
+    assert.equal(migrated.schemaVersion, 7);
     assert.equal(migrated.users[0].aListApproved, true);
     assert.deepEqual(migrated.dubGrants, data.dubGrants);
     assert.deepEqual(migrated.aListApplications, []);
@@ -731,7 +939,7 @@ test("schema v5 migration preserves dubs and messages without guessing their sha
     data.conversations.push({ ownerId: "user-meladee", buddyId: "old-friend", messages: [{ id: "old-message", sender: "you", text: "Shared", dubId: "legacy" }] });
     writeFileSync(dataPath, JSON.stringify(data));
     const migrated = initializeData(dataPath, join(directory, "audio"));
-    assert.equal(migrated.schemaVersion, 6);
+    assert.equal(migrated.schemaVersion, 7);
     assert.equal(migrated.dubs[0].version, 1);
     assert.deepEqual(migrated.dubShares, []);
     assert.equal(migrated.conversations[0].messages[0].dubId, "legacy");
@@ -1298,7 +1506,7 @@ test("schema v2 migration removes only built-in dubs and their activity", async 
 
   try {
     const migrated = JSON.parse(readFileSync(dataPath, "utf8"));
-    assert.equal(migrated.schemaVersion, 6);
+    assert.equal(migrated.schemaVersion, 7);
     assert.equal(migrated.dubs[0].distribution, "worldwide");
     assert.deepEqual(migrated.dubs.map((dub) => dub.id), ["uploaded-dub"]);
     assert.deepEqual(migrated.likes.map((like) => like.dubId), ["uploaded-dub"]);
@@ -1309,7 +1517,7 @@ test("schema v2 migration removes only built-in dubs and their activity", async 
     await server.close();
     server = await startTestServer(directory);
     const persisted = JSON.parse(readFileSync(dataPath, "utf8"));
-    assert.equal(persisted.schemaVersion, 6);
+    assert.equal(persisted.schemaVersion, 7);
     assert.deepEqual(persisted.dubs.map((dub) => dub.id), ["uploaded-dub"]);
   } finally {
     await server.close();

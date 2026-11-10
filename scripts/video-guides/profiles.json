@@ -1,0 +1,23 @@
+{
+  "desktop": {
+    "viewport": { "width": 1440, "height": 900 },
+    "captionBandHeight": 180,
+    "captionStyle": { "margin": 48, "titleSize": 20, "fontSize": 28, "lineSpacing": 10, "titleY": 24, "captionY": 65, "wrapAt": 76 },
+    "isMobile": false,
+    "hasTouch": false
+  },
+  "mobile": {
+    "viewport": { "width": 390, "height": 844 },
+    "captionBandHeight": 236,
+    "captionStyle": { "margin": 16, "titleSize": 16, "fontSize": 20, "lineSpacing": 6, "titleY": 18, "captionY": 68, "wrapAt": 29 },
+    "isMobile": true,
+    "hasTouch": true
+  },
+  "instagram": {
+    "viewport": { "width": 720, "height": 1120 },
+    "captionBandHeight": 160,
+    "captionStyle": { "margin": 36, "titleSize": 20, "fontSize": 26, "lineSpacing": 8, "titleY": 14, "captionY": 56, "wrapAt": 40 },
+    "isMobile": true,
+    "hasTouch": true
+  }
+}

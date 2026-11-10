@@ -14,6 +14,7 @@ export interface NowPlayingProps {
   isPlaying?: boolean;
   showArtwork?: boolean;
   className?: string;
+  contextLabel?: string;
 }
 
 export function NowPlaying({
@@ -22,6 +23,7 @@ export function NowPlaying({
   artworkContent,
   artwork,
   className,
+  contextLabel,
   isPlaying = true,
   onArtistClick,
   showArtwork = true,
@@ -50,6 +52,7 @@ export function NowPlaying({
           </span>
         ))}
       <span className="now-playing__copy">
+        {contextLabel && <span className="now-playing__context">{contextLabel}</span>}
         <span className="now-playing__title">{title}</span>
         {onArtistClick ? (
           <button

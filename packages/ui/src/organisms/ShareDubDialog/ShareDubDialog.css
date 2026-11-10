@@ -10,3 +10,18 @@
 .share-dub-dialog__error { color: var(--status-error, #ff7777); font-size: var(--type-size-label); margin: 0; }
 .share-dub-dialog__empty, .share-dub-dialog__success { display: grid; gap: 0.75rem; justify-items: start; }
 .share-dub-dialog__success > svg { color: var(--action-primary-hover); height: 2rem; width: 2rem; }
+.share-dub-dialog__tabs { border-bottom: 1px solid var(--border-default); display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1rem; padding-bottom: 0.75rem; }
+.share-dub-dialog__tabs > .button { flex: 1 1 8rem; }
+.share-dub-dialog__section-title { color: var(--text-primary); font-size: var(--type-size-label); margin: 0; }
+.share-dub-dialog__tabpanel { min-width: 0; }
+.share-dub-dialog__tabpanel[hidden] { display: none; }
+.share-dub-dialog__external { display: grid; gap: 0.75rem; }
+.share-dub-dialog__external label { min-width: 0; }
+.share-dub-dialog__external input, .share-dub-dialog__external select { background: var(--surface-canvas); border: 1px solid var(--border-default); border-radius: var(--radius-sm); box-shadow: var(--shadow-input); box-sizing: border-box; color: var(--text-primary); font: inherit; min-width: 0; padding: 0.75rem; width: 100%; }
+.share-dub-dialog__preview { display: grid; gap: 0.5rem; }
+.share-dub-dialog__external p[role="status"] { color: var(--text-secondary); font-size: var(--type-size-label); margin: 0; }
+
+@media (max-width: 760px) {
+  .share-dub-dialog__tabs { gap: 0.375rem; }
+  .share-dub-dialog__tabs > .button { min-height: 2.75rem; padding-inline: 0.5rem; }
+}

@@ -10,10 +10,17 @@
     "dev:purge": "node apps/api/scripts/purge.mjs",
     "dev:web": "node scripts/dev.mjs",
     "storybook": "pnpm --filter @craft/ui storybook",
+    "guides:record": "node scripts/video-guides/record.mjs",
+    "guides:batch": "node scripts/video-guides/batch.mjs",
+    "guides:publish": "node scripts/video-guides/publish.mjs",
+    "guides:review": "node scripts/video-guides/review.mjs",
+    "guides:test": "node --test scripts/video-guides/template.test.mjs",
     "test": "turbo run test",
     "typecheck": "turbo run typecheck"
   },
   "devDependencies": {
+    "ffmpeg-static": "^5.3.0",
+    "playwright": "^1.56.1",
     "turbo": "^2.3.3",
     "typescript": "^5.7.2"
   }

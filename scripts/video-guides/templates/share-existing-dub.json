@@ -1,0 +1,80 @@
+{
+  "id": "share-existing-dub",
+  "title": "Share an existing dub",
+  "description": "Send an already published dub to Holik with a personal message and verify it in Messenger.",
+  "variables": { "artistName": "Demo Artist", "trackTitle": "Night Drive" },
+  "assets": {
+    "audio": { "env": "GUIDE_AUDIO_PATH" },
+    "artwork": { "path": "apps/web/public/cre8-main-logo.png", "env": "GUIDE_ARTWORK_PATH" }
+  },
+  "setup": [
+    { "type": "include", "fragment": "signed-in" },
+    { "type": "include", "fragment": "add-holik" },
+    { "type": "include", "fragment": "publish-dub" }
+  ],
+  "steps": [
+    {
+      "caption": "1. Select My Dubs to find Night Drive, already published with its audio and artwork.",
+      "actions": [
+        { "type": "navigate", "destination": "my-dubs" },
+        { "type": "waitFor", "target": { "role": "heading", "name": "My Dubs" } },
+        { "type": "waitFor", "target": { "role": "region", "name": "Audio player: {{trackTitle}}" } }
+      ]
+    },
+    {
+      "caption": "2. Select Share on Night Drive. Friends opens first; no new upload is needed.",
+      "actions": [
+        { "type": "click", "target": { "role": "button", "name": "Share {{trackTitle}}" } },
+        { "type": "waitFor", "target": { "role": "dialog", "name": "Share {{trackTitle}}" } },
+        { "type": "waitFor", "target": { "role": "tabpanel", "name": "Friends" } }
+      ]
+    },
+    {
+      "caption": "3. Search the recipient list for Holik, who is already in your Friend List.",
+      "actions": [
+        { "type": "fill", "target": { "label": "Search friends", "within": { "role": "dialog", "name": "Share {{trackTitle}}" } }, "value": "holik" }
+      ]
+    },
+    {
+      "caption": "4. Select Holik's checkbox to choose who receives this dub in Messenger.",
+      "actions": [
+        { "type": "click", "target": { "role": "checkbox", "name": "Holik @holik", "within": { "role": "dialog", "name": "Share {{trackTitle}}" } } }
+      ]
+    },
+    {
+      "caption": "5. Add an optional message to introduce your dub.",
+      "actions": [
+        { "type": "fill", "target": { "label": "Add a message (optional)", "within": { "role": "dialog", "name": "Share {{trackTitle}}" } }, "value": "Hi Holik! Here is Night Drive. Let me know what you think." }
+      ]
+    },
+    {
+      "caption": "6. Select Send dub. The confirmation appears after the message is sent.",
+      "actions": [
+        { "type": "click", "target": { "role": "button", "name": "Send dub", "within": { "role": "dialog", "name": "Share {{trackTitle}}" } } },
+        { "type": "waitFor", "target": { "role": "button", "name": "Open conversation", "within": { "role": "dialog", "name": "Share {{trackTitle}}" } } }
+      ]
+    },
+    {
+      "caption": "7. Select Open conversation to see Night Drive and your message in Holik's thread.",
+      "actions": [
+        { "type": "click", "target": { "role": "button", "name": "Open conversation", "within": { "role": "dialog", "name": "Share {{trackTitle}}" } } },
+        { "type": "waitFor", "target": { "role": "region", "name": "Audio player: {{trackTitle}}", "within": { "role": "log", "name": "Conversation messages" } } }
+      ]
+    },
+    {
+      "caption": "8. Return to Friend List and select Message for Holik to reopen the saved conversation.",
+      "actions": [
+        { "type": "navigate", "destination": "buddies" },
+        { "type": "click", "target": { "role": "button", "name": "Message Holik", "within": { "role": "region", "name": "Contacts" } } },
+        { "type": "waitFor", "target": { "role": "region", "name": "Audio player: {{trackTitle}}", "within": { "role": "log", "name": "Conversation messages" } } }
+      ]
+    },
+    {
+      "caption": "The shared dub stays in your thread with a player and download button. It is still worldwide.",
+      "actions": [
+        { "type": "waitFor", "target": { "role": "button", "name": "Download {{trackTitle}}", "within": { "role": "log", "name": "Conversation messages" } } },
+        { "type": "waitFor", "target": { "label": "Message Holik" } }
+      ]
+    }
+  ]
+}

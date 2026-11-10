@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { Button } from "../../atoms/Button/Button";
 import { DubUploadForm } from "../../molecules/DubUploadForm/DubUploadForm";
 import type { DubUploadFormValues } from "../../molecules/DubUploadForm/DubUploadForm";
@@ -6,6 +5,7 @@ import { ModalFooter } from "../../molecules/ModalFooter/ModalFooter";
 import type { UploadProgressState } from "../../molecules/notificationTypes";
 import { Modal } from "../Modal/Modal";
 import type { ArtistOption, Buddy, Dub } from "../../types/domain";
+import { useAsyncSubmission } from "../../utils/useAsyncSubmission";
 import "./DubManagementDialogs.css";
 
 export interface DubManagementDialogsProps {
@@ -35,37 +35,29 @@ export function DubManagementDialogs({
   uploadError = "",
   uploadProgress = null,
 }: DubManagementDialogsProps) {
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
+  const saving = useAsyncSubmission("The dub could not be saved. Check the notification and try again.", editingDub?.id);
+  const deleting = useAsyncSubmission("The dub could not be deleted. Check the notification and try again.", deletingDub?.id);
+  const closeEdit = () => saving.requestClose(onCloseEdit);
+  const closeDelete = () => deleting.requestClose(onCloseDelete);
 
   async function saveDub(values: DubUploadFormValues) {
     if (!editingDub) return false;
-    setIsSaving(true);
-    try {
-      const updated = await onUpdateDub(editingDub.id, values);
-      if (!updated) return false;
-      onCloseEdit();
-      return updated;
-    } finally {
-      setIsSaving(false);
-    }
+    const saved = await saving.run(() => onUpdateDub(editingDub.id, values));
+    if (saved) onCloseEdit();
+    return saved;
   }
 
   async function deleteDub() {
-    if (!deletingDub || isDeleting) return;
-    setIsDeleting(true);
-    try {
-      if (await onDeleteDub(deletingDub.id)) onCloseDelete();
-    } finally {
-      setIsDeleting(false);
-    }
+    if (!deletingDub) return;
+    if (await deleting.run(() => onDeleteDub(deletingDub.id))) onCloseDelete();
   }
 
   return (
     <>
       <Modal
         isOpen={Boolean(editingDub)}
-        onClose={() => !isSaving && onCloseEdit()}
+        onClose={closeEdit}
+        closeDisabled={saving.pending}
         title={editingDub ? `Edit ${editingDub.title}` : "Edit dub"}
       >
         {editingDub && (
@@ -75,9 +67,9 @@ export function DubManagementDialogs({
             buddies={buddies}
             aListMembers={aListMembers}
             initialDub={editingDub}
-            onCancel={onCloseEdit}
+            onCancel={closeEdit}
             onSubmit={saveDub}
-            submissionError={uploadError}
+            submissionError={uploadError || saving.error}
             uploadProgress={uploadProgress}
           />
         )}
@@ -85,17 +77,19 @@ export function DubManagementDialogs({
 
       <Modal
         isOpen={Boolean(deletingDub)}
-        onClose={() => !isDeleting && onCloseDelete()}
+        onClose={closeDelete}
+        closeDisabled={deleting.pending}
         title="Delete dub?"
       >
         <p className="dub-management-dialogs__delete-copy">
           Delete <strong>{deletingDub?.title}</strong>? This also removes its audio and artwork from your releases.
         </p>
+        {deleting.error && <p className="dub-management-dialogs__error" role="alert">{deleting.error}</p>}
         <ModalFooter>
-          <Button disabled={isDeleting} onClick={onCloseDelete} variant="secondary">
+          <Button disabled={deleting.pending} onClick={closeDelete} variant="secondary">
             Cancel
           </Button>
-          <Button disabled={isDeleting} loading={isDeleting} onClick={() => void deleteDub()} variant="primary">
+          <Button disabled={deleting.pending} loading={deleting.pending} onClick={() => void deleteDub()} variant="primary">
             Delete dub
           </Button>
         </ModalFooter>

@@ -2,25 +2,34 @@
 
 This document records potential UI and UX changes based on the current implementation. These are proposals, not commitments. They follow the existing React component library and app shell patterns.
 
+## Refactor progress
+
+- Shared `PlayerTab` owns tab surfaces, shadows and focus styling.
+- `usePlayerLayout` owns placement, docking, persistence, opacity and layout measurements without changing saved preferences.
+- `AppPlayer` composes the shared audio player, tabs, snap previews and mobile edge controls. Playback stays in `useAudioPlayback`; the app shell retains navigation and header/footer slots.
+- Mini players reuse the existing previous/play/next controls, with a separate control row at every width to prevent overflow.
+- Profile editing, track create/edit/delete and sharing now reuse submission pending/error/duplicate-submit handling. Modal dismissal is guarded during those edits and sends, and failed forms retain entered values. Sharing preserves successful recipients and retries only failures, including rejected sends.
+- Next: review the remaining dialogs and forms for the same lifecycle, then consolidate feature-specific orchestration out of the app shell.
+
 ## Codebase orientation
 
 - **Workspace:** pnpm workspace coordinated by Turborepo. `apps/web` is the Vite/React front end; `apps/api` is a Node HTTP and WebSocket service; `packages/ui`, `packages/icons`, and `packages/tokens` are shared libraries.
 - **UI architecture:** `packages/ui/src` groups reusable components into `atoms`, `molecules`, `organisms`, and `templates`. Most components have Storybook stories, with targeted Vitest tests for interaction-heavy controls. Page templates accept callbacks and data as props, keeping app-specific behavior outside the library.
-- **Application composition:** `apps/web/src/app/App.tsx` owns navigation, dialogs, selected profile/crate, and wires page templates to `useCommunity`. `DashboardTemplate` composes header, navigation, main content, and persistent audio player. Hash routes provide basic deep links and browser history.
-- **State and API:** `useCommunity` owns the community snapshot, request helpers, notifications, playback state and audio element, upload flow, and chat WebSocket/reconnect loop. It uses same-origin `/api` requests and refreshes the snapshot after mutations.
+- **Application composition:** `apps/web/src/app/App.tsx` owns navigation, dialogs, selected profile/crate, and wires page templates to `useCommunity`. `usePlayerLayout` and `AppPlayer` isolate player layout behavior and rendering. `DashboardTemplate` composes header, navigation, main content, and persistent audio player. Hash routes provide basic deep links and browser history.
+- **State and API:** `useCommunity` owns the community snapshot, request helpers and upload flow, delegating playback, notifications and chat connectivity to dedicated hooks. It uses same-origin `/api` requests and refreshes the snapshot after mutations.
 - **Server and persistence:** `apps/api/src/server.mjs` implements the API and authenticated chat, with a versioned JSON data file and uploaded media on disk. `apps/api/README.md` describes the deployment as a single-process demo, not a production data service.
 - **Visual system:** `packages/tokens/src/theme.css` defines dark semantic surfaces, typography, focus, and action/audio colors. Component styles are mostly colocated CSS files; global/app layout styles live in the app and template layers.
 - **Media interaction:** uploads use an XHR helper for byte progress and two-phase upload/publish; playback is managed by one `Audio` instance in the hook and exposed through the shared player. Downloads are the current “like” action.
 
 ## Potential UI and UX changes
 
-### 1. Add a complete edit-track flow
+### 1. Refine the existing edit-track flow
 
-**Why:** `DubCard` renders a “More options” button, but it has no handler or menu. The upload dialog creates a dub, while the API currently exposes create/download/audio operations and no apparent dub update/delete workflow. Users have no clear route to fix metadata or replace artwork after publishing.
+**Current status:** The app now wires edit/delete actions through `DubManagementDialogs`, `updateDub` and `deleteDub`. The original proposal to make track management actionable is no longer an unimplemented feature.
 
-**Potential change:** Make the card menu actionable for the uploader: Edit details, Replace artwork, and (if desired) Remove track. Add an edit form that pre-fills title, artist profile, genre, BPM, message, and current artwork. Preserve the audio file unless the user explicitly chooses a replacement. Show a clear save state and confirm destructive removal.
+**Current refactor:** Create/edit/delete use shared submission handling, inline failure feedback, duplicate-submit protection and guarded modal dismissal for edits/deletes. Existing upload progress, confirmation and entered values on failure are preserved.
 
-**Implementation notes:** First add owner-authorized update/delete API operations and a documented media cleanup policy; then add typed actions to `useCommunity`; finally connect the menu and form through the app shell. Reuse the upload form field styling and `Modal`, while making edit mode distinct from create mode. Handle failed saves without closing or losing entered values. If audio replacement is out of scope, make that limitation explicit in the UI.
+**Implementation notes:** Reuse the existing dialogs and typed actions rather than introducing a second management flow. Keep ownership enforcement and media cleanup on the server.
 
 ### 2. Surface ownership-aware track actions
 
@@ -46,9 +55,9 @@ The app combines hash navigation, a desktop sidebar, and mobile tabs; crates are
 
 The feed labels the action “Download · Like” and the server records a like from a download. Explain this once near the action and use consistent copy in notifications and profile/feed counts. Consider separating liking from downloading if people need to express appreciation without saving the file.
 
-### 8. Add safer profile editing feedback
+### 8. Consolidate profile editing feedback
 
-The profile form closes immediately after calling `updateProfile`, even though the mutation is asynchronous and its errors are handled through notifications. Keep it open during save, show inline failure, and close only after confirmed success. Reuse this save lifecycle for track editing.
+`EditProfileDialog` now waits for `updateProfile` to report success before closing. Shared submission handling provides pending and inline failure feedback, duplicate-submit prevention and preservation of entered values. Closing and cancelling are disabled with an explanation while the save is running.
 
 ### 9. Improve connection and empty states
 
@@ -60,12 +69,12 @@ Continue the existing use of semantic buttons, labels, and ARIA roles. Audit key
 
 ## Suggested sequence
 
-1. Implement owner-authorized track update/delete support and an edit-track dialog, including save/error states.
-2. Make card actions and ownership visibility consistent.
-3. Fix async profile-save feedback and improve upload cancellation/recovery.
+1. Extend shared submission handling to remaining forms and dialogs after reviewing each flow's success and retry semantics.
+2. Review card actions and ownership visibility for consistency.
+3. Improve upload cancellation/recovery.
 4. Polish search, mobile navigation, and playback presentation based on observed user needs.
 5. Run an accessibility and responsive review across the shared stories and app flows.
 
 ## Scope and evidence limits
 
-This review is based on the checked-in source and README, not analytics, user interviews, or a live usability study. In particular, edit-track requires server support: the current client-side “More options” button alone cannot safely update or remove persisted tracks.
+These proposals are based on the source and README, not analytics, user interviews, or a live usability study. The progress notes reflect subsequent implementation; remaining opportunities still require flow-specific validation, including server-side authorization for track management.
