@@ -1,0 +1,30 @@
+.history-navigation {
+  align-self: stretch;
+  display: flex;
+  flex: none;
+}
+
+.history-navigation .button.edge-tab {
+  background: var(--surface-canvas);
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  min-width: 2rem;
+  padding-inline: var(--spacing-xl);
+}
+
+.history-navigation .button.edge-tab:not(:disabled):hover {
+  background: var(--surface-control);
+}
+
+.history-navigation .button.edge-tab:not(:disabled):active {
+  background: var(--surface-raised);
+}
+
+.history-navigation .button.edge-tab:disabled {
+  color: var(--text-secondary);
+}
+
+.history-navigation__back svg {
+  transform: rotate(180deg);
+}

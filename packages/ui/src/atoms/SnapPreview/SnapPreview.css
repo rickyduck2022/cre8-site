@@ -1,0 +1,25 @@
+.snap-preview {
+  align-items: center;
+  background: color-mix(in srgb, var(--audio-active) 15%, transparent);
+  border: 2px dashed color-mix(in srgb, var(--audio-active) 65%, transparent);
+  box-sizing: border-box;
+  color: var(--text-primary);
+  display: flex;
+  font-size: var(--type-size-label);
+  font-weight: 600;
+  justify-content: center;
+  pointer-events: none;
+  position: fixed;
+  text-align: center;
+  z-index: 99;
+}
+
+.snap-preview--active {
+  background: color-mix(in srgb, var(--surface-media-section) 85%, transparent);
+  border-color: var(--audio-active);
+}
+
+.snap-preview > svg {
+  height: 1.125rem;
+  width: 1.125rem;
+}

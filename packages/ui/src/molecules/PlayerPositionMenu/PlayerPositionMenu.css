@@ -1,0 +1,59 @@
+.player-position-menu {
+  position: absolute;
+  right: 3.5rem;
+  bottom: 100%;
+}
+
+.player-position-menu__trigger.button {
+  background: var(--surface-media-section);
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  box-shadow: var(--shadow-card);
+  min-height: 2rem;
+  min-width: 2rem;
+  padding: var(--spacing-1);
+}
+
+.player-position-menu__popover {
+  background: var(--surface-raised);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-floating);
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100dvh - 1rem);
+  min-width: 11rem;
+  overflow-y: auto;
+  padding: var(--spacing-1);
+  position: fixed;
+  z-index: 120;
+}
+
+.player-position-menu__transparency {
+  border-top: 1px solid var(--border-default);
+  color: var(--text-primary);
+  display: grid;
+  font-size: var(--type-size-caption);
+  gap: var(--spacing-1);
+  padding: var(--spacing-2);
+}
+
+.player-position-menu__transparency > span {
+  display: flex;
+  justify-content: space-between;
+}
+
+.player-position-menu__transparency input {
+  accent-color: var(--action-primary);
+  margin: 0;
+  width: 100%;
+}
+
+.player-position-menu__popover .button {
+  justify-content: flex-start;
+  min-height: 2.75rem;
+}
+
+.player-position-menu__popover .button[aria-pressed="true"] {
+  background: var(--surface-control);
+  color: var(--audio-active);
+}
