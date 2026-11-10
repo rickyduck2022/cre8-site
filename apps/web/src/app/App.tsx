@@ -48,6 +48,7 @@ import { DemoModeNotice } from "../components/DemoModeNotice";
 import { AListApplication } from "../components/AListApplication";
 import { AppPlayer } from "../components/AppPlayer";
 import { PackWorkspace } from "../components/PackWorkspace";
+import { PackWindows, type PackWindowState } from "../components/PackWindows";
 import { downloadPack } from "../services/packs";
 import { PushSettings, removeDevicePushSubscription } from "../components/PushSettings";
 import { useCommunity } from "../hooks/useCommunity";
@@ -220,6 +221,8 @@ export function App({ appStatus }: { appStatus?: ReactNode } = {}) {
   const setOwnedMediaTab = isMySamples ? setMySamplesTab : setMyDubsTab;
   const [createPack, setCreatePack] = useState(false);
   const [pendingPackDub, setPendingPackDub] = useState<Dub | null>(null);
+  const [pendingEditPack, setPendingEditPack] = useState<DubPack | null>(null);
+  const [packWindows, setPackWindows] = useState<PackWindowState[]>([]);
   const [isUploadSubmitting, setIsUploadSubmitting] = useState(false);
   const [publishedDub, setPublishedDub] = useState<Dub | null>(null);
   const [editingDub, setEditingDub] = useState<Dub | null>(null);
@@ -237,6 +240,7 @@ export function App({ appStatus }: { appStatus?: ReactNode } = {}) {
   const [registrationPending, setRegistrationPending] = useState(false);
   const memberBuddyIds = useRef(new Map<string, string>());
   useEffect(() => { setPublishedDub(null); }, [state.member?.id]);
+  useEffect(() => { setPackWindows([]); }, [state.member?.id]);
 
   const sharedDubs = state.dubs.filter((dub) => state.sharedDubIds.has(dub.id));
   const sharedDubCount = sharedDubs.filter((dub) => (dub.mediaKind ?? "dub") === "dub").length;
@@ -270,10 +274,9 @@ export function App({ appStatus }: { appStatus?: ReactNode } = {}) {
     hasTrack: Boolean(previewTrack),
     enabled: !loading && Boolean(state.member),
   });
-  const openPackInPlayer = (pack: DubPack) => {
-    // Keep the current track when the pack is already playing; otherwise start the pack queue.
-    if (state.queuePackId !== pack.id || !previewTrack) playPack(pack.items.map((item) => item.dub), pack.id);
-    playerLayout.selectPosition("fullscreen");
+  const openPackWindow = (pack: DubPack) => {
+    setPackWindows((current) => [...current.filter((item) => item.pack.id !== pack.id),
+      { pack, openRequest: (current.find((item) => item.pack.id === pack.id)?.openRequest ?? 0) + 1 }]);
   };
   const dubsById = new Map(state.dubs.map((dub) => [dub.id, dub]));
   const suggestedByUsername = new Map(state.suggestedMembers.map((member) => [member.username, member]));
@@ -346,6 +349,16 @@ export function App({ appStatus }: { appStatus?: ReactNode } = {}) {
 
   function beginDubEdit(dub: Dub) {
     setEditingDub(dub);
+  }
+
+  function beginPackEdit(pack: DubPack) {
+    if (pack.ownerUsername !== state.member?.username) return;
+    setCreatePack(false);
+    setPendingPackDub(null);
+    setPendingEditPack(pack);
+    if (pack.kind === "sample") setMySamplesTab("packs");
+    else setMyDubsTab("packs");
+    navigateTo(pack.kind === "sample" ? "my-samples" : "my-dubs");
   }
 
   function beginDubDelete(dub: Dub) {
@@ -654,7 +667,8 @@ export function App({ appStatus }: { appStatus?: ReactNode } = {}) {
               activePackId={state.queuePackId} onActivateQueue={activatePackQueue}
               onPlayPack={playPack}
               onSharePack={beginSharingPack}
-              onOpenPack={openPackInPlayer}
+              onOpenPack={openPackWindow}
+              onEditPack={beginPackEdit}
               onDownloadPack={async (pack) => { await downloadPack(pack.id); await refreshCommunity(); }}
               dubs={isDubSearchActive ? (dubSearch.results ?? []).map((dub) => {
                 const current = dubsById.get(dub.id);
@@ -760,7 +774,7 @@ export function App({ appStatus }: { appStatus?: ReactNode } = {}) {
             dubs={sharedDubs.filter((dub) => (dub.mediaKind ?? "dub") === sharedMediaKind)}
             packs={state.packs.filter((pack) => pack.kind === sharedMediaKind && state.sharedPackIds?.has(pack.id))}
             activePackId={state.queuePackId} onActivateQueue={activatePackQueue} onPlayPack={playPack}
-            onOpenPack={openPackInPlayer}
+            onOpenPack={openPackWindow}
             onDownloadPack={handleDownloadPack} onSharePack={beginSharingPack}
             currentUsername={state.member.username}
             likedDubIds={state.likedDubIds}
@@ -799,13 +813,16 @@ export function App({ appStatus }: { appStatus?: ReactNode } = {}) {
             dubs={myDubs} artists={state.artists} buddies={state.buddies} playback={state}
             onPlay={togglePlayback} onPlayAll={playPack} onSeek={seekPlaybackProgress} onVolume={setVolume}
             onDownloadDub={async (dub) => { await downloadDubFile(dub.id); await refreshCommunity(); }} onCommunityChange={async () => { await refreshCommunity(); }}
-            create={createPack} pendingDub={pendingPackDub} onOpened={() => { setCreatePack(false); setPendingPackDub(null); }} />
+            create={createPack} pendingDub={pendingPackDub} editPack={pendingEditPack}
+            onOpenPack={openPackWindow}
+            onOpened={() => { setCreatePack(false); setPendingPackDub(null); setPendingEditPack(null); }} />
             : <MyDubsTemplate key={ownedMediaKind} mediaKind={ownedMediaKind} title={ownedMediaTitle}
             dubs={ownedMedia}
             packs={ownedPacks} ownerUsername={state.member.username}
             activePackId={state.queuePackId} onActivateQueue={activatePackQueue} onPlayPack={playPack}
             onSharePack={beginSharingPack}
-            onOpenPack={openPackInPlayer}
+            onOpenPack={openPackWindow}
+            onEditPack={beginPackEdit}
             onDownloadPack={async (pack) => { await downloadPack(pack.id); await refreshCommunity(); }}
             likedDubIds={state.likedDubIds}
             nowPlayingId={state.nowPlayingId}
@@ -848,7 +865,7 @@ export function App({ appStatus }: { appStatus?: ReactNode } = {}) {
             packs={state.packs}
             shareablePacks={state.packs.filter((pack) => state.member !== null && canSharePack(pack, state.member.username))}
             likedDubIds={state.likedDubIds}
-            onPlayPack={playPack} onOpenPack={openPackInPlayer}
+            onPlayPack={playPack} onOpenPack={openPackWindow}
             onDownloadPack={handleDownloadPack} onSendPack={sendPackMessage} activePackId={state.queuePackId} onActivateQueue={activatePackQueue}
             initialBuddyId={chatBuddyId}
             navigationKey={chatNavigationKey}
@@ -890,7 +907,8 @@ export function App({ appStatus }: { appStatus?: ReactNode } = {}) {
             packs={state.packs}
             likedDubIds={state.likedDubIds} activePackId={state.queuePackId} onActivateQueue={activatePackQueue} onPlayPack={playPack}
             onSharePack={beginSharingPack}
-            onOpenPack={openPackInPlayer}
+            onOpenPack={openPackWindow}
+            onEditPack={beginPackEdit}
             onDownloadPack={async (pack) => { await downloadPack(pack.id); await refreshCommunity(); }}
             isPlaying={state.isPlaying}
             currentTimeSeconds={state.currentTime}
@@ -924,6 +942,14 @@ export function App({ appStatus }: { appStatus?: ReactNode } = {}) {
         notifications={activeNotifications}
         onDismiss={dismissNotification}
       />
+      <PackWindows windows={packWindows.map((entry) => ({ ...entry, pack: state.packs.find((current) => current.id === entry.pack.id) ?? entry.pack }))}
+        username={state.member.username} authenticated buddies={state.buddies} playback={state}
+        {...packPlaybackControls} onPlay={togglePlayback} onPlayAll={playPack} onSeek={seekPlaybackProgress} onVolume={setVolume}
+        onDownloadDub={async (dub) => { await downloadDubFile(dub.id); await refreshCommunity(); }}
+        onCommunityChange={async () => { await refreshCommunity(); }}
+        onActivate={(id) => setPackWindows((current) => [...current.filter(({ pack }) => pack.id !== id), ...current.filter(({ pack }) => pack.id === id)])}
+        onClose={(id) => setPackWindows((current) => current.filter(({ pack }) => pack.id !== id))}
+        onEdit={beginPackEdit} />
       {sharePack && <SharePackDialog key={sharePack.id} pack={sharePack}
         buddies={state.buddies} onClose={() => setSharingPack(null)} onSend={sendPackMessage} />}
       {sharingDub && (

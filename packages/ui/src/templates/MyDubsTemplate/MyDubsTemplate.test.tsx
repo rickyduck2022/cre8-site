@@ -43,6 +43,7 @@ describe("MyDubsTemplate", () => {
   });
 
   it("shows owned Dub and Sample Packs beside the existing dub management list", () => {
+    const onEditPack = vi.fn();
     const pack: DubPack = { id: "pack", title: "Dub release", description: "", kind: "dub", status: "published",
       distribution: "private", aListPublic: false, licence: "", ownerUsername: "amber", ownerDisplayName: "Amber",
       items: [{ dub }], totalBytes: 1200, createdAt: dub.uploadedAt, updatedAt: dub.uploadedAt };
@@ -50,12 +51,14 @@ describe("MyDubsTemplate", () => {
       { ...pack, id: "draft", title: "Hidden draft", status: "draft" }, { ...pack, id: "other", title: "Other owner", ownerUsername: "other" }]}
       ownerUsername="amber" likedDubIds={new Set()} nowPlayingId={null} isPlaying={false}
       onDownload={vi.fn()} onPlay={vi.fn()} onShareDub={vi.fn()} onEditDub={vi.fn()} onDeleteDub={vi.fn()}
-      onPlayPack={vi.fn()} onOpenPack={vi.fn()} />);
+      onPlayPack={vi.fn()} onOpenPack={vi.fn()} onEditPack={onEditPack} />);
     expect(screen.getByRole("article", { name: "Dub Pack: Dub release" })).toBeVisible();
     expect(screen.getByRole("article", { name: "Sample Pack: Sample release" })).toBeVisible();
     expect(screen.queryByText("Hidden draft")).not.toBeInTheDocument();
     expect(screen.queryByText("Other owner")).not.toBeInTheDocument();
     expect(screen.getByText("Statistics for Night Drive")).toBeVisible();
+    fireEvent.click(screen.getAllByRole("button", { name: "Edit pack" })[0]);
+    expect(onEditPack).toHaveBeenCalledWith(pack);
     fireEvent.change(screen.getByRole("searchbox", { name: "Search my dubs" }), { target: { value: "Sample release" } });
     expect(screen.getByRole("article", { name: "Sample Pack: Sample release" })).toBeVisible();
     expect(screen.queryByRole("article", { name: "Dub Pack: Dub release" })).not.toBeInTheDocument();

@@ -22,5 +22,7 @@ export * from "./organisms/EditProfileDialog/EditProfileDialog";
 export * from "./templates";
 export * from "./templates/shared/TrackArtwork";
 export * from "./utils/useAsyncSubmission";
+export * from "./utils/useWindowPosition";
+export * from "./organisms/Window/Window";
 export type { MediaKind } from "./types/domain";
 export * from "@craft/icons";

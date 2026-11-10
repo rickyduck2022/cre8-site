@@ -67,12 +67,14 @@ export interface DubPackCardProps extends PackQueueControls, Pick<DubCardProps,
   onPlayAll: (dubs: Dub[], packId?: string) => void;
   onSharePack?: (pack: DubPack) => void;
   onOpenPack: (pack: DubPack) => void;
+  onEditPack?: (pack: DubPack) => void;
+  currentUsername?: string;
   onDownloadPack?: (pack: DubPack) => Promise<void>;
   matchingDubIds?: Set<string>;
 }
 
 export function DubPackCard({
-  pack, nowPlayingId, isPlaying, activePackId, likedDubIds, onPlayAll, onOpenPack, onDownloadPack, onSharePack, matchingDubIds, ...playback
+  pack, nowPlayingId, isPlaying, activePackId, likedDubIds, onPlayAll, onOpenPack, onEditPack, currentUsername, onDownloadPack, onSharePack, matchingDubIds, ...playback
 }: DubPackCardProps) {
   const [expanded, setExpanded] = useState(false);
   const playlistId = useId();
@@ -124,6 +126,8 @@ export function DubPackCard({
       {onSharePack && <Button size="small" variant="secondary" disabled={disabled} leadingIcon={<MessageCircle aria-hidden="true" />}
         onClick={() => onSharePack(pack)}>Share pack</Button>}
       <Button size="small" variant="primary" onClick={() => onOpenPack(pack)}>Open pack</Button>
+      {onEditPack && currentUsername === pack.ownerUsername && <Button size="small" variant="secondary"
+        onClick={() => onEditPack(pack)}>Edit pack</Button>}
     </CardActions>}>
     {track && <p className="pack-muted dub-pack-card__queue-hint">This pack only · Loop repeats the playlist</p>}
     {playing && <p className="dub-pack-card__status" role="status">{isPlaying ? "Now playing from this pack" : "Pack playback paused"}</p>}

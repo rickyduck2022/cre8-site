@@ -27,6 +27,7 @@ export interface LatestDubsTemplateProps {
   onPlayPack?: (dubs: Dub[], packId?: string) => void;
   onSharePack?: (pack: DubPack) => void;
   onOpenPack?: (pack: DubPack) => void;
+  onEditPack?: (pack: DubPack) => void;
   onDownloadPack?: (pack: DubPack) => Promise<void>;
   onActivateQueue?: (dubs: Dub[], packId?: string) => boolean | void;
   crateId?: string;
@@ -80,6 +81,7 @@ export function LatestDubsTemplate({
   packs = [],
   onPlayPack,
   onOpenPack,
+  onEditPack,
   onDownloadPack,
   onSharePack,
   onActivateQueue,
@@ -264,6 +266,7 @@ export function LatestDubsTemplate({
             nowPlayingId={nowPlayingId} isPlaying={isPlaying} currentTimeSeconds={currentTimeSeconds}
             durationSeconds={durationSeconds} volume={volume} playbackError={playbackError}
             onPlay={onPlay} onPlayAll={onPlayPack} onOpenPack={onOpenPack} onDownloadPack={onDownloadPack}
+            onEditPack={onEditPack} currentUsername={currentUsername}
             onSharePack={entry.pack.distribution !== "private" || entry.pack.ownerUsername === currentUsername ? onSharePack : undefined}
             onDownload={onDownload} onOpenProfile={onOpenProfile} onSeek={onSeek} onSeekProgress={onSeekProgress}
             onVolumeChange={onVolumeChange} matchingDubIds={visibleDubIds} />

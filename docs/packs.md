@@ -39,9 +39,67 @@ into the card's **More actions** menu. This applies to release cards, playlist
 files and pack workspace cards. Expanding a pack highlights its playlist
 toggle in the release's media colour (orange for A-List) until it is collapsed.
 
+Owners can choose **Edit pack** directly from their pack workspace cards or
+owned release cards in the vault, Your Dubs/Samples and their profile. On narrow
+screens it moves into **More actions** when needed. It opens the existing editor
+with the pack's saved details and file order; other members do not see this action.
+
 Search includes accessible published pack titles and descriptions. Filters
 retain matching files inside the playlist, with a matching count and an
-**Open pack** action for the full release. Pagination counts
+**Open pack** action for the full release. Opening a pack does not start or
+replace playback. Each pack opens in its own window, with the full ordered
+playlist, playback, download and owner controls. Reopening the same pack brings
+its existing window forward rather than duplicating it.
+
+On desktop, pack windows are non-blocking: use the **Move** handle to drag or move with
+arrow keys (**Home** resets), drag to the left/right edge to dock, or use the
+position selector. Drag the bottom corner to resize a floating window, or the
+inner bottom corner to resize a dock's width. Arrow keys resize in 16px steps
+(**Shift** for larger steps, **Home** resets size); sizes stay within the viewport.
+Windows retain their floating size through docking, minimization and full screen.
+Packs docked on the same side automatically share a tabbed group: only the
+selected playlist is visible, while the other packs remain mounted. Select a tab
+or use **Left/Right**, **Home/End** to switch packs without starting playback.
+Left and right docks are independent; resizing a dock applies to every tab in
+that region. Moving, minimizing, maximizing or closing affects only the selected
+pack; remaining tabs stay docked, and a single remaining pack no longer needs a
+tab bar. Reopening an already docked pack selects its existing tab. Mobile keeps
+the existing active-pack full-screen modal rather than showing dock tabs.
+Drag a window's **Move** handle over another window's title bar or tab strip to
+group them; the highlighted preview confirms the target before release. This
+works for floating windows and existing docked groups. Dragging a floating
+group's Move handle moves the group, and resizing keeps every member the same
+size. Dropping that group at a screen edge docks its members together.
+Use **Ungroup this pack** (or the position selector) to detach the selected pack.
+Minimizing or closing affects only that pack; other members keep their state.
+Tabs use a raised, top-accented selected shape that connects to the content
+surface, with darker inactive tabs, through shared `--window-tab-*` tokens.
+Minimized packs form a compact vertical stack at the bottom right; short screens
+use additional columns. Restore via the title or restore button; closing a pack
+compacts the stack. The stack stays above restored windows, within the window
+layer, so restore controls remain reachable. Window contents remain mounted while minimized.
+The active window has a tinted header, labelled status indicator and stronger
+outer shadow. Frame borders use the darkest canvas blue; all window colours,
+focus treatment and shadows come from shared `--window-*` design tokens.
+Clicking a window brings it forward; closing one leaves other windows and
+playback untouched. Mobile uses a full-screen modal for the active pack; closing
+it returns to the previous open pack, if any. Desktop placements survive viewport
+changes within the session. Window contents scroll without moving the title bar.
+
+Stacking is owned by shared `--layer-*` tokens: mini-player snap hints,
+mini-player, windows, popovers and notifications, in that order. `WindowLayer`
+portals desktop windows into an isolated stacking context; per-window ranks are
+local to that layer, so opening more packs cannot raise them above popovers or
+notifications. Pointer/focus activation raises a window without changing its
+placement. Native modal dialogs (including mobile packs) use the browser's top
+layer rather than competing with CSS z-index values.
+
+The shared UI `FloatingWindow` and `useWindowPosition` provide window chrome,
+pointer capture, keyboard movement, viewport clamping and snap previews. The
+existing mini-player uses the same movement engine with its own header, footer,
+sidebar and edge-docking policies; its persisted layout and playback are unchanged.
+
+Pagination counts
 release cards, while crates continue to show their individual saved dubs.
 Private packs only enter an authorised member's community feed; drafts never
 enter the feed.

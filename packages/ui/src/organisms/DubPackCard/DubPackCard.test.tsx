@@ -19,6 +19,43 @@ const props = {
   onPlay: vi.fn(), onDownload: vi.fn(), onPlayAll: vi.fn(), onOpenPack: vi.fn(),
 };
 
+it.each(["dub", "sample"] as const)("offers editing an owned %s pack without starting playback", (kind) => {
+  const owned = { ...pack, kind };
+  const onEditPack = vi.fn();
+  const { rerender } = render(<DubPackCard {...props} pack={owned} currentUsername="amber" onEditPack={onEditPack} />);
+  fireEvent.click(screen.getByRole("button", { name: "Edit pack" }));
+  expect(onEditPack).toHaveBeenCalledWith(owned);
+  expect(props.onPlayAll).not.toHaveBeenCalled();
+  expect(props.onOpenPack).not.toHaveBeenCalled();
+  rerender(<DubPackCard {...props} pack={owned} currentUsername="other" onEditPack={onEditPack} />);
+  expect(screen.queryByRole("button", { name: "Edit pack" })).not.toBeInTheDocument();
+  rerender(<DubPackCard {...props} pack={owned} onEditPack={onEditPack} />);
+  expect(screen.queryByRole("button", { name: "Edit pack" })).not.toBeInTheDocument();
+});
+
+it("keeps Edit pack reachable through the mobile overflow menu", () => {
+  vi.stubGlobal("matchMedia", vi.fn().mockReturnValue({
+    matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn(),
+  }));
+  const bounds = vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
+    const width = this.classList.contains("card-actions") ? 180 : 100;
+    return { width, height: 32, x: 0, y: 0, top: 0, bottom: 32, left: 0, right: width, toJSON() {} };
+  });
+  HTMLDialogElement.prototype.showModal = function () { this.open = true; };
+  const onEditPack = vi.fn();
+  try {
+    render(<DubPackCard {...props} currentUsername="amber" onEditPack={onEditPack} />);
+    expect(screen.queryByRole("button", { name: "Edit pack" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "More actions for Night Sessions" }));
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Edit pack" }));
+    expect(onEditPack).toHaveBeenCalledWith(pack);
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  } finally {
+    bounds.mockRestore();
+    vi.unstubAllGlobals();
+  }
+});
+
 it.each(["dub", "sample"] as const)("marks A-List %s packs independently of their contents or publication status", (kind) => {
   const { rerender } = render(<DubPackCard {...props} pack={{ ...pack, kind, distribution: "alist", aListPublic: true }} />);
   expect(screen.getByRole("article", { name: `${kind === "sample" ? "Sample" : "Dub"} Pack: Night Sessions` }))
@@ -189,8 +226,11 @@ it("disables draft controls, seeking and downloads without losing the playlist",
 });
 
 it("retains empty packs without fabricating a track or player", () => {
-  render(<DubPackCard {...props} pack={{ ...pack, items: [] }} />);
+  const onEditPack = vi.fn();
+  render(<DubPackCard {...props} pack={{ ...pack, status: "draft", items: [] }} currentUsername="amber" onEditPack={onEditPack} />);
   expect(screen.getByRole("heading", { name: pack.title })).toBeVisible();
   expect(screen.getByRole("button", { name: "Play all" })).toBeDisabled();
   expect(screen.queryByRole("group", { name: "Night Sessions playback controls" })).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Edit pack" }));
+  expect(onEditPack).toHaveBeenCalledWith(expect.objectContaining({ status: "draft", items: [] }));
 });

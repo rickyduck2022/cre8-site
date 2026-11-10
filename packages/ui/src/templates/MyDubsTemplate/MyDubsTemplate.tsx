@@ -22,6 +22,7 @@ export interface MyDubsTemplateProps {
   ownerUsername?: string;
   onPlayPack?: DubPackCollectionProps["onPlayAll"];
   onOpenPack?: DubPackCollectionProps["onOpenPack"];
+  onEditPack?: DubPackCollectionProps["onEditPack"];
   onDownloadPack?: DubPackCollectionProps["onDownloadPack"];
   onSharePack?: DubPackCollectionProps["onSharePack"];
   onActivateQueue?: DubPackCollectionProps["onActivateQueue"];
@@ -60,6 +61,7 @@ export function MyDubsTemplate({
   ownerUsername,
   onPlayPack,
   onOpenPack,
+  onEditPack,
   onDownloadPack,
   onSharePack,
   onActivateQueue,
@@ -138,6 +140,7 @@ export function MyDubsTemplate({
         nowPlayingId={nowPlayingId} isPlaying={isPlaying} currentTimeSeconds={currentTimeSeconds}
         durationSeconds={durationSeconds} volume={volume} shuffle={shuffle} repeat={repeat} playbackError={playbackError}
         onPlay={onPlay} onPlayAll={onPlayPack} onOpenPack={onOpenPack} onDownloadPack={onDownloadPack} onSharePack={onSharePack}
+        onEditPack={onEditPack} currentUsername={ownerUsername}
         onDownload={onDownload} onOpenProfile={onOpenProfile} onSeek={onSeek} onSeekProgress={onSeekProgress}
         activePackId={activePackId} onActivateQueue={onActivateQueue} onPrevious={onPrevious} onNext={onNext}
         onShuffleChange={onShuffleChange} onRepeatChange={onRepeatChange} onVolumeChange={onVolumeChange} />}

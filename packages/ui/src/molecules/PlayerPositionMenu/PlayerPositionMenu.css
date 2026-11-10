@@ -16,7 +16,7 @@
   overflow-y: auto;
   padding: var(--spacing-1);
   position: fixed;
-  z-index: 120;
+  z-index: var(--layer-popover);
 }
 
 .player-position-menu__transparency {

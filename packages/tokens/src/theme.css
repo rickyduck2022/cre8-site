@@ -1,4 +1,10 @@
 :root {
+  --layer-snap-preview: 99;
+  --layer-mini-player: 100;
+  --layer-windows: 110;
+  --layer-popover: 120;
+  --layer-notification: 1000;
+
   /* Primitives */
   --color-neutral-50: #F2F3F5;
   --color-neutral-400: #9299A5;
@@ -23,6 +29,18 @@
   --surface-media-section: color-mix(in srgb, var(--color-blue-500) 10%, var(--color-neutral-950));
 
   --border-default: var(--color-neutral-700);
+  --window-border: var(--color-neutral-950);
+  --window-header: var(--surface-canvas);
+  --window-header-active: color-mix(in srgb, var(--color-blue-500) 18%, var(--surface-canvas));
+  --window-indicator: var(--color-cyan-400);
+  --window-focus: color-mix(in srgb, var(--color-blue-500) 65%, var(--surface-canvas));
+  --window-shadow: 0 0.75rem 1.5rem rgb(0 0 0 / 55%), 0 1.5rem 3.5rem rgb(0 0 0 / 60%);
+  --window-shadow-active: 0 1rem 2rem rgb(0 0 0 / 65%), 0 2rem 5rem rgb(0 0 0 / 75%);
+  --window-tab-surface: var(--surface-canvas);
+  --window-tab-selected: var(--surface-raised);
+  --window-tab-hover: var(--surface-control);
+  --window-tab-border: var(--border-default);
+  --window-tab-indicator: var(--focus-ring);
   --glow-amber: #673a1b;
   --glow-teal: #164750;
   --glow-navy: #1d365b;

@@ -11,7 +11,7 @@
   pointer-events: none;
   position: fixed;
   text-align: center;
-  z-index: 99;
+  z-index: var(--layer-snap-preview);
 }
 
 .snap-preview--active {

@@ -1202,7 +1202,7 @@ button {
 }
 
 .community-dashboard-template--player-minimized .app-sticky-footer {
-  z-index: 100;
+  z-index: var(--layer-mini-player);
 }
 
 .app-sticky-footer > * {
@@ -1340,7 +1340,7 @@ button {
   min-height: 5.5rem;
   padding: var(--mini-player-padding-y) var(--mini-player-padding-x);
   position: fixed;
-  z-index: 100;
+  z-index: var(--layer-mini-player);
 }
 
 .community-dashboard-template .app-player.audio-player--playable.audio-player--minimized {

@@ -16,6 +16,7 @@
 .pack-toolbar p { margin: 0; }
 .pack-view > p { margin: 0; }
 .pack-playlist { display: grid; gap: 0.75rem; min-width: 0; }
+.pack-window .dub-pack-card__playlist { max-height: none; overflow: visible; }
 .pack-playlist h2, .pack-notice h2 { font-size: var(--type-size-body); margin: 0; }
 .pack-workspace label, .pack-editor label, .pack-share label {
   display: grid;

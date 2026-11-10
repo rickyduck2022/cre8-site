@@ -1,4 +1,5 @@
-import { useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent, type RefObject } from "react";
+import { type CSSProperties, type RefObject } from "react";
+import { useWindowPosition } from "@craft/ui";
 
 type Position = { x: number; y: number };
 export type FloatingPlayerPosition = Position | null | "initial" | "left-edge" | "right-edge";
@@ -122,98 +123,14 @@ function snapTargets(player: HTMLElement, position: Position, x: number, y: numb
 }
 
 export function useFloatingPlayerPosition(playerRef: RefObject<HTMLElement | null>, enabled: boolean, onSnapToExpanded: (target: "header" | "footer" | "right-dock") => void, initialPosition: FloatingPlayerPosition = "initial") {
-  const [position, setPosition] = useState<FloatingPlayerPosition>(initialPosition);
-  const [previews, setPreviews] = useState<SnapTarget[]>([]);
-  const drag = useRef<{ pointerId: number; startX: number; startY: number; origin: Position; moved: boolean } | null>(null);
-
-  useLayoutEffect(() => {
-    const player = playerRef.current;
-    if (!enabled || !player) return;
-    const clamp = () => {
-      setPosition((current) => {
-        if (!current || typeof current === "string") return current;
-        const next = clampPosition(current, player);
-        return next.x === current.x && next.y === current.y ? current : next;
-      });
-    };
-    clamp();
-    window.addEventListener("resize", clamp);
-    const observer = typeof ResizeObserver === "undefined" ? undefined : new ResizeObserver(clamp);
-    observer?.observe(player);
-    return () => {
-      drag.current = null;
-      setPreviews([]);
-      window.removeEventListener("resize", clamp);
-      observer?.disconnect();
-    };
-  }, [enabled, playerRef]);
-
-  function onPointerDown(event: PointerEvent<HTMLButtonElement>) {
-    const player = playerRef.current;
-    if (!enabled || !player || event.button !== 0 || !event.isPrimary) return;
-    const bounds = player.getBoundingClientRect();
-    drag.current = { pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, origin: { x: bounds.left, y: bounds.top }, moved: false };
-    setPreviews(snapTargets(player, { x: bounds.left, y: bounds.top }, event.clientX, event.clientY, { x: event.clientX - bounds.left, y: event.clientY - bounds.top }));
-    event.currentTarget.setPointerCapture(event.pointerId);
-  }
-
-  function onPointerMove(event: PointerEvent<HTMLButtonElement>) {
-    const active = drag.current;
-    const player = playerRef.current;
-    if (!active || active.pointerId !== event.pointerId || !player) return;
-    if (!active.moved && event.clientX === active.startX && event.clientY === active.startY) return;
-    active.moved = true;
-    const next = clampPosition({
-      x: active.origin.x + event.clientX - active.startX,
-      y: active.origin.y + event.clientY - active.startY,
-    }, player);
-    setPosition(next);
-    setPreviews(snapTargets(player, next, event.clientX, event.clientY, { x: active.startX - active.origin.x, y: active.startY - active.origin.y }));
-  }
-
-  function onPointerUp(event: PointerEvent<HTMLButtonElement>) {
-    const active = drag.current;
-    const player = playerRef.current;
-    if (!active || active.pointerId !== event.pointerId) return;
-    drag.current = null;
-    setPreviews([]);
-    if (!active.moved || !player) return;
-    const position = clampPosition({
-      x: active.origin.x + event.clientX - active.startX,
-      y: active.origin.y + event.clientY - active.startY,
-    }, player);
-    const target = snapTargets(player, position, event.clientX, event.clientY, { x: active.startX - active.origin.x, y: active.startY - active.origin.y }).find((candidate) => candidate.active);
-    setPosition(target?.kind === "left-edge" || target?.kind === "right-edge" ? target.kind : target ? null : position);
-    if (target?.kind === "header" || target?.kind === "footer" || target?.kind === "right-dock") onSnapToExpanded(target.kind);
-  }
-
-  function stopDragging(event: PointerEvent<HTMLButtonElement>) {
-    if (drag.current?.pointerId === event.pointerId) {
-      drag.current = null;
-      setPreviews([]);
-    }
-  }
-
-  function onKeyDown(event: KeyboardEvent<HTMLButtonElement>) {
-    const player = playerRef.current;
-    if (!enabled || !player) return;
-    if (event.key === "Home") {
-      event.preventDefault();
-      setPosition("initial");
-      return;
-    }
-    const movement: Record<string, Position> = {
-      ArrowLeft: { x: -16, y: 0 },
-      ArrowRight: { x: 16, y: 0 },
-      ArrowUp: { x: 0, y: -16 },
-      ArrowDown: { x: 0, y: 16 },
-    };
-    const delta = movement[event.key];
-    if (!delta) return;
-    event.preventDefault();
-    const bounds = player.getBoundingClientRect();
-    setPosition(clampPosition({ x: bounds.left + delta.x, y: bounds.top + delta.y }, player));
-  }
+  const movement = useWindowPosition(playerRef, enabled, {
+    initialPosition, clamp: clampPosition, targets: snapTargets,
+    onSnap: (target) => {
+      if (target === "header" || target === "footer" || target === "right-dock") onSnapToExpanded(target);
+      return target === "left-edge" || target === "right-edge" ? target : null;
+    },
+  });
+  const { position, setPosition } = movement;
 
   function popOut() {
     const player = playerRef.current;
@@ -231,5 +148,5 @@ export function useFloatingPlayerPosition(playerRef: RefObject<HTMLElement | nul
     "--floating-player-bottom": "auto",
   } : undefined;
 
-  return { position, style, previews, isDocked: position === null, isInitial: position === "initial", popOut, dock: () => setPosition(null), dockToEdge: (side: "left-edge" | "right-edge") => setPosition(side), reset: () => setPosition("initial"), onPointerDown, onPointerMove, onPointerUp, onPointerCancel: stopDragging, onLostPointerCapture: stopDragging, onKeyDown };
+  return { ...movement, style, isDocked: position === null, isInitial: position === "initial", popOut, dock: () => setPosition(null), dockToEdge: (side: "left-edge" | "right-edge") => setPosition(side), reset: () => setPosition("initial") };
 }

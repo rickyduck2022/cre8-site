@@ -34,6 +34,20 @@ export const semanticTokens = {
   border: {
     default: "var(--color-neutral-700)",
   },
+  window: {
+    border: "var(--color-neutral-950)",
+    header: "var(--surface-canvas)",
+    "header-active": "color-mix(in srgb, var(--color-blue-500) 18%, var(--surface-canvas))",
+    indicator: "var(--color-cyan-400)",
+    focus: "color-mix(in srgb, var(--color-blue-500) 65%, var(--surface-canvas))",
+    shadow: "0 0.75rem 1.5rem rgb(0 0 0 / 55%), 0 1.5rem 3.5rem rgb(0 0 0 / 60%)",
+    "shadow-active": "0 1rem 2rem rgb(0 0 0 / 65%), 0 2rem 5rem rgb(0 0 0 / 75%)",
+    "tab-surface": "var(--surface-canvas)",
+    "tab-selected": "var(--surface-raised)",
+    "tab-hover": "var(--surface-control)",
+    "tab-border": "var(--border-default)",
+    "tab-indicator": "var(--focus-ring)",
+  },
   text: {
     primary: "var(--color-neutral-50)",
     secondary: "var(--color-neutral-400)",
@@ -79,6 +93,14 @@ export const semanticTokens = {
 } as const;
 
 export type SemanticTokens = typeof semanticTokens;
+
+export const layers = {
+  "snap-preview": 99,
+  "mini-player": 100,
+  windows: 110,
+  popover: 120,
+  notification: 1000,
+} as const;
 
 export const typography = {
   font: {

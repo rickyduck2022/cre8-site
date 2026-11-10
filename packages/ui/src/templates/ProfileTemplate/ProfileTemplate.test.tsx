@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ProfileTemplate } from "./ProfileTemplate";
 import type { Dub, MemberProfile } from "../communityTypes";
@@ -23,18 +23,21 @@ describe("ProfileTemplate ownership controls", () => {
       distribution: "private", aListPublic: false, licence: "", ownerUsername: "amber", ownerDisplayName: "Amber",
       items: [{ dub }], totalBytes: 1200, createdAt: dub.uploadedAt, updatedAt: dub.uploadedAt };
     const props = { profile, uploads: [dub], playingDubId: null, isPlaying: false, onEditProfile: vi.fn(),
-      onMessage: vi.fn(), onPlay: vi.fn(), onDownload: vi.fn(), onPlayPack: vi.fn(), onOpenPack: vi.fn(),
+      onMessage: vi.fn(), onPlay: vi.fn(), onDownload: vi.fn(), onPlayPack: vi.fn(), onOpenPack: vi.fn(), onEditPack: vi.fn(),
       packs: [pack, { ...pack, id: "sample", title: "Sample release", kind: "sample" as const, distribution: "worldwide" as const },
         { ...pack, id: "draft", title: "Hidden draft", status: "draft" as const },
         { ...pack, id: "other", title: "Other artist", ownerUsername: "other" }] };
-    const { rerender } = render(<ProfileTemplate {...props} isOwnProfile />);
+    const { rerender } = render(<ProfileTemplate {...props} isOwnProfile currentUsername="amber" />);
     expect(screen.getByRole("article", { name: "Dub Pack: Dub release" })).toBeVisible();
     expect(screen.getByRole("article", { name: "Sample Pack: Sample release" })).toBeVisible();
     expect(screen.queryByText("Hidden draft")).not.toBeInTheDocument();
     expect(screen.queryByText("Other artist")).not.toBeInTheDocument();
-    rerender(<ProfileTemplate {...props} isOwnProfile={false} />);
+    fireEvent.click(within(screen.getByRole("article", { name: "Dub Pack: Dub release" })).getByRole("button", { name: "Edit pack" }));
+    expect(props.onEditPack).toHaveBeenCalledWith(pack);
+    rerender(<ProfileTemplate {...props} isOwnProfile={false} currentUsername="other" />);
     expect(screen.queryByRole("article", { name: "Dub Pack: Dub release" })).not.toBeInTheDocument();
     expect(screen.getByRole("article", { name: "Sample Pack: Sample release" })).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Edit pack" })).not.toBeInTheDocument();
   });
 
   it("shows all supplied distribution types in My Dubs with their management actions", () => {

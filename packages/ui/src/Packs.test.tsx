@@ -48,6 +48,54 @@ it.each(["sample", "dub"] as const)("scopes the owned %s workspace and creates t
 });
 
 describe("Pack editor", () => {
+  it("opens a workspace pack in the window system without changing playback or navigating inline", async () => {
+    const onOpenPack = vi.fn();
+    const onPlayAll = vi.fn();
+    mocks.request.mockResolvedValue({ packs: [pack] });
+    render(<PackWorkspace username="amber" approved dubs={[dub]} artists={artists} buddies={[]} playback={playback}
+      onOpenPack={onOpenPack} onPlay={vi.fn()} onPlayAll={onPlayAll} onSeek={vi.fn()} onVolume={vi.fn()}
+      onDownloadDub={vi.fn()} onCommunityChange={vi.fn()} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Open pack" }));
+    expect(onOpenPack).toHaveBeenCalledWith(pack);
+    expect(onPlayAll).not.toHaveBeenCalled();
+    expect(screen.getByRole("heading", { name: "Packs" })).toBeVisible();
+  });
+  it.each(["dub", "sample"] as const)("edits an owned published %s pack directly from the workspace and persists changes", async (kind) => {
+    const published: Pack = { ...pack, kind, status: "published", licence: "Original productions." };
+    const updated = { ...published, title: "Updated release" };
+    const onCommunityChange = vi.fn().mockResolvedValue(undefined);
+    mocks.request.mockImplementation(async (_path: string, method: string) => method === "PATCH"
+      ? { pack: updated } : { packs: [published, { ...published, id: "shared", title: "Someone else's pack", ownerUsername: "someone" }] });
+    render(<PackWorkspace username="amber" approved dubs={[dub]} artists={artists} buddies={[]} playback={playback}
+      onPlay={vi.fn()} onPlayAll={vi.fn()} onSeek={vi.fn()} onVolume={vi.fn()}
+      onDownloadDub={vi.fn()} onCommunityChange={onCommunityChange} />);
+    const card = await screen.findByRole("heading", { name: pack.title });
+    expect(screen.getAllByRole("button", { name: "Edit pack" })).toHaveLength(1);
+    fireEvent.click(within(card.closest("article")!).getByRole("button", { name: "Edit pack" }));
+    expect(screen.getByLabelText("Pack title")).toHaveValue(pack.title);
+    expect(screen.getByLabelText("Pack type")).toHaveValue(kind);
+    fireEvent.change(screen.getByLabelText("Pack title"), { target: { value: updated.title } });
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+    await waitFor(() => expect(mocks.request).toHaveBeenCalledWith("/api/packs/pack", "PATCH",
+      expect.objectContaining({ title: updated.title, kind, dubIds: ["one"] })));
+    expect(await screen.findByRole("heading", { name: updated.title })).toBeVisible();
+    expect(onCommunityChange).toHaveBeenCalledOnce();
+    expect(mocks.request.mock.calls.some(([, method]) => method === "POST")).toBe(false);
+  });
+
+  it("does not open another member's pack for editing", async () => {
+    const other = { ...pack, ownerUsername: "someone" };
+    const onOpened = vi.fn();
+    mocks.request.mockResolvedValue({ packs: [other] });
+    render(<PackWorkspace username="amber" approved dubs={[dub]} artists={artists} buddies={[]} playback={playback}
+      editPack={other} onOpened={onOpened} onPlay={vi.fn()} onPlayAll={vi.fn()} onSeek={vi.fn()} onVolume={vi.fn()}
+      onDownloadDub={vi.fn()} onCommunityChange={vi.fn()} />);
+    await screen.findByRole("heading", { name: other.title });
+    expect(screen.queryByLabelText("Pack title")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Edit pack" })).not.toBeInTheDocument();
+    expect(onOpened).not.toHaveBeenCalled();
+  });
+
   it("advances instead of publishing when the details form is submitted", () => {
     const { container } = render(<PackEditor {...editorProps} />);
     fireEvent.submit(container.querySelector("form")!);

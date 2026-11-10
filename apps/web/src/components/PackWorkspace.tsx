@@ -19,8 +19,10 @@ interface Props extends PackQueueControls {
   onVolume: (volume: number) => void;
   onDownloadDub: (dub: Dub) => Promise<void>;
   onCommunityChange: () => Promise<void>;
+  onOpenPack?: (pack: Pack) => void;
   create?: boolean;
   pendingDub?: Dub | null;
+  editPack?: Pack | null;
   onOpened?: () => void;
 }
 
@@ -65,6 +67,12 @@ export function PackWorkspace(props: Props) {
   useEffect(() => {
     if (props.create) void create();
   }, [props.create]);
+  useEffect(() => {
+    if (!props.editPack || props.editPack.ownerUsername !== props.username) return;
+    setSelected(props.editPack);
+    setEditing(true);
+    props.onOpened?.();
+  }, [props.editPack, props.username]);
   const scopedPacks = packs.filter((pack) => !props.mediaKind || (pack.kind === props.mediaKind && pack.ownerUsername === props.username));
   const filtered = scopedPacks.filter((pack) => (kind === "all" || pack.kind === kind)
     && `${pack.title} ${pack.ownerDisplayName}`.toLowerCase().includes(query.trim().toLowerCase()));
@@ -109,7 +117,12 @@ export function PackWorkspace(props: Props) {
       const compatible = !props.pendingDub || canAddDubToPack(pack, props.pendingDub);
       return <li key={pack.id}><article className="pack-card">
         <DubPackIdentity pack={pack} compact />
-        <CardActions title={pack.title} className="pack-toolbar"><Button onClick={() => { setSelected(pack); setEditing(false); }}>Open pack</Button>
+        <CardActions title={pack.title} className="pack-toolbar"><Button onClick={() => {
+          if (props.onOpenPack) props.onOpenPack(pack);
+          else { setSelected(pack); setEditing(false); }
+        }}>Open pack</Button>
+          {pack.ownerUsername === props.username && <Button variant="secondary" disabled={pending}
+            onClick={() => { setSelected(pack); setEditing(true); }}>Edit pack</Button>}
           {props.pendingDub && pack.ownerUsername === props.username && <Button variant="secondary" disabled={pending || alreadyAdded || !compatible} onClick={async () => {
             if (creating.current) return;
             creating.current = true; setPending(true); setError("");

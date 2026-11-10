@@ -236,7 +236,7 @@ describe("footer player tab layout", () => {
     expect(mediaRuleFor(messengerCss, `${context} .chat-compose`, "(min-width: 761px) and (max-width: 1050px)").getPropertyValue("padding-bottom"))
       .toBe("calc(0.75rem + var(--measured-minimized-player-height, 6rem) + 1rem + var(--app-player-tab-height))");
     expect(mobileRuleFor(shellCss, ".app-player").getPropertyValue("width")).toBe("100%");
-    expect(ruleFor(shellCss, ".community-dashboard-template .app-player.audio-player--minimized").getPropertyValue("z-index")).toBe("100");
+    expect(ruleFor(shellCss, ".community-dashboard-template .app-player.audio-player--minimized").getPropertyValue("z-index")).toBe("var(--layer-mini-player)");
     const miniSurface = ruleFor(shellCss, ".community-dashboard-template .app-player.audio-player--playable.audio-player--minimized");
     expect(miniSurface.getPropertyValue("--mini-waveform-background").trim()).toBe("var(--audio-player-controller-surface)");
     expect(miniSurface.getPropertyValue("--mini-player-outline").trim()).toBe("color-mix(in srgb, var(--audio-player-controller-surface) 85%, var(--color-blue-500))");
