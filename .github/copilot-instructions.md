@@ -34,6 +34,7 @@ cre8 is a music community app for dubs, samples, packs, messaging and A-List acc
 ## Architecture & Media Invariants
 
 - Reuse design tokens, media palettes and existing atomic components rather than app-local copies. Shared UI must not import app implementation; app composition wires API/state into reusable UI.
+- All UI colour changes belong to the design system: define semantic roles in `packages/tokens`, map audience/media variants in shared UI foundations, and select existing component variants in apps. Do not patch colours per page or card. Keep token CSS, TypeScript and JSON exports in sync and verify every consuming surface.
 - Keep shared domain types and formatting/playback helpers in lower layers; templates and apps consume them, not the reverse.
 - Sample classification and distribution/access permissions are independent. Published Sample Pack membership classifies a file as a sample; draft membership alone does not.
 - Pack playback uses explicit pack queue identity and exact membership. Previous/next/shuffle/repeat must not escape that pack or activate another pack sharing a track.

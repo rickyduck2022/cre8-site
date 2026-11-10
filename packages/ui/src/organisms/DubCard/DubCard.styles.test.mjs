@@ -63,7 +63,7 @@ it("gives individual dub cards the dark surface without overriding collection su
     const collection = document.createElement("article");
     collection.className = "dub-card dub-card--collection";
     expect(collection.matches(surface.selectorText)).toBe(false);
-    for (const [distribution, color, shadow] of [["worldwide", "var(--color-blue-500)", "var(--shadow-control-blue)"], ["private", "var(--audio-active)", "var(--shadow-control-audio)"], ["alist", "var(--action-primary)", "var(--shadow-control-accent)"]]) {
+    for (const [distribution, color, shadow] of [["worldwide", "var(--audience-worldwide)", "var(--shadow-control-blue)"], ["private", "var(--audio-active)", "var(--shadow-control-audio)"], ["alist", "var(--audience-alist)", "var(--shadow-control-accent)"]]) {
       const selector = `.dub-card__distribution--${distribution}, .dub-card__distribution--${distribution}:hover`;
       const rule = rules.find((candidate) => candidate instanceof CSSStyleRule && candidate.selectorText.replace(/\s+/g, " ") === selector);
       expect(rule.style.getPropertyValue("background")).toBe(color);
@@ -108,9 +108,9 @@ it("uses the waveform color for the current track's control and keeps its icon d
     const rule = rules.find((candidate) => candidate instanceof CSSStyleRule && candidate.selectorText.replace(/\s+/g, " ") === `${playing}, ${playing}:hover:not(:disabled)`);
     expect(rule.style.getPropertyValue("background")).toBe("var(--audio-active)");
     expect(rule.style.getPropertyValue("border-color")).toBe("var(--audio-active)");
-    expect(rule.style.getPropertyValue("color")).toBe("var(--color-neutral-950)");
+    expect(rule.style.getPropertyValue("color")).toBe("var(--text-on-accent)");
     const hover = rules.find((candidate) => candidate instanceof CSSStyleRule && candidate.selectorText === `${playing}:hover:not(:disabled)`);
-    expect(hover.style.getPropertyValue("background")).toBe("color-mix(in srgb, var(--audio-active) 90%, var(--color-neutral-50))");
+    expect(hover.style.getPropertyValue("background")).toBe("var(--media-accent-hover)");
     expect(hover.style.getPropertyValue("border-color")).toBe(hover.style.getPropertyValue("background"));
   } finally {
     style.remove();

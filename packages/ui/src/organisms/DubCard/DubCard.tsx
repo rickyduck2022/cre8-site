@@ -5,6 +5,7 @@ import { AListBadge } from "../../atoms/AListBadge/AListBadge";
 import { Button } from "../../atoms/Button/Button";
 import { TrackTag } from "../../atoms/TrackTag/TrackTag";
 import { DubActionsMenu } from "../../molecules/DubActionsMenu/DubActionsMenu";
+import { CardActions } from "../../molecules/CardActions/CardActions";
 import { NowPlaying } from "../../molecules/NowPlaying/NowPlaying";
 import { TrackFileMetadata } from "../../molecules/TrackFileMetadata/TrackFileMetadata";
 import { AudioPlayer, type AudioPlayerProps } from "../AudioPlayer/AudioPlayer";
@@ -170,9 +171,9 @@ function TrackDubCard({
       title={dub.title}
     />
   ) : null;
-  const downloadAndShare = (
-    <>
+  const downloadAndShare = [
       <Button
+        key="download"
         disabled={downloadDisabled}
         aria-label={mobile ? (hasLiked ? "Download again" : "Download and like") : undefined}
         className={`dub-card__download${mobile && !hasLiked ? " dub-card__download--mobile-label" : ""}`}
@@ -182,14 +183,29 @@ function TrackDubCard({
         variant={hasLiked ? "secondary" : "primary"}
       >
         {(!mobile || !hasLiked) && (hasLiked ? "Download again" : "Download · Like")}
-      </Button>
-      {onShareWithFriend && (
-        <Button aria-label={`Share ${dub.title}`} leadingIcon={<MessageCircle />} onClick={() => onShareWithFriend(dub)} size="small" variant="secondary">
+      </Button>,
+      onShareWithFriend && (
+        <Button key="share" aria-label={`Share ${dub.title}`} leadingIcon={<MessageCircle />} onClick={() => onShareWithFriend(dub)} size="small" variant="secondary">
           {!mobile && "Share"}
         </Button>
-      )}
-    </>
+      ),
+  ];
+  const manageAccess = manageable && dub.distribution === "private" && onManageAccess && (
+    <Button
+      aria-label={`Manage access for ${dub.title}, ${dub.grants?.length ?? 0} ${dub.grants?.length === 1 ? "recipient" : "recipients"}`}
+      className="dub-card__manage-access" onClick={onManageAccess} size="small" variant="secondary">
+      Manage access · {dub.grants?.length ?? 0}
+    </Button>
   );
+  const crateAction = crateId ? (
+    <Button onClick={() => onRemoveFromCrate?.(crateId, dub.id)} size="small" variant="tertiary">
+      Remove from crate
+    </Button>
+  ) : onAddToCrate ? (
+    <Button leadingIcon={<Plus />} onClick={() => onAddToCrate(dub.id)} size="small" variant="secondary">
+      Add to crate
+    </Button>
+  ) : null;
   const likes = (
     <span className="dub-card__likes" aria-label={`${dub.likes} likes`}>
       <Heart aria-hidden="true" />
@@ -237,7 +253,7 @@ function TrackDubCard({
             {musicalKey && <TrackTag>{musicalKey}</TrackTag>}
             <TrackFileMetadata audioFileName={dub.audioFileName} bitrateKbps={dub.bitrateKbps} fileType={dub.audioFormat} />
           </div>
-          {downloadAndShare}
+          <CardActions title={dub.title} className="dub-card__playlist-actions">{downloadAndShare}</CardActions>
         </div>
       </article>
     );
@@ -327,19 +343,8 @@ function TrackDubCard({
             </div>
             <div className="dub-card__distribution-column">
               <DistributionTag distribution={dub.distribution} />
-              {mobile && <div className="dub-card__mobile-actions">{downloadAndShare}</div>}
             </div>
-            {manageable && dub.distribution === "private" && onManageAccess && (
-              <Button
-                aria-label={`Manage access for ${dub.title}, ${dub.grants?.length ?? 0} ${dub.grants?.length === 1 ? "recipient" : "recipients"}`}
-                className="dub-card__manage-access"
-                onClick={onManageAccess}
-                size="small"
-                variant="secondary"
-              >
-                Manage access · {dub.grants?.length ?? 0}
-              </Button>
-            )}
+            {!mobile && manageAccess}
           </div>
           {!mobile && <time className="dub-card__timestamp" dateTime={dub.uploadedAt}>
             Uploaded: {formatLocalTimestamp(dub.uploadedAt)}
@@ -347,21 +352,17 @@ function TrackDubCard({
         </div>
       </div>
 
-      {(!mobile || crateId || onAddToCrate) && <div className="dub-card__footer">
+      <div className="dub-card__footer">
         {!mobile && likes}
         {!mobile && <span className="dub-card__download-count">{dub.downloads.toLocaleString()} downloads</span>}
         {!mobile && downloadAndShare}
         {!mobile && actions}
-        {crateId ? (
-          <Button onClick={() => onRemoveFromCrate?.(crateId, dub.id)} size="small" variant="tertiary">
-            Remove from crate
-          </Button>
-        ) : onAddToCrate ? (
-          <Button leadingIcon={<Plus />} onClick={() => onAddToCrate(dub.id)} size="small" variant="secondary">
-            Add to crate
-          </Button>
-        ) : null}
-      </div>}
+        {mobile ? <CardActions title={dub.title} className="dub-card__mobile-actions">
+          {downloadAndShare}
+          {manageAccess}
+          {crateAction}
+        </CardActions> : crateAction}
+      </div>
     </article>
   );
 }

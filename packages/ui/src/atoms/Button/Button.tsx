@@ -1,5 +1,6 @@
 import { forwardRef, type ButtonHTMLAttributes, type ReactNode } from "react";
 import { cn } from "../../utils/cn";
+import "../../foundations/MediaPalette.css";
 import "./Button.css";
 
 export type ButtonVariant = "primary" | "secondary" | "tertiary" | "audio";

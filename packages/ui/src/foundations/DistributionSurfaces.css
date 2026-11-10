@@ -8,16 +8,16 @@
 }
 
 .dub-card.dub-card--alist {
-  --text-primary: var(--color-neutral-50);
-  --text-secondary: var(--color-neutral-400);
-  background: var(--color-neutral-950);
-  border-color: var(--action-primary);
+  --text-primary: var(--release-alist-text);
+  --text-secondary: var(--release-alist-text-secondary);
+  background: var(--release-alist-surface);
+  border-color: var(--release-alist-accent);
   color: var(--text-primary);
 }
 
 .dub-card.dub-card--alist:hover,
 .dub-card.dub-card--alist.dub-card--current {
-  border-color: var(--action-primary-hover);
+  border-color: var(--release-alist-accent-hover);
 }
 
 .dub-card--alist,
@@ -29,54 +29,54 @@
 .audio-player--alist .media-kind--dub,
 .audio-player--alist .media-kind--sample,
 .organism-card.audio-player.audio-player--alist {
-  --media-accent: var(--action-primary);
-  --audio-active: var(--action-primary);
-  --focus-ring: var(--action-primary);
-  --surface-media-section: color-mix(in srgb, var(--action-primary) 10%, var(--color-neutral-950));
+  --media-accent: var(--release-alist-accent);
+  --audio-active: var(--release-alist-accent);
+  --focus-ring: var(--release-alist-accent);
+  --surface-media-section: var(--release-alist-media-surface);
   --shadow-control-audio: var(--shadow-control-accent);
   --shadow-control-audio-hover: var(--shadow-control-accent-hover);
 }
 
 .organism-card.audio-player.audio-player--alist,
 .dub-card .organism-card.audio-player.audio-player--alist {
-  --audio-player-controller-surface: var(--color-neutral-950);
-  --audio-active: var(--action-primary);
-  --audio-inactive: color-mix(in srgb, var(--color-neutral-950) 70%, var(--action-primary));
-  --focus-ring: var(--action-primary);
-  --text-primary: var(--color-neutral-50);
-  --text-secondary: var(--color-neutral-400);
-  --status-error: var(--color-orange-400);
-  --player-tab-color: var(--action-primary);
-  --player-tab-surface: var(--color-neutral-950);
-  --player-tab-border: var(--action-primary-pressed);
-  background: var(--color-neutral-950);
-  border-color: var(--action-primary);
+  --audio-player-controller-surface: var(--release-alist-surface);
+  --audio-active: var(--release-alist-accent);
+  --audio-inactive: var(--release-alist-waveform-inactive);
+  --focus-ring: var(--release-alist-accent);
+  --text-primary: var(--release-alist-text);
+  --text-secondary: var(--release-alist-text-secondary);
+  --status-error: var(--release-alist-error);
+  --player-tab-color: var(--release-alist-accent);
+  --player-tab-surface: var(--release-alist-surface);
+  --player-tab-border: var(--release-alist-accent-pressed);
+  background: var(--release-alist-surface);
+  border-color: var(--release-alist-accent);
   color: var(--text-primary);
 }
 
 .organism-card.audio-player.audio-player--alist .transport-controls .transport-controls__play,
 .organism-card.audio-player.audio-player--alist .transport-controls .transport-controls__play:hover:not(:disabled) {
-  background: var(--action-primary);
-  border-color: var(--action-primary);
-  color: var(--color-neutral-950);
+  background: var(--release-alist-accent);
+  border-color: var(--release-alist-accent);
+  color: var(--text-on-accent);
 }
 
 .organism-card.audio-player.audio-player--alist .transport-controls .transport-controls__button.is-active,
 .organism-card.audio-player.audio-player--alist .now-playing__artwork--fallback {
-  color: var(--action-primary);
+  color: var(--release-alist-accent);
 }
 
 .organism-card.audio-player.audio-player--alist .app-player__pack-toggle {
-  color: var(--action-primary);
+  color: var(--release-alist-accent);
 }
 
 .audio-player--alist .now-playing__artwork {
-  outline: 2px solid var(--action-primary);
+  outline: 2px solid var(--release-alist-accent);
   outline-offset: -2px;
 }
 
 .audio-player--alist .now-playing__context {
-  background: var(--action-primary);
+  background: var(--release-alist-accent);
   border-radius: var(--radius-sm);
   color: var(--text-on-accent);
   padding: 0.125rem 0.375rem;

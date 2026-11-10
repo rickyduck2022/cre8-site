@@ -4,6 +4,7 @@ import { Badge } from "../../atoms/Badge/Badge";
 import { Button } from "../../atoms/Button/Button";
 import { TrackArtwork } from "../../molecules/TrackArtwork/TrackArtwork";
 import { PackPlaybackButton } from "../../molecules/PackPlaybackButton/PackPlaybackButton";
+import { CardActions } from "../../molecules/CardActions/CardActions";
 import { useAsyncSubmission } from "../../utils/useAsyncSubmission";
 import { DubCard, type DubCardProps } from "../DubCard/DubCard";
 import { PackPlaylist, type PackQueueControls } from "./PackPlaylist";
@@ -112,17 +113,18 @@ export function DubPackCard({
       onSeek: playback.onSeek ? (time) => withinPack(() => playback.onSeek?.(time, track)) : undefined,
       onSeekProgress: playback.onSeekProgress ? (progress) => withinPack(() => playback.onSeekProgress?.(progress, track)) : undefined,
     } : undefined}
-    actions={<div className="dub-pack-card__actions">
+    actions={<CardActions title={pack.title} className="dub-pack-card__actions">
       <PackPlaybackButton kind={pack.kind} playing={playing && isPlaying} size="small" disabled={disabled}
         onClick={() => withinPack(() => current ? playback.onPlay(current) : onPlayAll(tracks, pack.id))} />
-      <Button size="small" variant="secondary" aria-expanded={expanded} aria-controls={playlistId} onClick={() => setExpanded(!expanded)}
+      <Button size="small" variant={expanded ? "audio" : "secondary"} className={`dub-pack-card__toggle media-kind--${pack.kind}`}
+        aria-expanded={expanded} aria-controls={playlistId} onClick={() => setExpanded(!expanded)}
         leadingIcon={<ChevronDown aria-hidden="true" />}>{expanded ? "Hide playlist" : `Show ${packFileCount(pack.kind, pack.items.length)}`}</Button>
       {onDownloadPack && <Button size="small" variant="secondary" disabled={disabled || download.pending} loading={download.pending}
         onClick={() => void download.run(() => onDownloadPack(pack))}>Download ZIP</Button>}
       {onSharePack && <Button size="small" variant="secondary" disabled={disabled} leadingIcon={<MessageCircle aria-hidden="true" />}
         onClick={() => onSharePack(pack)}>Share pack</Button>}
-      <Button size="small" variant="tertiary" onClick={() => onOpenPack(pack)}>Open pack</Button>
-    </div>}>
+      <Button size="small" variant="primary" onClick={() => onOpenPack(pack)}>Open pack</Button>
+    </CardActions>}>
     {track && <p className="pack-muted dub-pack-card__queue-hint">This pack only · Loop repeats the playlist</p>}
     {playing && <p className="dub-pack-card__status" role="status">{isPlaying ? "Now playing from this pack" : "Pack playback paused"}</p>}
     {download.error && <p className="dub-pack-card__error" role="alert">{download.error}</p>}

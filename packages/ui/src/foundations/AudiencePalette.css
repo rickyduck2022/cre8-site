@@ -1,0 +1,12 @@
+.audience--worldwide { --audience-accent: var(--audience-worldwide); }
+.audience--private { --audience-accent: var(--audience-private); }
+.audience--alist { --audience-accent: var(--audience-alist); }
+
+.audience--worldwide,
+.audience--private,
+.audience--alist {
+  --audience-border: color-mix(in srgb, var(--audience-accent) 35%, var(--border-default));
+  --audience-icon-surface: color-mix(in srgb, var(--audience-accent) 15%, var(--surface-canvas));
+  --audience-selected-surface: color-mix(in srgb, var(--audience-accent) 10%, var(--surface-canvas));
+  --audience-selected-text: color-mix(in srgb, var(--audience-accent) 70%, var(--text-primary));
+}

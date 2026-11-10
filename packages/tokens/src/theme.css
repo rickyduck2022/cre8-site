@@ -52,11 +52,28 @@
   --action-primary-pressed: var(--color-orange-600);
 
   --audio-active: var(--color-cyan-400);
+  --audio-highlight: var(--color-neutral-50);
+  --audio-dub-active: var(--color-cyan-400);
   --audio-sample-active: var(--color-green-400);
   --audio-inactive: var(--color-neutral-700);
 
   --focus-ring: var(--color-cyan-400);
   --link-default: var(--color-blue-500);
+
+  /* Release audience identity is independent of the Dub/Sample media kind. */
+  --audience-worldwide: var(--color-blue-500);
+  --audience-private: var(--color-cyan-400);
+  --audience-alist: var(--action-primary);
+  --release-alist-surface: var(--color-neutral-950);
+  --release-alist-text: var(--color-neutral-50);
+  --release-alist-text-secondary: var(--color-neutral-400);
+  --release-alist-accent: var(--audience-alist);
+  --release-alist-accent-hover: var(--action-primary-hover);
+  --release-alist-accent-pressed: var(--action-primary-pressed);
+  --release-alist-waveform-inactive: color-mix(in srgb, var(--release-alist-surface) 70%, var(--release-alist-accent));
+  --release-alist-media-surface: color-mix(in srgb, var(--release-alist-accent) 10%, var(--release-alist-surface));
+  --release-alist-error: var(--color-orange-400);
+  --status-error: var(--color-danger);
 
   /* Inverse surfaces for light accents */
   --surface-inverse: #F2F3F5;

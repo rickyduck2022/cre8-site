@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Button, DubPackIdentity, SearchField, type PackQueueControls, type ArtistOption, type Buddy, type Dub, type MediaKind } from "@craft/ui";
+import { Button, CardActions, DubPackIdentity, SearchField, type PackQueueControls, type ArtistOption, type Buddy, type Dub, type MediaKind } from "@craft/ui";
 import { PackEditor } from "./PackEditor";
 import { PackView, type PackPlayback } from "./PackView";
 import { canAddDubToPack, packRequest, type Pack } from "../services/packs";
@@ -109,7 +109,7 @@ export function PackWorkspace(props: Props) {
       const compatible = !props.pendingDub || canAddDubToPack(pack, props.pendingDub);
       return <li key={pack.id}><article className="pack-card">
         <DubPackIdentity pack={pack} compact />
-        <div className="pack-toolbar"><Button onClick={() => { setSelected(pack); setEditing(false); }}>Open pack</Button>
+        <CardActions title={pack.title} className="pack-toolbar"><Button onClick={() => { setSelected(pack); setEditing(false); }}>Open pack</Button>
           {props.pendingDub && pack.ownerUsername === props.username && <Button variant="secondary" disabled={pending || alreadyAdded || !compatible} onClick={async () => {
             if (creating.current) return;
             creating.current = true; setPending(true); setError("");
@@ -126,7 +126,7 @@ export function PackWorkspace(props: Props) {
               setSelected(updated); props.onOpened?.();
             } catch (failure) { setError(failure instanceof Error ? failure.message : "The dub could not be added."); }
             finally { creating.current = false; setPending(false); }
-          }}>{alreadyAdded ? "Already in pack" : "Add selected dub"}</Button>}</div>
+          }}>{alreadyAdded ? "Already in pack" : "Add selected dub"}</Button>}</CardActions>
         {props.pendingDub && pack.ownerUsername === props.username && !compatible && <p className="pack-muted">This pack has a different audience.</p>}
       </article></li>;
     })}</ul>

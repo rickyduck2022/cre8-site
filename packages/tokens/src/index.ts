@@ -46,6 +46,8 @@ export const semanticTokens = {
   },
   audio: {
     active: "var(--color-cyan-400)",
+    highlight: "var(--color-neutral-50)",
+    "dub-active": "var(--color-cyan-400)",
     "sample-active": "var(--color-green-400)",
     inactive: "var(--color-neutral-700)",
   },
@@ -54,6 +56,25 @@ export const semanticTokens = {
   },
   link: {
     default: "var(--color-blue-500)",
+  },
+  audience: {
+    worldwide: "var(--color-blue-500)",
+    private: "var(--color-cyan-400)",
+    alist: "var(--action-primary)",
+  },
+  release: {
+    "alist-surface": "var(--color-neutral-950)",
+    "alist-text": "var(--color-neutral-50)",
+    "alist-text-secondary": "var(--color-neutral-400)",
+    "alist-accent": "var(--audience-alist)",
+    "alist-accent-hover": "var(--action-primary-hover)",
+    "alist-accent-pressed": "var(--action-primary-pressed)",
+    "alist-waveform-inactive": "color-mix(in srgb, var(--release-alist-surface) 70%, var(--release-alist-accent))",
+    "alist-media-surface": "color-mix(in srgb, var(--release-alist-accent) 10%, var(--release-alist-surface))",
+    "alist-error": "var(--color-orange-400)",
+  },
+  status: {
+    error: "var(--color-danger)",
   },
 } as const;
 

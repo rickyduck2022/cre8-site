@@ -60,16 +60,22 @@ it("keeps packs compact until expanded and uses ordered shared playlist cards", 
   expect(screen.getByRole("heading", { name: pack.title })).toBeVisible();
   expect(screen.queryByRole("list", { name: "Night Sessions playlist" })).not.toBeInTheDocument();
   const toggle = screen.getByRole("button", { name: "Show 2 samples" });
+  expect(toggle).toHaveClass("button--secondary");
   fireEvent.click(toggle);
   expect(toggle).toHaveAttribute("aria-expanded", "true");
+  expect(toggle).toHaveClass("button--audio", "media-kind--sample");
   const playlist = screen.getByRole("list", { name: "Night Sessions playlist" });
   expect(within(playlist).getAllByRole("article").map((card) => card.getAttribute("aria-label"))).toEqual(["Opening", "Closing"]);
   expect(within(playlist).getAllByText("F minor")).toHaveLength(2);
   fireEvent.click(screen.getByRole("button", { name: "Play all" }));
   expect(props.onPlayAll).toHaveBeenCalledWith(pack.items.map(({ dub }) => dub), pack.id);
-  fireEvent.click(screen.getByRole("button", { name: "Open pack" }));
+  const openPack = screen.getByRole("button", { name: "Open pack" });
+  expect(openPack).toHaveClass("button--primary");
+  fireEvent.click(openPack);
   expect(props.onOpenPack).toHaveBeenCalledWith(pack);
   fireEvent.click(screen.getByRole("button", { name: "Hide playlist" }));
+  expect(toggle).toHaveAttribute("aria-expanded", "false");
+  expect(toggle).toHaveClass("button--secondary");
   expect(screen.queryByRole("list")).not.toBeInTheDocument();
 });
 

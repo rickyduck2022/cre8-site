@@ -35,7 +35,9 @@ describe("LibraryTemplate", () => {
     fireEvent.change(screen.getByRole("spinbutton", { name: "Minimum BPM" }), { target: { value: "180" } });
     fireEvent.change(screen.getByRole("spinbutton", { name: "Maximum BPM" }), { target: { value: "160" } });
     fireEvent.click(screen.getByRole("button", { name: "Apply filters" }));
-    expect(screen.getByRole("alert")).toHaveTextContent("Minimum values");
+    expect(screen.getByRole("alert")).toHaveTextContent("Minimum BPM must not exceed the maximum.");
+    expect(screen.getByRole("button", { name: "Apply filters" })).toBeDisabled();
+    expect(screen.getByRole("region", { name: "Audio player: Sunrise" })).toBeVisible();
   });
 
   it("retains all library entries without introducing pagination", () => {

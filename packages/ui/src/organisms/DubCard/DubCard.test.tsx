@@ -107,7 +107,7 @@ describe("DubCard actions", () => {
     const end = container.querySelector(".dub-card__topline-end")!;
     expect(end).toContainElement(trigger);
     expect(end.firstElementChild).toHaveClass("dub-card__uploaded");
-    expect(container.querySelector(".dub-card__footer")).not.toBeInTheDocument();
+    expect(container.querySelector(".dub-card__footer")).not.toContainElement(trigger);
     expect(trigger).toHaveAttribute("aria-haspopup", "dialog");
     fireEvent.click(trigger);
     const dialog = screen.getByRole("dialog", { name: "Actions for Night Drive" });
@@ -139,16 +139,16 @@ describe("DubCard actions", () => {
     const onShareWithFriend = vi.fn();
     const { container, rerender } = render(<DubCard dub={dub} onDownload={onDownload} onPlay={vi.fn()} onShareWithFriend={onShareWithFriend} />);
     const tag = screen.getByLabelText("Distribution: Worldwide");
-    const actions = tag.parentElement?.querySelector(".dub-card__mobile-actions");
+    const actions = container.querySelector(".dub-card__mobile-actions");
     const download = screen.getByRole("button", { name: "Download and like" });
     const share = screen.getByRole("button", { name: "Share Night Drive" });
-    expect(actions?.previousElementSibling).toBe(tag);
+    expect(tag.closest(".dub-card__metadata")).not.toContainElement(download);
     expect(actions).toContainElement(download);
     expect(actions).toContainElement(share);
     expect(download).toHaveTextContent("Download · Like");
     expect(download).toHaveAttribute("aria-label", "Download and like");
     expect(share).not.toHaveTextContent("Share");
-    expect(container.querySelector(".dub-card__footer")).not.toBeInTheDocument();
+    expect(container.querySelector(".dub-card__footer")).toContainElement(download);
     const details = container.querySelector(".dub-card__mobile-details")!;
     const timestamp = details.querySelector("time")!;
     expect(details.firstElementChild).toHaveClass("dub-card__likes");

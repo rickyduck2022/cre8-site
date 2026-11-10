@@ -35,8 +35,8 @@
 }
 
 .dub-card--alist .alist-badge {
-  --alist-badge-background: var(--color-orange-500);
-  --alist-badge-foreground: var(--color-neutral-950);
+  --alist-badge-background: var(--release-alist-accent);
+  --alist-badge-foreground: var(--text-on-accent);
 }
 
 .dub-card__topline {
@@ -101,12 +101,12 @@
 .dub-card .audio-player.dub-card__player--current .transport-controls .transport-controls__play:hover:not(:disabled) {
   background: var(--audio-active);
   border-color: var(--audio-active);
-  color: var(--color-neutral-950);
+  color: var(--text-on-accent);
 }
 
 .dub-card .audio-player.dub-card__player--current .transport-controls .transport-controls__play:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--audio-active) 90%, var(--color-neutral-50));
-  border-color: color-mix(in srgb, var(--audio-active) 90%, var(--color-neutral-50));
+  background: var(--media-accent-hover);
+  border-color: var(--media-accent-hover);
 }
 
 .dub-card__timestamp { color: var(--audio-active); font-family: var(--font-mono); font-size: var(--type-size-micro); }
@@ -116,10 +116,10 @@
 .dub-card__metadata-details { min-width: 0; }
 .dub-card__distribution-column { align-items: flex-end; display: flex; flex-direction: column; gap: var(--spacing-2); }
 .dub-card__distribution { color: var(--text-on-accent); cursor: default; font-size: var(--type-size-label); font-weight: var(--type-weight-strong); justify-self: end; padding: 0.3rem 0.625rem; }
-.dub-card__distribution--worldwide, .dub-card__distribution--worldwide:hover { background: var(--color-blue-500); box-shadow: var(--shadow-control-blue); color: var(--text-on-accent); }
+.dub-card__distribution--worldwide, .dub-card__distribution--worldwide:hover { background: var(--audience-worldwide); box-shadow: var(--shadow-control-blue); color: var(--text-on-accent); }
 .dub-card__distribution--private, .dub-card__distribution--private:hover { background: var(--audio-active); box-shadow: var(--shadow-control-audio); color: var(--text-on-accent); }
 .dub-card__distribution--alist, .dub-card__distribution--alist:hover {
-  background: var(--action-primary);
+  background: var(--audience-alist);
   box-shadow: var(--shadow-control-accent);
   color: var(--text-on-accent);
 }
@@ -154,6 +154,7 @@
 .dub-card__playlist-player { border: 0; container-type: inline-size; flex: 1; margin: 0; min-width: 0; padding: 0; }
 .dub-card__playlist-player:disabled { opacity: 0.6; }
 .dub-card__playlist-footer { align-items: center; display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.dub-card__playlist-actions { flex: 1 1 auto; justify-content: flex-end; }
 .dub-card--playlist .organism-card.audio-player {
   background: transparent;
   box-shadow: none;
@@ -232,10 +233,9 @@
     display: none;
   }
 
-  .dub-card__mobile-actions {
-    display: flex;
-    gap: var(--spacing-2);
-  }
+  .dub-card__mobile-actions,
+  .dub-card__playlist-actions { width: 100%; }
+  .dub-card__playlist-actions { justify-content: flex-start; }
 
   .dub-card__distribution-column {
     gap: var(--spacing-4);
@@ -270,7 +270,8 @@
     margin-top: auto;
   }
 
-  .dub-card__mobile-actions .dub-card__download {
+  .dub-card__mobile-actions .dub-card__download,
+  .dub-card__playlist-actions .dub-card__download {
     margin-left: 0;
   }
 }

@@ -34,12 +34,33 @@ scrollable playlist using the shared DubCard playlist variant. **Play all** and
 **Download ZIP** operate on the whole pack; individual playback, seeking and
 downloads remain available in the expanded list.
 
+On mobile, media card actions stay on one row; actions that do not fit move
+into the card's **More actions** menu. This applies to release cards, playlist
+files and pack workspace cards. Expanding a pack highlights its playlist
+toggle in the release's media colour (orange for A-List) until it is collapsed.
+
 Search includes accessible published pack titles and descriptions. Filters
 retain matching files inside the playlist, with a matching count and an
 **Open pack** action for the full release. Pagination counts
 release cards, while crates continue to show their individual saved dubs.
 Private packs only enter an authorised member's community feed; drafts never
 enter the feed.
+
+Collection filters separate **Worldwide** (blue), **Private** (turquoise), and
+**A-List** (orange) into labelled audience tiles with descriptions and explicit
+Included/Not included states. Audiences and tags each match any selected choice;
+different filter sections combine to narrow results. Changes stay in a draft
+until **Apply filters**. **Reset choices** restores the collection's defaults
+without changing the search text or applying; **Clear search text** preserves
+filters, while **Clear search** resets both. Invalid or inverted BPM/bitrate
+ranges are explained inline before applying. Mobile filters use a scrollable
+dialog with persistent footer actions.
+
+These colours are design-system roles, not per-page overrides. The token package
+owns `--audience-*` and `--release-alist-*`; shared `AudiencePalette.css`,
+`MediaPalette.css` and `DistributionSurfaces.css` map them to audience tiles,
+media interaction states and release surfaces. Change those roles to theme the
+experience consistently. Open pack uses the shared primary Button variant.
 
 Published Dub and Sample Packs also appear in **Your Dubs** or **Your Samples** and the uploader's
 profile using the same pack collection and cards. Owners see their private

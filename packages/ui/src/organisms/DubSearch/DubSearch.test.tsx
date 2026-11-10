@@ -46,6 +46,101 @@ describe("DubSearch", () => {
     expect(getDubSearchFilterCount({ ...createEmptyDubSearchFilters(), distributions: ["private", "alist"], tags: ["Jungle", "Liquid"], minBpm: "170", fileType: "WAV" })).toBe(5);
   });
 
+  it("shows distinct audience tiles with descriptions and explicit selection states", () => {
+    render(<DubSearch query="" onQueryChange={vi.fn()} filters={createEmptyDubSearchFilters()} onFiltersChange={vi.fn()} resultCount={12} />);
+    expect(screen.getByText("12 dubs found")).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Filters" }));
+    const audience = screen.getByRole("group", { name: "Release audience" });
+    for (const [label, variant, description, selected] of [
+      ["Worldwide", "worldwide", "Open to the community", true],
+      ["Private", "private", "Your own & shared with you", false],
+      ["A-List", "alist", "Exclusive & public A-List releases", true],
+    ] as const) {
+      const checkbox = within(audience).getByRole("checkbox", { name: label });
+      expect(checkbox).toHaveAccessibleDescription(description);
+      expect(checkbox.closest("label")).toHaveClass(`dub-search__distribution--${variant}`);
+      expect(checkbox.closest("label")?.querySelector("svg")).toBeInTheDocument();
+      expect(within(checkbox.closest("label")!).getByText(selected ? "Included" : "Not included")).toBeVisible();
+    }
+    fireEvent.click(within(audience).getByRole("checkbox", { name: "Worldwide" }));
+    fireEvent.click(within(audience).getByRole("checkbox", { name: "A-List" }));
+    expect(screen.getByText("No audiences selected. This will return no results.")).toBeVisible();
+    expect(screen.getByText("Unapplied changes")).toBeVisible();
+  });
+
+  it("clears search text without removing applied filters", () => {
+    const onQueryChange = vi.fn();
+    const onFiltersChange = vi.fn();
+    const onSearch = vi.fn();
+    render(<DubSearch query="Jungle" onQueryChange={onQueryChange} onSearch={onSearch}
+      filters={{ ...createEmptyDubSearchFilters(), tags: ["Liquid"] }} onFiltersChange={onFiltersChange} resultCount={1} />);
+    fireEvent.click(screen.getByRole("button", { name: "Clear search text" }));
+    expect(onQueryChange).toHaveBeenCalledWith("");
+    expect(onFiltersChange).not.toHaveBeenCalled();
+    expect(onSearch).toHaveBeenCalledOnce();
+    expect(screen.getByRole("searchbox")).toHaveFocus();
+  });
+
+  it("resets draft choices to collection defaults without changing the query or applying", () => {
+    const onQueryChange = vi.fn();
+    const onFiltersChange = vi.fn();
+    render(<DubSearch query="Night" onQueryChange={onQueryChange}
+      filters={{ ...createEmptyDubSearchFilters(), tags: ["Jungle"], distributions: ["private"] }}
+      defaultDistributions={["private", "worldwide", "alist"]} onFiltersChange={onFiltersChange} resultCount={1} />);
+    fireEvent.click(screen.getByRole("button", { name: /Filters/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Reset choices" }));
+    expect(screen.getByRole("button", { name: "Jungle" })).toHaveAttribute("aria-pressed", "false");
+    for (const checkbox of screen.getAllByRole("checkbox")) expect(checkbox).toBeChecked();
+    expect(onQueryChange).not.toHaveBeenCalled();
+    expect(onFiltersChange).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Apply filters" }));
+    expect(onFiltersChange).toHaveBeenCalledWith({ ...createEmptyDubSearchFilters(), distributions: ["private", "worldwide", "alist"] });
+  });
+
+  it("does not mark reordered audience selections as unapplied changes", () => {
+    render(<DubSearch query="" onQueryChange={vi.fn()} filters={createEmptyDubSearchFilters()} onFiltersChange={vi.fn()} resultCount={3} />);
+    fireEvent.click(screen.getByRole("button", { name: "Filters" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Worldwide" }));
+    expect(screen.getByText("Unapplied changes")).toBeVisible();
+    fireEvent.click(screen.getByRole("checkbox", { name: "Worldwide" }));
+    expect(screen.queryByText("Unapplied changes")).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ["Minimum BPM", "301", "BPM must be between 0 and 300."],
+    ["Minimum Bitrate", "-1", "bitrate must be between 0 and 1000."],
+  ])("blocks invalid %s values and explains how to fix them", (name, value, message) => {
+    const onFiltersChange = vi.fn();
+    const { container } = render(<DubSearch query="" onQueryChange={vi.fn()} filters={createEmptyDubSearchFilters()} onFiltersChange={onFiltersChange} resultCount={3} />);
+    fireEvent.click(screen.getByRole("button", { name: "Filters" }));
+    const input = screen.getByRole("spinbutton", { name });
+    fireEvent.change(input, { target: { value } });
+    expect(input).toHaveAttribute("aria-invalid", "true");
+    expect(input).toHaveAccessibleDescription(message);
+    expect(screen.getByRole("alert")).toHaveTextContent(message);
+    expect(screen.getByRole("button", { name: "Apply filters" })).toBeDisabled();
+    fireEvent.submit(container.querySelector("form")!);
+    expect(onFiltersChange).not.toHaveBeenCalled();
+    fireEvent.change(input, { target: { value: "100" } });
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Apply filters" })).toBeEnabled();
+  });
+
+  it("keeps inverted ranges in the panel until corrected", () => {
+    const onFiltersChange = vi.fn();
+    render(<DubSearch query="" onQueryChange={vi.fn()} filters={createEmptyDubSearchFilters()} onFiltersChange={onFiltersChange} resultCount={3} />);
+    fireEvent.click(screen.getByRole("button", { name: "Filters" }));
+    fireEvent.change(screen.getByRole("spinbutton", { name: "Minimum BPM" }), { target: { value: "180" } });
+    fireEvent.change(screen.getByRole("spinbutton", { name: "Maximum BPM" }), { target: { value: "170" } });
+    expect(screen.getByRole("alert")).toHaveTextContent("Minimum BPM must not exceed the maximum.");
+    expect(screen.getByRole("button", { name: "Apply filters" })).toBeDisabled();
+    expect(onFiltersChange).not.toHaveBeenCalled();
+    fireEvent.change(screen.getByRole("spinbutton", { name: "Maximum BPM" }), { target: { value: "180" } });
+    fireEvent.click(screen.getByRole("button", { name: "Apply filters" }));
+    expect(onFiltersChange).toHaveBeenCalledWith(expect.objectContaining({ minBpm: "180", maxBpm: "180" }));
+    expect(screen.getByRole("button", { name: /Filters/ })).toHaveFocus();
+  });
+
   it("discards unsaved edits when the panel is closed and reopened", () => {
     const onFiltersChange = vi.fn();
     render(<DubSearch query="" onQueryChange={vi.fn()} filters={createEmptyDubSearchFilters()} onFiltersChange={onFiltersChange} resultCount={0} />);

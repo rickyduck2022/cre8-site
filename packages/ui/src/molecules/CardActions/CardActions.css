@@ -1,0 +1,27 @@
+.card-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-2);
+  min-width: 0;
+  position: relative;
+}
+.card-actions__item { display: inline-flex; flex: 0 0 auto; }
+.card-actions__more { display: inline-flex; flex: 0 0 auto; margin-left: auto; }
+.card-actions__more > .button { min-width: 2.75rem; }
+.card-actions__item--overflow,
+.card-actions__more--hidden {
+  inset: 0 auto auto 0;
+  max-width: 100%;
+  overflow: hidden;
+  pointer-events: none;
+  position: absolute;
+  visibility: hidden;
+}
+.card-actions__item--overflow > .button { flex: 0 0 auto; }
+.card-actions__menu { display: grid; gap: var(--spacing-2); }
+.card-actions__menu > .button { justify-content: flex-start; margin-left: 0; min-height: 2.75rem; width: 100%; }
+@media (max-width: 760px) {
+  .card-actions { flex-wrap: nowrap; }
+  .card-actions .button { white-space: nowrap; }
+}

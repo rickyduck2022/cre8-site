@@ -16,7 +16,7 @@ const luminance = (rgb) => rgb.map((value) => {
 }).reduce((sum, value, index) => sum + value * [0.2126, 0.7152, 0.0722][index], 0);
 const contrast = (a, b) => (Math.max(luminance(a), luminance(b)) + 0.05) / (Math.min(luminance(a), luminance(b)) + 0.05);
 
-it.each(["cyan-400", "green-400"])("%s has readable text and waveform contrast on light and dark media variants", (name) => {
+it.each(["cyan-400", "green-400", "orange-500"])("%s has readable text and waveform contrast on light and dark media variants", (name) => {
   const accent = color(name);
   const dark = color("neutral-950");
   const secondary = color("neutral-900");

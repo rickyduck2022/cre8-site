@@ -1,5 +1,5 @@
-import { useId, useState } from "react";
-import { Settings2, X } from "@craft/icons";
+import { useId, useLayoutEffect, useRef, useState } from "react";
+import { ChevronDown, LockKeyhole, Radio, Settings2, Users, X } from "@craft/icons";
 import { Badge } from "../../atoms/Badge/Badge";
 import { Button } from "../../atoms/Button/Button";
 import { ModalFooter } from "../../molecules/ModalFooter/ModalFooter";
@@ -8,6 +8,8 @@ import { TagSelector } from "../../molecules/TagSelector/TagSelector";
 import type { Dub, MediaKind } from "../../types/domain";
 import { useMobileLayout } from "../../utils/useMobileLayout";
 import { Modal } from "../Modal/Modal";
+import "../../foundations/MediaPalette.css";
+import "../../foundations/AudiencePalette.css";
 import "./DubSearch.css";
 
 type Distribution = NonNullable<Dub["distribution"]>;
@@ -62,6 +64,10 @@ export function getDubSearchFilterCount(filters: DubSearchFilters, defaultDistri
   );
 }
 
+function filterSelectionKey(filters: DubSearchFilters) {
+  return JSON.stringify({ ...filters, tags: [...filters.tags].sort(), distributions: [...filters.distributions].sort() });
+}
+
 export interface DubSearchProps {
   mediaKind?: MediaKind;
   query: string;
@@ -86,6 +92,7 @@ interface RangeInputProps {
   max: number;
   onMinChange: (value: string) => void;
   onMaxChange: (value: string) => void;
+  error?: string;
 }
 
 function RangeInput({
@@ -96,7 +103,9 @@ function RangeInput({
   max,
   onMinChange,
   onMaxChange,
+  error,
 }: RangeInputProps) {
+  const errorId = useId();
   return (
     <fieldset className="dub-search__range">
       <legend>{label}</legend>
@@ -104,10 +113,13 @@ function RangeInput({
         <span>Min {unit}</span>
         <input
           aria-label={`Minimum ${label}`}
+          aria-invalid={Boolean(error)}
+          aria-describedby={error ? errorId : undefined}
           max={max}
           min="0"
           onChange={(event) => onMinChange(event.target.value)}
           type="number"
+          placeholder="No minimum"
           value={minValue}
         />
       </label>
@@ -115,13 +127,17 @@ function RangeInput({
         <span>Max {unit}</span>
         <input
           aria-label={`Maximum ${label}`}
+          aria-invalid={Boolean(error)}
+          aria-describedby={error ? errorId : undefined}
           max={max}
           min="0"
           onChange={(event) => onMaxChange(event.target.value)}
           type="number"
+          placeholder="No maximum"
           value={maxValue}
         />
       </label>
+      {error && <p className="dub-search__range-error" id={errorId} role="alert">{error}</p>}
     </fieldset>
   );
 }
@@ -146,8 +162,26 @@ export function DubSearch({
   const panelId = useId();
   const [expanded, setExpanded] = useState(false);
   const [draft, setDraft] = useState(filters);
+  const toggleRef = useRef<HTMLButtonElement>(null);
+  const queryRef = useRef<HTMLDivElement>(null);
+  const wasExpanded = useRef(false);
   const mobile = useMobileLayout();
+  useLayoutEffect(() => {
+    if (wasExpanded.current && !expanded) toggleRef.current?.focus();
+    wasExpanded.current = expanded;
+  }, [expanded]);
   const filterCount = getDubSearchFilterCount(filters, defaultDistributions);
+  const emptyFilters = () => ({ ...createEmptyDubSearchFilters(), distributions: [...defaultDistributions] });
+  const draftChanged = filterSelectionKey(draft) !== filterSelectionKey(filters);
+  function rangeError(min: string, max: string, limit: number, label: string) {
+    if ([min, max].some((value) => value !== "" && (!Number.isFinite(Number(value)) || Number(value) < 0 || Number(value) > limit))) {
+      return `${label} must be between 0 and ${limit}.`;
+    }
+    return min && max && Number(min) > Number(max) ? `Minimum ${label} must not exceed the maximum.` : undefined;
+  }
+  const bpmError = rangeError(draft.minBpm, draft.maxBpm, 300, "BPM");
+  const bitrateError = rangeError(draft.minBitrate, draft.maxBitrate, 1000, "bitrate");
+  const invalidRange = Boolean(bpmError || bitrateError);
   const updateFilter = <K extends keyof DubSearchFilters>(
     key: K,
     value: DubSearchFilters[K],
@@ -158,7 +192,7 @@ export function DubSearch({
     onSearch?.();
   }
   function resetFilters() {
-    applyFilters({ ...createEmptyDubSearchFilters(), distributions: [...defaultDistributions] });
+    applyFilters(emptyFilters());
     setExpanded(false);
   }
   const chips: Array<{ label: string; remove: () => void }> = filters.tags.map((tag) => ({
@@ -185,11 +219,14 @@ export function DubSearch({
 
   const footer = (
     <>
-      <span aria-live="polite">
-        {isSearching
-          ? "Searching…"
-          : `${resultCount} ${resultCount === 1 ? mediaKind : noun} found`}
-      </span>
+      <div className="dub-search__summary">
+        <span aria-live="polite">
+          {isSearching
+            ? "Searching…"
+            : `${resultCount} ${resultCount === 1 ? mediaKind : noun} found`}
+        </span>
+        <span className="dub-search__draft-hint">{draftChanged ? "Unapplied changes" : "Choose filters, then apply"}</span>
+      </div>
       <div className="dub-search__actions">
         {(filterCount > 0 || getDubSearchFilterCount(draft, defaultDistributions) > 0 || query) && (
           <Button
@@ -202,7 +239,7 @@ export function DubSearch({
             Clear search
           </Button>
         )}
-        <Button form={panelId} type="submit">Apply filters</Button>
+        <Button form={panelId} type="submit" disabled={invalidRange}>Apply filters</Button>
       </div>
     </>
   );
@@ -210,73 +247,97 @@ export function DubSearch({
   const panel = (
     <form className="dub-search__panel" id={panelId} onSubmit={(event) => {
       event.preventDefault();
+      if (invalidRange) return;
       applyFilters(draft);
       setExpanded(false);
     }}>
-      {showDistributionFilter && (
-        <fieldset className="dub-search__distributions">
-          <legend>Distribution · match any</legend>
-          <div className="dub-search__distribution-options">
-            {([
-              ["worldwide", "Worldwide"],
-              ["private", "Private"],
-              ["alist", "A-List"],
-            ] as const).map(([value, label]) => (
-              <label className={`dub-search__distribution dub-search__distribution--${value}`} key={value}>
-                <input
-                  checked={draft.distributions.includes(value)}
-                  onChange={(event) => updateFilter("distributions", event.target.checked
-                    ? [...draft.distributions, value]
-                    : draft.distributions.filter((item) => item !== value))}
-                  type="checkbox"
-                />
-                {label}
-              </label>
-            ))}
+      <div className="dub-search__panel-heading">
+        <div><h3>Refine your collection</h3><p>Combine sections to narrow your search. Changes apply when you are ready.</p></div>
+        <Button size="small" variant="tertiary" onClick={() => setDraft(emptyFilters())}>Reset choices</Button>
+      </div>
+      <div className="dub-search__sections">
+        {showDistributionFilter && (
+          <fieldset className="dub-search__distributions">
+            <legend>Release audience</legend>
+            <p className="dub-search__section-hint">Select one or more. Results can match any selected audience.</p>
+            <div className="dub-search__distribution-options">
+              {([
+                ["worldwide", "Worldwide", "Open to the community", Users],
+                ["private", "Private", "Your own & shared with you", LockKeyhole],
+                ["alist", "A-List", "Exclusive & public A-List releases", Radio],
+              ] as const).map(([value, label, description, Icon]) => (
+                <label className={`dub-search__distribution dub-search__distribution--${value} audience--${value}`} key={value}>
+                  <span className="dub-search__audience-icon"><Icon aria-hidden="true" /></span>
+                  <span className="dub-search__audience-copy">
+                    <strong>{label}</strong>
+                    <small id={`${panelId}-${value}-hint`}>{description}</small>
+                    <span className="dub-search__audience-state" aria-hidden="true">{draft.distributions.includes(value) ? "Included" : "Not included"}</span>
+                  </span>
+                  <input
+                    aria-label={label}
+                    aria-describedby={`${panelId}-${value}-hint`}
+                    checked={draft.distributions.includes(value)}
+                    onChange={(event) => updateFilter("distributions", event.target.checked
+                      ? [...draft.distributions, value]
+                      : draft.distributions.filter((item) => item !== value))}
+                    type="checkbox"
+                  />
+                </label>
+              ))}
+            </div>
+            <span className="dub-search__distribution-hint">{distributionHint ?? `A-List ${noun} require approval unless public. Select Private to include your own and shared private ${noun}.`}</span>
+            {!draft.distributions.length && <p className="dub-search__notice" role="status">No audiences selected. This will return no results.</p>}
+          </fieldset>
+        )}
+        <div className="dub-search__tags">
+          <TagSelector
+            label="Tags · match any"
+            options={DUB_SEARCH_TAGS}
+            value={draft.tags}
+            onChange={(value) => updateFilter("tags", value)}
+          />
+          <p className="dub-search__section-hint">Match any selected tag. Leave empty to include every style.</p>
+        </div>
+        <div className="dub-search__details">
+          <div className="dub-search__section-heading"><h3>Sound &amp; file details</h3><p>Leave a field empty for no limit.</p></div>
+          <div className="dub-search__controls">
+            <RangeInput
+              label="BPM"
+              unit="BPM"
+              minValue={draft.minBpm}
+              maxValue={draft.maxBpm}
+              max={300}
+              error={bpmError}
+              onMinChange={(value) => updateFilter("minBpm", value)}
+              onMaxChange={(value) => updateFilter("maxBpm", value)}
+            />
+            <label className="dub-search__select">
+              <span>File type</span>
+              <select
+                aria-label="File type"
+                onChange={(event) => updateFilter("fileType", event.target.value)}
+                value={draft.fileType}
+              >
+                <option value="">Any format</option>
+                {fileTypes.map((type) => (
+                  <option key={type} value={type}>
+                    {type}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <RangeInput
+              label="Bitrate"
+              unit="kbps"
+              minValue={draft.minBitrate}
+              maxValue={draft.maxBitrate}
+              max={1000}
+              error={bitrateError}
+              onMinChange={(value) => updateFilter("minBitrate", value)}
+              onMaxChange={(value) => updateFilter("maxBitrate", value)}
+            />
           </div>
-          <span className="dub-search__distribution-hint">{distributionHint ?? `A-List ${noun} require approval unless public. Select Private to include your own and shared private ${noun}.`}</span>
-        </fieldset>
-      )}
-      <TagSelector
-        label="Tags · match any"
-        options={DUB_SEARCH_TAGS}
-        value={draft.tags}
-        onChange={(value) => updateFilter("tags", value)}
-      />
-      <div className="dub-search__controls">
-        <RangeInput
-          label="BPM"
-          unit="BPM"
-          minValue={draft.minBpm}
-          maxValue={draft.maxBpm}
-          max={300}
-          onMinChange={(value) => updateFilter("minBpm", value)}
-          onMaxChange={(value) => updateFilter("maxBpm", value)}
-        />
-        <label className="dub-search__select">
-          <span>File type</span>
-          <select
-            aria-label="File type"
-            onChange={(event) => updateFilter("fileType", event.target.value)}
-            value={draft.fileType}
-          >
-            <option value="">Any format</option>
-            {fileTypes.map((type) => (
-              <option key={type} value={type}>
-                {type}
-              </option>
-            ))}
-          </select>
-        </label>
-        <RangeInput
-          label="Bitrate"
-          unit="kbps"
-          minValue={draft.minBitrate}
-          maxValue={draft.maxBitrate}
-          max={1000}
-          onMinChange={(value) => updateFilter("minBitrate", value)}
-          onMaxChange={(value) => updateFilter("maxBitrate", value)}
-        />
+        </div>
       </div>
       {mobile
         ? <ModalFooter className="dub-search__footer">{footer}</ModalFooter>
@@ -285,18 +346,27 @@ export function DubSearch({
   );
 
   return (
-    <section aria-label={`Search ${noun}`} className="dub-search">
+    <section aria-label={`Search ${noun}`} className={`dub-search media-kind--${mediaKind}`}>
       <div className="dub-search__row">
-        <SearchField
-          aria-label={searchLabel}
-          onChange={(event) => {
-            onQueryChange(event.target.value);
-            onSearch?.();
-          }}
-          placeholder={searchLabel}
-          value={query}
-        />
+        <div className="dub-search__query" ref={queryRef}>
+          <SearchField
+            aria-label={searchLabel}
+            onChange={(event) => {
+              onQueryChange(event.target.value);
+              onSearch?.();
+            }}
+            placeholder={searchLabel}
+            value={query}
+          />
+          {query && <Button aria-label="Clear search text" className="dub-search__clear-query" leadingIcon={<X />}
+            size="small" variant="tertiary" onClick={() => {
+              onQueryChange("");
+              queryRef.current?.querySelector("input")?.focus();
+              onSearch?.();
+            }} />}
+        </div>
         <Button
+          ref={toggleRef}
           aria-label={filterCount ? `Filters, ${filterCount} active` : "Filters"}
           aria-controls={expanded ? panelId : undefined}
           aria-expanded={expanded}
@@ -307,11 +377,16 @@ export function DubSearch({
             if (!expanded) setDraft(filters);
             setExpanded(!expanded);
           }}
-          variant="secondary"
+          variant={filterCount || expanded ? "audio" : "secondary"}
         >
           <span className="dub-search__toggle-label">Filters</span> {filterCount > 0 && <Badge className="dub-search__count">{filterCount}</Badge>}
+          <ChevronDown aria-hidden="true" className="dub-search__chevron" />
         </Button>
       </div>
+      {!expanded && <div className="dub-search__results" role="status">
+        {isSearching ? "Searching…" : `${resultCount} ${resultCount === 1 ? mediaKind : noun} found`}
+        {(query || filterCount > 0) && <span>Filtered collection</span>}
+      </div>}
       {filterCount > 0 && (
         <div className="dub-search__active" role="group" aria-label="Active filters">
           {chips.map((chip) => <Button key={chip.label} size="small" variant="tertiary"

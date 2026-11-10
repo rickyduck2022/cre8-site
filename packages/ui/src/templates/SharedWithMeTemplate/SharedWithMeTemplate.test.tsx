@@ -72,7 +72,9 @@ describe("SharedWithMeTemplate", () => {
     fireEvent.click(screen.getByRole("button", { name: /Filters/ }));
     fireEvent.change(screen.getByRole("spinbutton", { name: "Maximum BPM" }), { target: { value: "160" } });
     fireEvent.click(screen.getByRole("button", { name: "Apply filters" }));
-    expect(screen.getByRole("alert")).toHaveTextContent("Minimum values");
+    expect(screen.getByRole("alert")).toHaveTextContent("Minimum BPM must not exceed the maximum.");
+    expect(screen.getByRole("button", { name: "Apply filters" })).toBeDisabled();
+    expect(screen.getByRole("region", { name: "Audio player: Secret track" })).toBeVisible();
   });
   it("renders received public and A-List dubs and allows sharing them", () => {
     const publicDub: Dub = { ...dub, id: "public", title: "Worldwide", distribution: "worldwide" };
