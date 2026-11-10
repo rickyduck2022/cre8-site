@@ -21,4 +21,6 @@ export * from "./organisms";
 export * from "./organisms/EditProfileDialog/EditProfileDialog";
 export * from "./templates";
 export * from "./templates/shared/TrackArtwork";
+export * from "./utils/useAsyncSubmission";
+export type { MediaKind } from "./types/domain";
 export * from "@craft/icons";

@@ -1,0 +1,29 @@
+{
+  "id": "pack-playlist",
+  "title": "Listen to a pack",
+  "description": "Expand a release, play its exact queue, choose a file and open the fullscreen pack player.",
+  "fixture": "community",
+  "assets": { "audio": { "env": "GUIDE_AUDIO_PATH" } },
+  "steps": [
+    { "caption": "1. Find Night Sessions in Dub Vault. Each pack is one release card.", "actions": [
+      { "type": "waitFor", "target": { "role": "article", "name": "Dub Pack: Night Sessions" } }
+    ] },
+    { "caption": "2. Show tracks reveals numbered files in the release order.", "actions": [
+      { "type": "click", "target": { "role": "button", "name": "Show 2 tracks", "within": { "role": "article", "name": "Dub Pack: Night Sessions" } } }
+    ] },
+    { "caption": "3. Play all starts this pack only. Next, shuffle and repeat stay inside its playlist.", "actions": [
+      { "type": "click", "target": { "role": "button", "name": "Play all", "within": { "role": "article", "name": "Dub Pack: Night Sessions" } } }
+    ] },
+    { "caption": "4. Open pack moves to the fullscreen player with the same queue and current track.", "actions": [
+      { "type": "click", "target": { "role": "button", "name": "Open pack", "within": { "role": "article", "name": "Dub Pack: Night Sessions" } } },
+      { "type": "waitFor", "target": { "role": "dialog", "name": "Now playing" } }
+    ] },
+    { "caption": "5. Next track selects the next file in this pack. Enable repeat to loop the pack.", "actions": [
+      { "type": "click", "target": { "role": "button", "name": "Next track", "within": { "role": "dialog", "name": "Now playing" } } },
+      { "type": "click", "target": { "role": "button", "name": "Enable repeat", "within": { "role": "dialog", "name": "Now playing" } } }
+    ] },
+    { "caption": "6. Close the fullscreen view to minimize it without stopping your listening session.", "actions": [
+      { "type": "click", "target": { "role": "button", "name": "Close", "within": { "role": "dialog", "name": "Now playing" } } }
+    ] }
+  ]
+}

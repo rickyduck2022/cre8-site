@@ -31,7 +31,9 @@ describe("LatestDubsTemplate ownership controls", () => {
     expect(within(feed).getAllByRole("article")).toHaveLength(2);
     expect(within(feed).getByRole("article", { name: "Dub Pack: Night Sessions" })).toBeVisible();
     expect(within(feed).getByRole("region", { name: "Audio player: Standalone" })).toBeVisible();
-    expect(within(feed).queryByRole("region", { name: "Audio player: My Dub" })).not.toBeInTheDocument();
+    const packCard = within(feed).getByRole("article", { name: "Dub Pack: Night Sessions" });
+    expect(packCard).toContainElement(within(feed).getByRole("region", { name: "Audio player: My Dub" }));
+    expect(within(feed).queryByRole("article", { name: "My Dub" })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Show 2 tracks" }));
     expect(within(feed).getByRole("article", { name: "My Dub" })).toBeVisible();
     expect(within(feed).getByRole("article", { name: "Closing Dub" })).toBeVisible();

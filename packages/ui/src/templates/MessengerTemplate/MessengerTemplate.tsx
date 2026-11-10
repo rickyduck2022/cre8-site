@@ -20,6 +20,9 @@ import { InfiniteScroll } from "../../molecules/InfiniteScroll/InfiniteScroll";
 import { SearchField } from "../../molecules/SearchField/SearchField";
 import { AudioPlayer } from "../../organisms/AudioPlayer/AudioPlayer";
 import { CompactDubCard } from "../../organisms/DubCard/DubCard";
+import { DubPackCard, DubPackIdentity, packTypeLabel, type DubPack } from "../../organisms/DubPackCard/DubPackCard";
+import { SharePackDialog } from "../../organisms/DubPackCard/SharePackDialog";
+import type { PackQueueControls } from "../../organisms/DubPackCard/PackPlaylist";
 import { Modal } from "../../organisms/Modal/Modal";
 import { useMobileLayout } from "../../utils/useMobileLayout";
 import { useAsyncSubmission } from "../../utils/useAsyncSubmission";
@@ -30,18 +33,25 @@ import type { Buddy, ChatConnectionStatus, Conversation, Dub } from "../communit
 import "../CommunityPageTemplates.css";
 import "./MessengerTemplate.css";
 
-function SharePickerContainer({ mobile, onClose, children }: { mobile: boolean; onClose: () => void; children: ReactNode }) {
+function SharePickerContainer({ mobile, label, onClose, children }: { mobile: boolean; label: string; onClose: () => void; children: ReactNode }) {
   if (mobile) {
-    return <Modal isOpen onClose={onClose} title="Share one of My Dubs" className="share-a-dub__modal"><div id="share-a-dub-menu">{children}</div></Modal>;
+    return <Modal isOpen onClose={onClose} title="Share dubs and packs" className="share-a-dub__modal"><div id="share-a-dub-menu">{children}</div></Modal>;
   }
-  return <div aria-label="My Dubs available to share" className="share-a-dub__popover" id="share-a-dub-menu" role="region">{children}</div>;
+  return <div aria-label={label} className="share-a-dub__popover" id="share-a-dub-menu" role="region">{children}</div>;
 }
 
-export interface MessengerTemplateProps {
+export interface MessengerTemplateProps extends PackQueueControls {
   buddies: Buddy[];
   conversations: Conversation[];
   dubs: Dub[];
   shareableDubs?: Dub[];
+  packs?: DubPack[];
+  shareablePacks?: DubPack[];
+  likedDubIds?: Set<string>;
+  onPlayPack?: (dubs: Dub[], packId?: string) => void;
+  onOpenPack?: (pack: DubPack) => void;
+  onDownloadPack?: (pack: DubPack) => Promise<void>;
+  onSendPack?: (buddyId: string, pack: DubPack, confirmAccess: boolean) => Promise<boolean>;
   initialBuddyId: string;
   navigationKey?: number;
   chatConnectionStatus: ChatConnectionStatus;
@@ -81,6 +91,15 @@ export function MessengerTemplate({
   chatConnectionStatus,
   dubs,
   shareableDubs = [],
+  packs = [],
+  shareablePacks = [],
+  likedDubIds = new Set<string>(),
+  onPlayPack,
+  onOpenPack,
+  onDownloadPack,
+  onSendPack,
+  onActivateQueue,
+  activePackId,
   initialBuddyId,
   navigationKey = 0,
   nowPlayingId,
@@ -116,6 +135,8 @@ export function MessengerTemplate({
   const [visibleDubCount, setVisibleDubCount] = useState(20);
   const [isShareMenuOpen, setIsShareMenuOpen] = useState(false);
   const [shareQuery, setShareQuery] = useState("");
+  const [shareCategory, setShareCategory] = useState<"dubs" | "packs">("dubs");
+  const [sharingPack, setSharingPack] = useState<{ pack: DubPack; buddy: Buddy } | null>(null);
   const [sharing, setSharing] = useState(false);
   const [shareFailed, setShareFailed] = useState(false);
   const mobile = useMobileLayout();
@@ -142,6 +163,9 @@ export function MessengerTemplate({
     && [dub.title, dub.artist].some((value) => value.toLocaleLowerCase().includes(shareQuery.trim().toLocaleLowerCase())),
   );
   const visibleDubs = filteredDubs.slice(0, visibleDubCount);
+  const filteredPacks = shareablePacks.filter((pack) => pack.status === "published"
+    && (pack.distribution !== "alist" || pack.aListPublic || selectedBuddy?.aListApproved)
+    && [pack.title, pack.description].some((value) => value.toLocaleLowerCase().includes(shareQuery.trim().toLocaleLowerCase())));
 
   useEffect(() => {
     setLoadingOlder(false);
@@ -336,6 +360,9 @@ export function MessengerTemplate({
                 const sharedDub = chatMessage.dubId
                   ? dubs.find((dub) => dub.id === chatMessage.dubId)
                   : undefined;
+                const sharedPack = chatMessage.packId
+                  ? packs.find((pack) => pack.id === chatMessage.packId)
+                  : undefined;
                 return (
                   <div
                     className={`chat-message chat-message--${chatMessage.sender}`}
@@ -365,13 +392,23 @@ export function MessengerTemplate({
                         {chatMessage.unsent ? (
                           <p className="chat-message__unsent">This message was unsent.</p>
                         ) : chatMessage.packId ? (
-                          <div className="shared-pack-message"><p>{chatMessage.text}</p>
-                            <a href={`/#pack?id=${encodeURIComponent(chatMessage.packId)}`}>Open pack</a>
-                          </div>
+                          sharedPack && onPlayPack && onOpenPack ? <div className="shared-pack-message">
+                            {chatMessage.text !== `Shared a ${packTypeLabel(sharedPack.kind)}: ${sharedPack.title}` && <p>{chatMessage.text}</p>}
+                            <DubPackCard pack={sharedPack} likedDubIds={likedDubIds}
+                              nowPlayingId={nowPlayingId} isPlaying={isPlaying} onPlay={onPlay} onDownload={onDownload}
+                              onPlayAll={onPlayPack} onOpenPack={onOpenPack} onDownloadPack={onDownloadPack}
+                              activePackId={activePackId} onActivateQueue={onActivateQueue} onPrevious={onPrevious} onNext={onNext}
+                              shuffle={shuffle} repeat={repeat} onShuffleChange={onShuffleChange} onRepeatChange={onRepeatChange}
+                              currentTimeSeconds={currentTimeSeconds} durationSeconds={durationSeconds}
+                              onSeek={onSeek} onSeekProgress={onSeekProgress} volume={volume} onVolumeChange={onVolumeChange}
+                              playbackError={playbackError} />
+                          </div> : <div className="shared-pack-message"><p>{chatMessage.text}</p>
+                            <a href={`/#pack?id=${encodeURIComponent(chatMessage.packId)}`}>Open pack</a></div>
                         ) : sharedDub ? (
                           <div className="shared-dub-message">
                             {chatMessage.text !== `Shared a dub: ${sharedDub.title}` && <p>{chatMessage.text}</p>}
                             <AudioPlayer
+                              mediaKind={sharedDub.mediaKind}
                               className="shared-dub__player"
                               currentTimeSeconds={nowPlayingId === sharedDub.id ? currentTimeSeconds : 0}
                               durationSeconds={nowPlayingId === sharedDub.id ? durationSeconds : undefined}
@@ -461,7 +498,7 @@ export function MessengerTemplate({
                 aria-haspopup={mobile ? "dialog" : undefined}
                 className="share-a-dub__trigger"
                 leadingIcon={<Disc3 />}
-                onClick={() => setIsShareMenuOpen((open) => !open)}
+                onClick={() => { setShareCategory("dubs"); setIsShareMenuOpen((open) => !open); }}
                 ref={shareMenuTriggerRef}
                 size="small"
                 variant="primary"
@@ -469,19 +506,36 @@ export function MessengerTemplate({
                 <span className="share-a-dub__label">Share one of My Dubs</span>
                 <span aria-hidden="true" className="share-a-dub__label-compact">Share dub</span>
               </Button>
+              {onSendPack && <Button aria-label="Share a pack" aria-expanded={isShareMenuOpen && shareCategory === "packs"}
+                aria-controls="share-a-dub-menu" size="small" variant="secondary" leadingIcon={<Disc3 aria-hidden="true" />}
+                onClick={() => { setShareCategory("packs"); setIsShareMenuOpen(true); }}>Share pack</Button>}
               {isShareMenuOpen && (
-                <SharePickerContainer mobile={mobile} onClose={() => setIsShareMenuOpen(false)}>
+                <SharePickerContainer mobile={mobile} label={shareCategory === "packs" ? "Packs available to share" : "My Dubs available to share"} onClose={() => setIsShareMenuOpen(false)}>
+                  {onSendPack && <div className="share-a-dub__categories" role="group" aria-label="Share type">
+                    <Button size="small" variant={shareCategory === "dubs" ? "primary" : "secondary"} aria-pressed={shareCategory === "dubs"}
+                      onClick={() => setShareCategory("dubs")}>Dubs</Button>
+                    <Button size="small" variant={shareCategory === "packs" ? "primary" : "secondary"} aria-pressed={shareCategory === "packs"}
+                      onClick={() => setShareCategory("packs")}>Dub &amp; Sample Packs</Button>
+                  </div>}
                   <div className="share-a-dub__popover-header">
                     <SearchField
-                      aria-label="Search My Dubs to share"
+                      aria-label={shareCategory === "packs" ? "Search packs to share" : "Search My Dubs to share"}
                       className="share-a-dub__search"
                       onChange={(event) => { setShareQuery(event.currentTarget.value); setVisibleDubCount(20); }}
-                      placeholder="Search My Dubs"
+                      placeholder={shareCategory === "packs" ? "Search packs" : "Search My Dubs"}
                       value={shareQuery}
                     />
                   </div>
                   {shareFailed && <p className="share-a-dub__empty" role="alert">Could not send this dub. Check the notification and try again.</p>}
-                  <InfiniteScroll
+                  {shareCategory === "packs" ? <div className="share-a-dub__pack-results">
+                    {filteredPacks.map((pack) => <div key={pack.id} className="share-a-dub__pack">
+                      <DubPackIdentity pack={pack} compact />
+                      <Button size="small" variant="secondary" aria-label={`Share ${pack.title}`} onClick={() => {
+                        setSharingPack({ pack, buddy: selectedBuddy }); setIsShareMenuOpen(false);
+                      }}>Share pack</Button>
+                    </div>)}
+                    {!filteredPacks.length && <p className="share-a-dub__empty">No published packs match. Publish a Dub or Sample Pack in My Dubs first.</p>}
+                  </div> : <InfiniteScroll
                     className="share-a-dub__list"
                     contentClassName="share-a-dub__results"
                     hasMore={visibleDubs.length < filteredDubs.length}
@@ -532,7 +586,7 @@ export function MessengerTemplate({
                     {shareableDubs.length > 0 && filteredDubs.length === 0 && (
                       <p className="share-a-dub__empty">No dubs match your search.</p>
                     )}
-                  </InfiniteScroll>
+                  </InfiniteScroll>}
                 </SharePickerContainer>
               )}
             </div>
@@ -546,6 +600,8 @@ export function MessengerTemplate({
           </div>
         )}
       </section>
+      {sharingPack && onSendPack && <SharePackDialog key={`${sharingPack.pack.id}:${sharingPack.buddy.id}`} pack={sharingPack.pack}
+        buddies={[sharingPack.buddy]} initialBuddyIds={[sharingPack.buddy.id]} onClose={() => setSharingPack(null)} onSend={onSendPack} />}
     </div>
   );
 }

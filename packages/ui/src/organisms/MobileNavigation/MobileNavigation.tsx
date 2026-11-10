@@ -27,7 +27,7 @@ export function MobileNavigation({ sections, activeItem, primaryHrefs }: MobileN
       <nav className="mobile-tabs mobile-navigation" aria-label="Main sections">
         {primary.map((item) => (
           <a aria-current={activeItem === item.label ? "page" : undefined}
-            className={["mobile-navigation__item", item.variant && `mobile-navigation__item--${item.variant}`].filter(Boolean).join(" ")}
+            className={["mobile-navigation__item", item.variant && `mobile-navigation__item--${item.variant}`, item.mediaKind && `media-kind--${item.mediaKind}`].filter(Boolean).join(" ")}
             href={item.href ?? "#"} key={item.label} onClick={item.onClick}>
             <span className="mobile-navigation__icon" aria-hidden="true">{item.icon}</span>
             <span>{item.label}</span>

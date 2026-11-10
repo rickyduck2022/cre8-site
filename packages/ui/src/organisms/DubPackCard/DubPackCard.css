@@ -14,6 +14,7 @@
 .pack-artwork .track-artwork { width: 100%; height: 100%; border-radius: 0; }
 .pack-identity { display: flex; align-items: center; gap: 1.25rem; min-width: 0; }
 .pack-identity__details { min-width: 0; }
+.pack-identity--alist { border-inline-start: 3px solid var(--action-primary); padding-inline-start: 0.75rem; }
 .pack-identity h1, .pack-identity h2 { overflow-wrap: anywhere; margin-block: 0.5rem; }
 .pack-identity p { margin-block: 0.25rem; }
 .pack-identity--compact { align-items: start; gap: 0.75rem; }
@@ -31,6 +32,7 @@
   padding: 1rem;
 }
 .dub-pack-card--current { border-color: var(--audio-active); }
+.dub-pack-card__queue-hint { margin: 0; }
 .dub-pack-card__actions { align-items: center; display: flex; flex-wrap: wrap; gap: 0.5rem; }
 .dub-pack-card__actions > :last-child { margin-left: auto; }
 .dub-pack-card__playlist { display: grid; gap: 0.5rem; list-style: none; margin: 0; padding: 0; max-height: 28rem; overflow: auto; }
@@ -49,3 +51,9 @@
   .pack-identity .pack-badges { gap: 0.375rem; }
   .dub-pack-card { padding: 0.75rem; }
 }
+.share-pack__confirmation {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--spacing-3);
+}
+.share-pack__confirmation input { flex: 0 0 auto; }

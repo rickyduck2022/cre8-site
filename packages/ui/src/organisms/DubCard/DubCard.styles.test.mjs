@@ -47,7 +47,7 @@ it("removes the embedded player border while retaining horizontal padding", () =
   }
 });
 
-it("gives all dub cards the dark surface and distinct distribution colors", () => {
+it("gives individual dub cards the dark surface without overriding collection surfaces", () => {
   const surfaces = readFileSync(resolve("src", "foundations", "DistributionSurfaces.css"), "utf8");
   const css = readFileSync(resolve("src", "organisms", "DubCard", "DubCard.css"), "utf8");
   const style = document.createElement("style");
@@ -58,9 +58,12 @@ it("gives all dub cards the dark surface and distinct distribution colors", () =
     const card = rules.find((rule) => rule instanceof CSSStyleRule && rule.selectorText === ".dub-card");
     expect(card.style.getPropertyValue("box-shadow")).toBe("var(--shadow-card)");
     expect(card.style.getPropertyValue("border")).toBe("1px solid var(--color-neutral-950)");
-    const surface = rules.find((rule) => rule instanceof CSSStyleRule && rule.selectorText.split(",").map((part) => part.trim()).includes(".dub-card"));
+    const surface = rules.find((rule) => rule instanceof CSSStyleRule && rule.selectorText.split(",").map((part) => part.trim()).includes(".dub-card:not(.dub-card--collection)"));
     expect(surface.style.getPropertyValue("--surface-raised").trim()).toBe("var(--color-background)");
-    for (const [distribution, color, shadow] of [["worldwide", "var(--color-blue-500)", "var(--shadow-control-blue)"], ["private", "var(--audio-active)", "var(--shadow-control-audio)"], ["alist", "var(--action-primary-hover)", "var(--shadow-control-accent)"]]) {
+    const collection = document.createElement("article");
+    collection.className = "dub-card dub-card--collection";
+    expect(collection.matches(surface.selectorText)).toBe(false);
+    for (const [distribution, color, shadow] of [["worldwide", "var(--color-blue-500)", "var(--shadow-control-blue)"], ["private", "var(--audio-active)", "var(--shadow-control-audio)"], ["alist", "var(--action-primary)", "var(--shadow-control-accent)"]]) {
       const selector = `.dub-card__distribution--${distribution}, .dub-card__distribution--${distribution}:hover`;
       const rule = rules.find((candidate) => candidate instanceof CSSStyleRule && candidate.selectorText.replace(/\s+/g, " ") === selector);
       expect(rule.style.getPropertyValue("background")).toBe(color);

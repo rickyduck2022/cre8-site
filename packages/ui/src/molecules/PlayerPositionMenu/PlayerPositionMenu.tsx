@@ -5,7 +5,7 @@ import { Button } from "../../atoms/Button/Button";
 import { PlayerTab } from "../../atoms/PlayerTab/PlayerTab";
 import "./PlayerPositionMenu.css";
 
-export type PlayerPosition = "header" | "footer" | "sidebar" | "default" | "floating" | "left-edge" | "right-edge";
+export type PlayerPosition = "header" | "footer" | "sidebar" | "right-dock" | "default" | "floating" | "left-edge" | "right-edge" | "fullscreen" | "minimized";
 
 export interface PlayerPositionMenuProps {
   positions: PlayerPosition[];
@@ -18,10 +18,13 @@ const labels: Record<PlayerPosition, string> = {
   header: "Header",
   footer: "Footer",
   sidebar: "Left sidebar",
+  "right-dock": "Right dock",
   default: "Default mini position",
   floating: "Pop out",
   "left-edge": "Left edge",
   "right-edge": "Right edge",
+  fullscreen: "Full screen",
+  minimized: "Minimized",
 };
 
 function PositionIcon({ position }: { position: PlayerPosition }) {
@@ -29,10 +32,13 @@ function PositionIcon({ position }: { position: PlayerPosition }) {
     header: { x: 4, y: 5, width: 16, height: 3 },
     footer: { x: 4, y: 16, width: 16, height: 3 },
     sidebar: { x: 4, y: 5, width: 4, height: 14 },
+    "right-dock": { x: 16, y: 5, width: 4, height: 14 },
     default: { x: 13, y: 14, width: 6, height: 4 },
     floating: { x: 9, y: 9, width: 6, height: 5 },
     "left-edge": { x: 4, y: 9, width: 2, height: 6 },
     "right-edge": { x: 18, y: 9, width: 2, height: 6 },
+    fullscreen: { x: 4, y: 5, width: 16, height: 14 },
+    minimized: { x: 13, y: 14, width: 6, height: 4 },
   };
   return (
     <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
@@ -106,7 +112,7 @@ export function PlayerPositionMenu({ positions, current, onSelect, opacityContro
               onChange={(event) => opacityControl.onChange(Number(event.currentTarget.value))} />
           </label>}
         </div>,
-        document.body,
+        root.current?.closest("dialog") ?? document.body,
       )}
     </div>
   );

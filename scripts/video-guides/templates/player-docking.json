@@ -1,0 +1,34 @@
+{
+  "id": "player-docking",
+  "title": "Choose your player layout",
+  "description": "Use desktop side docks or compact mobile header/footer placement while browsing both vaults.",
+  "fixture": "community",
+  "assets": { "audio": { "env": "GUIDE_AUDIO_PATH" } },
+  "steps": [
+    { "caption": "1. Start Night Sessions. Playback remains available as you navigate.", "actions": [
+      { "type": "click", "target": { "role": "button", "name": "Play all", "within": { "role": "article", "name": "Dub Pack: Night Sessions" } } }
+    ] },
+    { "caption": "2. Choose Right dock to keep the player beside the content.", "actions": [
+      { "type": "click", "target": { "role": "button", "name": "Choose player position" } },
+      { "type": "click", "target": { "role": "button", "name": "Right dock" } }
+    ], "profileOverrides": { "mobile": { "caption": "2. Choose Header for a compact player above the page.", "actions": [
+      { "type": "click", "target": { "role": "button", "name": "Choose player position" } },
+      { "type": "click", "target": { "role": "button", "name": "Header" } }
+    ] } } },
+    { "caption": "3. Open Samples. Your current Dub Pack continues playing independently of the page.", "actions": [
+      { "type": "navigate", "destination": "samples" },
+      { "type": "waitFor", "target": { "role": "heading", "name": "Sample Vault" } }
+    ] },
+    { "caption": "4. Choose Footer to return to a horizontal player beneath the page.", "actions": [
+      { "type": "click", "target": { "role": "button", "name": "Choose player position" } },
+      { "type": "click", "target": { "role": "button", "name": "Footer" } }
+    ] },
+    { "caption": "5. Pop out keeps the essential controls in a small floating player.", "actions": [
+      { "type": "click", "target": { "role": "button", "name": "Choose player position" } },
+      { "type": "click", "target": { "role": "button", "name": "Pop out" } }
+    ], "profileOverrides": { "mobile": { "caption": "5. Minimized keeps the essential controls in a small floating player.", "actions": [
+      { "type": "click", "target": { "role": "button", "name": "Choose player position" } },
+      { "type": "click", "target": { "role": "button", "name": "Minimized" } }
+    ] } } }
+  ]
+}

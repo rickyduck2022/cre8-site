@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { getDubSearchFilterCount } from "@craft/ui";
-import type { Dub, DubSearchFilters } from "@craft/ui";
+import type { Dub, DubSearchFilters, MediaKind } from "@craft/ui";
 
 interface DubSearchResponse {
   dubs: Dub[];
@@ -18,6 +18,7 @@ export function useDubSearch(
   filters: DubSearchFilters,
   enabled = true,
   distribution: "worldwide" | "alist" | "feed" = "worldwide",
+  mediaKind?: MediaKind,
 ): DubSearchState {
   const [state, setState] = useState<DubSearchState>({
     results: null,
@@ -78,6 +79,7 @@ export function useDubSearch(
     const timer = window.setTimeout(async () => {
       const params = new URLSearchParams();
       params.set("distribution", distribution);
+      if (mediaKind) params.set("mediaKind", mediaKind);
       if (distribution === "feed") criteria.distributions.forEach((value) => params.append("distributionType", value));
       if (criteria.query) params.set("q", criteria.query);
       criteria.tags.forEach((tag) => params.append("tag", tag));
@@ -115,7 +117,7 @@ export function useDubSearch(
       window.clearTimeout(timer);
       controller.abort();
     };
-  }, [enabled, searchKey, distribution]);
+  }, [enabled, searchKey, distribution, mediaKind]);
 
   return state;
 }

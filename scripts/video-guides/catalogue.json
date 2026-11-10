@@ -5,7 +5,7 @@
   },
   {
     "title": "2. Discovering and listening",
-    "journeys": ["find-dub", "playback-mini-player", "download-to-library"]
+    "journeys": ["find-dub", "sample-vault", "playback-mini-player", "player-fullscreen", "player-docking", "download-to-library"]
   },
   {
     "title": "3. Publishing and managing dubs",
@@ -21,6 +21,14 @@
   },
   {
     "title": "6. Dub and Sample Packs",
-    "journeys": ["create-dub-pack", "create-sample-pack"]
+    "journeys": ["create-dub-pack", "create-sample-pack", "pack-playlist", "manage-pack", "share-pack-messenger", "private-pack-share", "received-packs", "pack-external-preview"]
+  },
+  {
+    "title": "7. A-List artists and releases",
+    "journeys": ["alist-first-application", "alist-application", "alist-releases"]
+  },
+  {
+    "title": "8. Community administration",
+    "journeys": ["admin-review", "admin-request-information", "admin-community"]
   }
 ]

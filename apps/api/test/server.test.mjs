@@ -196,7 +196,7 @@ test("external dub links expose only public metadata and streams, preserving aut
         "id", "title", "artist", "artistAListApproved", "uploader", "uploaderDisplayName",
         "uploadedAt", "bpm", "genre", "duration", "likes", "downloads", "artwork",
         "message", "distribution", "aListPublic", "audioUrl", "artworkUrl",
-        "previewSeconds",
+        "previewSeconds", "mediaKind",
       ].sort());
       assert.equal(body.dub.duration, "00:30");
       assert.equal(body.dub.previewSeconds, 30);

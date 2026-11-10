@@ -8,6 +8,21 @@ import { DubSearchToolbar } from "./DubSearchToolbar";
 afterEach(cleanup);
 
 describe("DubSearchToolbar", () => {
+  it("returns dashboard results to the top when inline sticky filters change", () => {
+    const content = (query: string) => <div className="dashboard-template">
+      <div className="scroll-viewport dashboard-template__body">
+        <div className="library-template">
+          <DubSearchToolbar query={query}>{() => <span>Filters</span>}</DubSearchToolbar>
+        </div>
+      </div>
+    </div>;
+    const { container, rerender } = render(content(""));
+    const viewport = container.querySelector<HTMLElement>(".scroll-viewport")!;
+    viewport.scrollTop = 500;
+    rerender(content("jungle"));
+    expect(viewport.scrollTop).toBe(0);
+  });
+
   it("toggles the mobile controls without losing their state", () => {
     const { container, rerender } = render(<DubSearchToolbar query="Jungle">{() => <input aria-label="Search" defaultValue="Jungle" />}</DubSearchToolbar>);
     const input = screen.getByRole("textbox", { name: "Search" });

@@ -1,7 +1,10 @@
 import type { MouseEvent, ReactNode } from "react";
 import { Avatar } from "../../atoms/Avatar/Avatar";
 import { Brand } from "../../molecules/Brand/Brand";
+import type { MediaKind } from "../../types/domain";
+import "../../foundations/MediaPalette.css";
 import "../Organisms.css";
+import "./Navigation.css";
 
 export interface NavigationItem {
   label: string;
@@ -9,6 +12,7 @@ export interface NavigationItem {
   href?: string;
   badge?: string;
   variant?: "alist" | "private";
+  mediaKind?: MediaKind;
   onClick?: (event: MouseEvent<HTMLAnchorElement>) => void;
 }
 
@@ -105,7 +109,7 @@ function NavigationSectionView({
           <a
             aria-current={activeItem === item.label ? "page" : undefined}
             aria-label={variant === "icons" ? item.label : undefined}
-            className={["navigation__item", item.variant && `navigation__item--${item.variant}`].filter(Boolean).join(" ")}
+            className={["navigation__item", item.variant && `navigation__item--${item.variant}`, item.mediaKind && `media-kind--${item.mediaKind}`].filter(Boolean).join(" ")}
             href={item.href ?? "#"}
             key={item.label}
             onClick={item.onClick}

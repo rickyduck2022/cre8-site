@@ -1,0 +1,29 @@
+{
+  "id": "pack-external-preview",
+  "title": "Share a public pack link",
+  "description": "Copy a public pack link and open its dedicated release page with playlist and usage terms.",
+  "fixture": "community",
+  "assets": { "audio": { "env": "GUIDE_AUDIO_PATH" } },
+  "steps": [
+    { "caption": "1. Open Your Samples and select Packs to manage a public Sample Pack.", "actions": [
+      { "type": "navigate", "destination": "my-samples" },
+      { "type": "click", "target": { "role": "button", "name": "Packs" } }
+    ] },
+    { "caption": "2. Open Jungle Toolkit. Its page includes the playlist and usage licence.", "actions": [
+      { "type": "fill", "target": { "label": "Search packs" }, "value": "Jungle Toolkit" },
+      { "type": "click", "target": { "role": "button", "name": "Open pack" } }
+    ] },
+    { "caption": "3. Choose Share pack, then External link.", "actions": [
+      { "type": "click", "target": { "role": "button", "name": "Share pack" } },
+      { "type": "click", "target": { "role": "button", "name": "External link" } }
+    ] },
+    { "caption": "4. Copy the link. Guests receive short previews; full playback and downloads need sign-in.", "actions": [
+      { "type": "click", "target": { "role": "button", "name": "Copy link" } },
+      { "type": "captureLink", "target": { "label": "Pack share link" }, "variable": "sharedUrl" }
+    ] },
+    { "caption": "5. Open the link to see the dedicated release page. Sample reuse rights remain licence-controlled.", "actions": [
+      { "type": "visit", "value": "{{sharedUrl}}" },
+      { "type": "waitFor", "target": { "role": "article", "name": "Sample Pack: Jungle Toolkit" } }
+    ] }
+  ]
+}

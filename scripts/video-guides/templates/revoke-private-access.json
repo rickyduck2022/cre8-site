@@ -20,10 +20,10 @@
   ],
   "steps": [
     {
-      "caption": "Open My Dubs to manage private access.",
+      "caption": "Open Your Dubs to manage private access.",
       "actions": [
         { "type": "navigate", "destination": "my-dubs" },
-        { "type": "waitFor", "target": { "role": "heading", "name": "My Dubs" } },
+        { "type": "waitFor", "target": { "role": "heading", "name": "Your Dubs" } },
         { "type": "waitFor", "target": { "role": "region", "name": "Audio player: {{trackTitle}}" } }
       ],
       "holdMs": 4500

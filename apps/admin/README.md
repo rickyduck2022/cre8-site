@@ -29,3 +29,25 @@ the chosen username in `ADMIN_USERNAMES`. If only one seed variable is set,
 startup fails rather than creating an account with an unintended password.
 
 The dashboard currently provides aggregate community activity and searchable member and release inventories. Sensitive credential hashes, salts, session values, and private profile fields are never included in its response.
+
+## Administration journeys
+
+The console reuses the community design tokens, Brand, Navigation, Avatar,
+SearchField, Badge, Button and Modal/ModalFooter components from `@craft/ui`.
+Shared icons come from `@craft/icons`; admin CSS handles layout and data views
+rather than defining a separate color palette.
+
+- **Overview** starts with actionable paths to artist reviews, member discovery
+  and release inventory, followed by community totals, activity and top releases.
+  Counts describe a snapshot, not an always-live feed; use **Refresh data** to update.
+- **A-List reviews** puts pending submissions first, with artist search and status
+  filtering. Read identity/experience, scene highlights, social profiles and the
+  decision history before approving, requesting information or rejecting.
+  Rejection and access revocation require confirmation. Approved members remain
+  manageable even when they predate the application workflow.
+- **Members** and **Releases** provide searchable inventories and links back to
+  community profiles. The member directory also leads to A-List access management.
+
+Sections have direct hash routes (`#overview`, `#applications`, `#members`,
+`#releases`) and support browser back/forward. Navigation wraps into grouped
+mobile sections; wide tables scroll within their own keyboard-focusable region.

@@ -102,6 +102,7 @@ export function SharedDubPage({ dubId }: { dubId: string }) {
             <AudioPlayer
               className="shared-dub-page__player"
               colorVariant="controller"
+              mediaKind={track.mediaKind}
               transportVariant="minimal"
               distribution={track.distribution}
               track={{ title: track.title, artist: track.artist, duration: track.duration }}

@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from "react";
-import { Button, DubPackIdentity, SearchField, type PackQueueControls, type ArtistOption, type Buddy, type Dub } from "@craft/ui";
+import { Button, DubPackIdentity, SearchField, type PackQueueControls, type ArtistOption, type Buddy, type Dub, type MediaKind } from "@craft/ui";
 import { PackEditor } from "./PackEditor";
 import { PackView, type PackPlayback } from "./PackView";
 import { canAddDubToPack, packRequest, type Pack } from "../services/packs";
 import "./Packs.css";
 
 interface Props extends PackQueueControls {
+  mediaKind?: MediaKind;
   username: string;
   approved: boolean;
   dubs: Dub[];
@@ -13,7 +14,7 @@ interface Props extends PackQueueControls {
   buddies: Buddy[];
   playback: PackPlayback;
   onPlay: (dub: Dub) => void;
-  onPlayAll: (dubs: Dub[]) => void;
+  onPlayAll: (dubs: Dub[], packId?: string) => void;
   onSeek: (progress: number, dub: Dub) => void;
   onVolume: (volume: number) => void;
   onDownloadDub: (dub: Dub) => Promise<void>;
@@ -53,7 +54,7 @@ export function PackWorkspace(props: Props) {
     if (creating.current) return;
     creating.current = true; setPending(true); setError("");
     try {
-      let { pack } = await packRequest<{ pack: Pack }>("/api/packs", "POST", { title: "Untitled pack", kind: "dub", distribution: props.pendingDub?.distribution ?? "worldwide", aListPublic: props.pendingDub?.aListPublic ?? false });
+      let { pack } = await packRequest<{ pack: Pack }>("/api/packs", "POST", { title: "Untitled pack", kind: props.mediaKind ?? "dub", distribution: props.pendingDub?.distribution ?? "worldwide", aListPublic: props.pendingDub?.aListPublic ?? false });
       if (props.pendingDub) {
         ({ pack } = await packRequest<{ pack: Pack }>(`/api/packs/${pack.id}`, "PATCH", { dubIds: [props.pendingDub.id] }));
       }
@@ -64,7 +65,8 @@ export function PackWorkspace(props: Props) {
   useEffect(() => {
     if (props.create) void create();
   }, [props.create]);
-  const filtered = packs.filter((pack) => (kind === "all" || pack.kind === kind)
+  const scopedPacks = packs.filter((pack) => !props.mediaKind || (pack.kind === props.mediaKind && pack.ownerUsername === props.username));
+  const filtered = scopedPacks.filter((pack) => (kind === "all" || pack.kind === kind)
     && `${pack.title} ${pack.ownerDisplayName}`.toLowerCase().includes(query.trim().toLowerCase()));
   const hasFilters = Boolean(query || kind !== "all");
   function clearFilters() { setQuery(""); setKind("all"); }
@@ -78,26 +80,27 @@ export function PackWorkspace(props: Props) {
       }}
       onSaved={(pack) => { setPacks((current) => [pack, ...current.filter((item) => item.id !== pack.id)]); setSelected(pack); setEditing(false); }} />
       : <PackView key={selected.id} pack={selected} authenticated owner={selected.ownerUsername === props.username} buddies={props.buddies}
-        onActivateQueue={props.onActivateQueue} onPrevious={props.onPrevious} onNext={props.onNext}
+        activePackId={props.activePackId} onActivateQueue={props.onActivateQueue} onPrevious={props.onPrevious} onNext={props.onNext}
         shuffle={props.shuffle} repeat={props.repeat} onShuffleChange={props.onShuffleChange} onRepeatChange={props.onRepeatChange}
         playback={props.playback} onPlay={props.onPlay} onPlayAll={props.onPlayAll} onSeek={props.onSeek} onVolume={props.onVolume}
         onDownloadDub={props.onDownloadDub} onEdit={() => setEditing(true)} onDelete={() => setSelected(null)}
         onRefresh={async () => { await refresh(); await props.onCommunityChange(); }} />}
   </>;
-  return <section className="pack-workspace" aria-label="Packs">
-    <header className="pack-toolbar"><div><h1>Packs</h1><p className="pack-muted">Your releases and packs shared with you.</p></div>
+  const packTitle = props.mediaKind === "sample" ? "Your Sample Packs" : props.mediaKind === "dub" ? "Your Dub Packs" : "Packs";
+  return <section className="pack-workspace" aria-label={packTitle}>
+    <header className="pack-toolbar"><div><h1>{packTitle}</h1><p className="pack-muted">{props.mediaKind ? "Manage your published releases and private drafts." : "Your releases and packs shared with you."}</p></div>
       <Button disabled={pending} loading={pending} onClick={() => void create()}>Create pack</Button></header>
     {props.pendingDub && <p className="pack-notice">Choose a compatible pack for <strong>{props.pendingDub.title}</strong>, or create a new pack.</p>}
     <div className="pack-filters">
       <SearchField aria-label="Search packs" placeholder="Search packs or uploaders" value={query} onChange={(event) => setQuery(event.currentTarget.value)} />
-      <label className="pack-filter-kind"><span className="sr-only">Pack type filter</span><select value={kind} onChange={(event) => setKind(event.currentTarget.value)}><option value="all">All packs</option><option value="dub">Dub Packs</option><option value="sample">Sample Packs</option></select></label>
+      {!props.mediaKind && <label className="pack-filter-kind"><span className="sr-only">Pack type filter</span><select value={kind} onChange={(event) => setKind(event.currentTarget.value)}><option value="all">All packs</option><option value="dub">Dub Packs</option><option value="sample">Sample Packs</option></select></label>}
       {hasFilters && <Button variant="tertiary" onClick={clearFilters}>Clear filters</Button>}
     </div>
     {loading && <p role="status">Loading packs...</p>}
     {error && <div role="alert"><p>{error}</p><Button variant="secondary" onClick={() => setAttempt((current) => current + 1)}>Retry</Button></div>}
     {!loading && !error && !filtered.length && <div className="pack-empty">
-      <h2>{packs.length ? "No matching packs" : "Your next release starts here"}</h2>
-      <p>{packs.length ? "Try another search or clear your filters." : "Create a Dub Pack or Sample Pack from new files or your existing uploads. Drafts stay private until you publish."}</p>
+      <h2>{scopedPacks.length ? "No matching packs" : "Your next release starts here"}</h2>
+      <p>{scopedPacks.length ? "Try another search or clear your filters." : `Create ${props.mediaKind === "sample" ? "a Sample Pack" : props.mediaKind === "dub" ? "a Dub Pack" : "a Dub Pack or Sample Pack"} from new files or your existing uploads. Drafts stay private until you publish.`}</p>
       {hasFilters && <Button variant="secondary" onClick={clearFilters}>Show all packs</Button>}
     </div>}
     {!loading && !error && filtered.length > 0 && <p className="pack-muted" role="status">{filtered.length} {filtered.length === 1 ? "pack" : "packs"}</p>}

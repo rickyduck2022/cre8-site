@@ -14,10 +14,10 @@
   ],
   "steps": [
     {
-      "caption": "1. Select My Dubs to find Night Drive, already published with its audio and artwork.",
+      "caption": "1. Select Your Dubs to find Night Drive, already published with its audio and artwork.",
       "actions": [
         { "type": "navigate", "destination": "my-dubs" },
-        { "type": "waitFor", "target": { "role": "heading", "name": "My Dubs" } },
+        { "type": "waitFor", "target": { "role": "heading", "name": "Your Dubs" } },
         { "type": "waitFor", "target": { "role": "region", "name": "Audio player: {{trackTitle}}" } }
       ]
     },

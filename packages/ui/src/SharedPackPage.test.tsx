@@ -37,7 +37,7 @@ it("shows sample licence and guest previews, then returns downloads through sign
   expect(screen.queryByRole("button", { name: "Edit pack" })).not.toBeInTheDocument();
   const controls = screen.getByRole("group", { name: "Toolkit playback controls" });
   fireEvent.click(within(controls).getByRole("button", { name: "Next track" }));
-  expect(playback.activateQueue).toHaveBeenCalledWith([expect.objectContaining({ id: "one" })]);
+  expect(playback.activateQueue).toHaveBeenCalledWith([expect.objectContaining({ id: "one" })], "pack");
   expect(playback.playNextDub).toHaveBeenCalledOnce();
   fireEvent.click(within(controls).getByRole("button", { name: "Enable repeat" }));
   expect(playback.setRepeat).toHaveBeenCalledWith(true);

@@ -1,0 +1,29 @@
+{
+  "id": "share-pack-messenger",
+  "title": "Send a pack in Messenger",
+  "description": "Send an existing Sample Pack to a friend and recognise the same pack card in their conversation.",
+  "fixture": "community",
+  "assets": { "audio": { "env": "GUIDE_AUDIO_PATH" } },
+  "steps": [
+    { "caption": "1. Open Sample Vault and choose Share pack on Jungle Toolkit.", "actions": [
+      { "type": "navigate", "destination": "samples" },
+      { "type": "click", "target": { "role": "button", "name": "Share pack", "within": { "role": "article", "name": "Sample Pack: Jungle Toolkit" } } }
+    ] },
+    { "caption": "2. Select your friend. Public packs keep their existing audience when sent.", "actions": [
+      { "type": "click", "target": { "role": "checkbox", "name": "Demo Listener @demorecipient" } }
+    ] },
+    { "caption": "3. Send pack places the entire release in Messenger, not separate file attachments.", "actions": [
+      { "type": "click", "target": { "role": "button", "name": "Send pack" } },
+      { "type": "waitFor", "target": { "text": "Pack sent to Demo Listener." } },
+      { "type": "click", "target": { "role": "button", "name": "Done" } }
+    ] },
+    { "caption": "4. Open Messenger to see your pack alongside the conversation.", "actions": [
+      { "type": "navigate", "destination": "messenger" },
+      { "type": "click", "target": { "role": "button", "name": "Open conversation with Demo Listener" } },
+      { "type": "waitFor", "target": { "role": "article", "name": "Sample Pack: Jungle Toolkit" }, "reveal": true }
+    ] },
+    { "caption": "5. Expand the pack in the message to inspect its files and play within that release.", "actions": [
+      { "type": "click", "target": { "role": "button", "name": "Show 2 samples", "within": { "role": "article", "name": "Sample Pack: Jungle Toolkit" } } }
+    ] }
+  ]
+}

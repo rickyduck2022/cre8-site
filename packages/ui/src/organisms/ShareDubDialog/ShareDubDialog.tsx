@@ -127,6 +127,7 @@ export function ShareDubDialog({ dub, buddies, friends = buddies, onClose, onFin
       <div className="share-dub-dialog__track">
         <span>SHARING</span>
         <AudioPlayer
+          mediaKind={dub.mediaKind}
           variant="inline"
           distribution={dub.distribution ?? "worldwide"}
           track={{

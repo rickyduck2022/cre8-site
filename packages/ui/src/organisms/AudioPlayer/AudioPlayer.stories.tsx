@@ -45,6 +45,14 @@ export const Controller: Story = {
   args: { colorVariant: "controller", onMinimizedChange: () => {} },
 };
 
+export const Sample: Story = {
+  args: { mediaKind: "sample", colorVariant: "playable" },
+};
+
+export const SampleController: Story = {
+  args: { mediaKind: "sample", colorVariant: "controller", onMinimizedChange: () => {} },
+};
+
 export const ControllerMinimized: Story = {
   args: { colorVariant: "controller", minimized: true, onMinimizedChange: () => {} },
 };

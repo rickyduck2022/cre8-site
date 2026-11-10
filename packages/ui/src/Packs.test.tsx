@@ -29,6 +29,24 @@ const editorProps = { pack, dubs: [dub], artists, approved: true, onSaved: vi.fn
 const playback = { nowPlayingId: null, isPlaying: false, currentTime: 0, duration: 0, volume: 0.7, playbackError: null };
 afterEach(() => { cleanup(); vi.clearAllMocks(); vi.unstubAllGlobals(); });
 
+it.each(["sample", "dub"] as const)("scopes the owned %s workspace and creates that pack type", async (mediaKind) => {
+  const owned = { ...pack, kind: mediaKind, title: "Owned release" };
+  mocks.request.mockImplementation(async (_path: string, method: string) => method === "POST"
+    ? { pack: { ...owned, id: "new", title: "Untitled pack" } }
+    : { packs: [owned, { ...owned, id: "other-kind", kind: mediaKind === "sample" ? "dub" : "sample", title: "Other kind" },
+      { ...owned, id: "other-owner", ownerUsername: "someone", title: "Other owner" }] });
+  render(<PackWorkspace mediaKind={mediaKind} username="amber" approved dubs={[dub]} artists={artists} buddies={[]} playback={playback}
+    onPlay={vi.fn()} onPlayAll={vi.fn()} onSeek={vi.fn()} onVolume={vi.fn()}
+    onDownloadDub={vi.fn()} onCommunityChange={vi.fn()} />);
+  expect(await screen.findByText("Owned release", { exact: true })).toBeVisible();
+  expect(screen.queryByText("Other kind")).not.toBeInTheDocument();
+  expect(screen.queryByText("Other owner")).not.toBeInTheDocument();
+  expect(screen.queryByRole("combobox", { name: "Pack type filter" })).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Create pack" }));
+  await waitFor(() => expect(mocks.request).toHaveBeenCalledWith("/api/packs", "POST", expect.objectContaining({ kind: mediaKind })));
+  expect(await screen.findByLabelText("Pack type")).toHaveValue(mediaKind);
+});
+
 describe("Pack editor", () => {
   it("advances instead of publishing when the details form is submitted", () => {
     const { container } = render(<PackEditor {...editorProps} />);
@@ -129,6 +147,22 @@ describe("Pack viewing and discovery", () => {
   const props = { pack: { ...pack, status: "published" as const }, authenticated: true, owner: true, playback,
     onPlay: vi.fn(), onPlayAll: vi.fn(), onSeek: vi.fn(), onVolume: vi.fn(), onDownloadDub: vi.fn(),
     onRefresh: vi.fn().mockResolvedValue(undefined), onEdit: vi.fn() };
+  it.each(["dub", "sample"] as const)("uses the shared %s pack playback button to pause and resume the selected file", (kind) => {
+    const active = { ...props.pack, kind };
+    const onActivateQueue = vi.fn(() => true);
+    const { rerender } = render(<PackView {...props} pack={active} activePackId="pack"
+      playback={{ ...playback, nowPlayingId: dub.id, isPlaying: true }} onActivateQueue={onActivateQueue} />);
+    const pause = screen.getByRole("button", { name: "Pause pack" });
+    expect(pause).toHaveClass("button--audio", `media-kind--${kind}`);
+    fireEvent.click(pause);
+    expect(props.onPlay).toHaveBeenLastCalledWith(dub);
+    expect(props.onPlayAll).not.toHaveBeenCalled();
+    expect(onActivateQueue).toHaveBeenCalledWith([dub], "pack");
+    rerender(<PackView {...props} pack={active} activePackId="pack" playback={{ ...playback, nowPlayingId: dub.id, isPlaying: false }}
+      onActivateQueue={onActivateQueue} />);
+    fireEvent.click(screen.getByRole("button", { name: "Play all" }));
+    expect(props.onPlay).toHaveBeenLastCalledWith(dub);
+  });
   it("uses ordered playlist DubCards wired to pack playback, sample keys and downloads", async () => {
     const second = { ...dub, id: "two", title: "Sunrise" };
     render(<PackView {...props} pack={{ ...props.pack, kind: "sample", items: [{ dub, key: "F minor" }, { dub: second }] }}
@@ -168,7 +202,7 @@ describe("Pack viewing and discovery", () => {
     vi.stubGlobal("navigator", { clipboard: { writeText: vi.fn().mockRejectedValue(new Error("Denied")) } });
     render(<PackView {...props} />);
     fireEvent.click(screen.getByRole("button", { name: "Play all" }));
-    expect(props.onPlayAll).toHaveBeenCalledWith([dub]);
+    expect(props.onPlayAll).toHaveBeenCalledWith([dub], "pack");
     fireEvent.click(screen.getByRole("button", { name: "Share pack" }));
     fireEvent.click(screen.getByRole("button", { name: "External link" }));
     fireEvent.click(screen.getByRole("button", { name: "Copy link" }));
@@ -210,7 +244,9 @@ describe("Pack viewing and discovery", () => {
     expect(send).toBeDisabled();
     fireEvent.click(screen.getByRole("checkbox", { name: "Grant selected friends access to all files currently in this pack." }));
     fireEvent.click(send);
-    await waitFor(() => expect(mocks.request).toHaveBeenCalledWith("/api/packs/pack/share", "POST", { buddyIds: ["new"], confirmNewAccess: true }));
+    await waitFor(() => expect(mocks.request).toHaveBeenCalledWith("/api/conversations/new/messages", "POST", {
+      text: "Shared a Dub Pack: Night sessions", packId: "pack", confirmPackAccess: true,
+    }));
   });
 
   it("loads saved drafts and filters Dub versus Sample Packs", async () => {

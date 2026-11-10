@@ -13,9 +13,10 @@
   ],
   "steps": [
     {
-      "caption": "1. Open My Dubs and select Create pack.",
+      "caption": "1. Open Your Dubs, choose Packs and select Create pack.",
       "actions": [
         { "type": "navigate", "destination": "my-dubs" },
+        { "type": "click", "target": { "role": "button", "name": "Packs" } },
         { "type": "click", "target": { "role": "button", "name": "Create pack" } },
         { "type": "waitFor", "target": { "role": "region", "name": "Pack editor" } }
       ]

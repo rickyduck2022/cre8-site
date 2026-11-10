@@ -8,6 +8,7 @@ import { Navigation } from "../../organisms/Navigation/Navigation";
 import type { DubPostProps } from "../../organisms/DubPost/DubPost";
 import { desktopNavigation, templatePosts } from "../TemplateContent";
 import { CollectionHeaderContext } from "../shared/CollectionHeaderContext";
+import { useMobileLayout } from "../../utils/useMobileLayout";
 import "../TemplateFrame.css";
 import "./DashboardTemplate.css";
 
@@ -41,6 +42,7 @@ export function DashboardTemplate({
   userName = "Meladee",
 }: DashboardTemplateProps) {
   const contentRef = useRef<HTMLDivElement>(null);
+  const isMobile = useMobileLayout();
   const [collectionHeader, setCollectionHeader] = useState<HTMLDivElement | null>(null);
   useLayoutEffect(() => {
     if (scrollContent && contentRef.current) contentRef.current.scrollTop = 0;
@@ -55,7 +57,7 @@ export function DashboardTemplate({
         : <CommunityPanel variant="sidebar" />;
 
   return (
-    <CollectionHeaderContext.Provider value={collectionHeader}>
+    <CollectionHeaderContext.Provider value={isMobile ? collectionHeader : null}>
     <main
       className={["template-frame", "dashboard-template", className]
         .filter(Boolean)
@@ -73,7 +75,7 @@ export function DashboardTemplate({
       <div className="dashboard-template__main">
         <div className="dashboard-template__header">
           {header ?? <AppHeader userName={userName} variant="compact" />}
-          <div className="dashboard-template__collection-header" ref={setCollectionHeader} />
+          {isMobile && <div className="dashboard-template__collection-header" ref={setCollectionHeader} />}
         </div>
         {contentOverlay && <div className="dashboard-template__content-overlay">{contentOverlay}</div>}
         <ScrollViewport

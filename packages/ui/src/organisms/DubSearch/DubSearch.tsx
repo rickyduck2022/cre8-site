@@ -5,7 +5,7 @@ import { Button } from "../../atoms/Button/Button";
 import { ModalFooter } from "../../molecules/ModalFooter/ModalFooter";
 import { SearchField } from "../../molecules/SearchField/SearchField";
 import { TagSelector } from "../../molecules/TagSelector/TagSelector";
-import type { Dub } from "../../types/domain";
+import type { Dub, MediaKind } from "../../types/domain";
 import { useMobileLayout } from "../../utils/useMobileLayout";
 import { Modal } from "../Modal/Modal";
 import "./DubSearch.css";
@@ -63,6 +63,7 @@ export function getDubSearchFilterCount(filters: DubSearchFilters, defaultDistri
 }
 
 export interface DubSearchProps {
+  mediaKind?: MediaKind;
   query: string;
   onQueryChange: (query: string) => void;
   filters: DubSearchFilters;
@@ -137,8 +138,11 @@ export function DubSearch({
   error,
   showDistributionFilter = true,
   defaultDistributions = ["worldwide", "alist"],
-  distributionHint = "A-List dubs require approval unless public. Select Private to include your own and shared private dubs.",
+  mediaKind = "dub",
+  distributionHint,
 }: DubSearchProps) {
+  const noun = mediaKind === "sample" ? "samples" : "dubs";
+  const searchLabel = mediaKind === "sample" ? "Search samples, artists, tags, or genres" : "Search tracks, artists, tags, or genres";
   const panelId = useId();
   const [expanded, setExpanded] = useState(false);
   const [draft, setDraft] = useState(filters);
@@ -184,7 +188,7 @@ export function DubSearch({
       <span aria-live="polite">
         {isSearching
           ? "Searching…"
-          : `${resultCount} ${resultCount === 1 ? "dub" : "dubs"} found`}
+          : `${resultCount} ${resultCount === 1 ? mediaKind : noun} found`}
       </span>
       <div className="dub-search__actions">
         {(filterCount > 0 || getDubSearchFilterCount(draft, defaultDistributions) > 0 || query) && (
@@ -230,7 +234,7 @@ export function DubSearch({
               </label>
             ))}
           </div>
-          <span className="dub-search__distribution-hint">{distributionHint}</span>
+          <span className="dub-search__distribution-hint">{distributionHint ?? `A-List ${noun} require approval unless public. Select Private to include your own and shared private ${noun}.`}</span>
         </fieldset>
       )}
       <TagSelector
@@ -281,15 +285,15 @@ export function DubSearch({
   );
 
   return (
-    <section aria-label="Search dubs" className="dub-search">
+    <section aria-label={`Search ${noun}`} className="dub-search">
       <div className="dub-search__row">
         <SearchField
-          aria-label="Search tracks, artists, tags, or genres"
+          aria-label={searchLabel}
           onChange={(event) => {
             onQueryChange(event.target.value);
             onSearch?.();
           }}
-          placeholder="Search tracks, artists, tags, or genres"
+          placeholder={searchLabel}
           value={query}
         />
         <Button
@@ -318,7 +322,7 @@ export function DubSearch({
         </div>
       )}
       {expanded && (mobile ? (
-        <Modal className="dub-search__dialog" isOpen onClose={() => setExpanded(false)} title="Filter dubs">
+        <Modal className="dub-search__dialog" isOpen onClose={() => setExpanded(false)} title={`Filter ${noun}`}>
           {panel}
         </Modal>
       ) : panel)}

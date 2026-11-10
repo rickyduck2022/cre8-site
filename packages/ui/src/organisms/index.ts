@@ -6,6 +6,7 @@ export * from "./DubPost/DubPost";
 export * from "./DubCard/DubCard";
 export * from "./DubPackCard/DubPackCard";
 export * from "./DubPackCard/PackPlaylist";
+export * from "./DubPackCard/SharePackDialog";
 export * from "./DubPackCard/DubPackCollection";
 export * from "./DubSearch/DubSearch";
 export * from "./DubManagementDialogs/DubManagementDialogs";

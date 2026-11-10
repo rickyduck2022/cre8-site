@@ -7,6 +7,7 @@ export interface PlaybackPosition {
 }
 
 interface PlaybackState {
+  queuePackId: string | null;
   nowPlayingId: string | null;
   isPlaying: boolean;
   currentTime: number;
@@ -18,6 +19,7 @@ interface PlaybackState {
 }
 
 const initialPlaybackState: PlaybackState = {
+  queuePackId: null,
   nowPlayingId: null, isPlaying: false, currentTime: 0, duration: 0,
   volume: 0.7, shuffle: false, repeat: false, playbackError: null,
 };
@@ -42,6 +44,7 @@ export function useAudioPlayback(
   const restoredUser = useRef<string | undefined>(undefined);
   const history = useRef<string[]>([]);
   const queue = useRef<string[] | null>(null);
+  const queuePackId = useRef<string | null>(null);
   const visited = useRef(new Set<string>());
   const saveQueue = useRef<Promise<void>>(Promise.resolve());
   const sessionGeneration = useRef(0);
@@ -105,10 +108,13 @@ export function useAudioPlayback(
 
   function playAdjacentDub(direction: -1 | 1, automatic = false) {
     const currentId = audioRef.current?.dataset.dubId;
-    const currentDistribution = dubsRef.current.find((dub) => dub.id === currentId)?.distribution ?? "worldwide";
+    const currentTrack = dubsRef.current.find((dub) => dub.id === currentId);
+    const currentDistribution = currentTrack?.distribution ?? "worldwide";
+    const currentMediaKind = currentTrack?.mediaKind ?? "dub";
     const playable = queue.current
       ? queue.current.map((id) => dubsRef.current.find((dub) => dub.id === id)).filter((dub): dub is Dub => Boolean(dub?.audioUrl))
-      : dubsRef.current.filter((dub) => dub.audioUrl && (dub.distribution ?? "worldwide") === currentDistribution);
+      : dubsRef.current.filter((dub) => dub.audioUrl && (dub.distribution ?? "worldwide") === currentDistribution
+        && (dub.mediaKind ?? "dub") === currentMediaKind);
     if (!playable.length) {
       onErrorRef.current("There are no playable audio files available.", "error");
       return;
@@ -285,19 +291,23 @@ export function useAudioPlayback(
   }
   function clearQueue() {
     queue.current = null;
+    queuePackId.current = null;
+    setPlayback((current) => ({ ...current, queuePackId: null }));
     visited.current.clear();
     if (audioRef.current) audioRef.current.loop = stateRef.current.repeat;
   }
-  function prepareQueue(tracks: Dub[]) {
+  function prepareQueue(tracks: Dub[], packId?: string) {
     const available = tracks.map((track) => dubsRef.current.find((dub) => dub.id === track.id)).filter((dub): dub is Dub => Boolean(dub?.audioUrl));
     if (!available.length) { onErrorRef.current("This pack has no playable files.", "error"); return null; }
     if (available.length !== tracks.length) { onErrorRef.current("Some pack files are unavailable. Refresh the pack before playing it.", "error"); return null; }
     const ids = available.map((dub) => dub.id);
-    if (queue.current?.join("|") !== ids.join("|")) {
+    if (queue.current?.join("|") !== ids.join("|") || queuePackId.current !== (packId ?? null)) {
       history.current = [];
       visited.current = new Set(audioRef.current?.dataset.dubId && ids.includes(audioRef.current.dataset.dubId) ? [audioRef.current.dataset.dubId] : []);
     }
     queue.current = ids;
+    queuePackId.current = packId ?? null;
+    setPlayback((current) => current.queuePackId === queuePackId.current ? current : { ...current, queuePackId: queuePackId.current });
     if (audioRef.current) audioRef.current.loop = false;
     return available;
   }
@@ -330,14 +340,14 @@ export function useAudioPlayback(
     setPlayback(initialPlaybackState);
   }
   return {
-    playQueue: (tracks: Dub[]) => {
-      const available = prepareQueue(tracks);
+    playQueue: (tracks: Dub[], packId?: string) => {
+      const available = prepareQueue(tracks, packId);
       if (!available) return;
       history.current = [];
       visited.current.clear();
       startTrack(available[stateRef.current.shuffle ? Math.floor(Math.random() * available.length) : 0]);
     },
-    activateQueue: (tracks: Dub[]) => prepareQueue(tracks) !== null,
+    activateQueue: (tracks: Dub[], packId?: string) => prepareQueue(tracks, packId) !== null,
     state: playback, togglePlayback, seekPlayback, seekPlaybackProgress, setVolume, setShuffle, setRepeat,
     playNextDub: () => playAdjacentDub(1), playPreviousDub: () => playAdjacentDub(-1),
     flushPosition: persistPosition, reset, closePlayer,

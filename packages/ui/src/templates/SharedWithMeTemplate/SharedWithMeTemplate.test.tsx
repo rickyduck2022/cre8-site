@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { SharedWithMeTemplate } from "./SharedWithMeTemplate";
-import type { Dub } from "../communityTypes";
+import type { Dub, DubPack } from "../communityTypes";
 
 afterEach(cleanup);
 
@@ -13,6 +13,28 @@ const dub: Dub = {
 };
 
 describe("SharedWithMeTemplate", () => {
+  it.each(["dub", "sample"] as const)("shows received %s packs as playable releases without duplicate standalone members", (kind) => {
+    const pack: DubPack = { id: "received", title: "Shared release", description: "", kind: "dub", status: "published",
+      distribution: "private", aListPublic: false, licence: "Original works", ownerUsername: "amber", ownerDisplayName: "Amber",
+      items: [{ dub }], totalBytes: 1200, createdAt: dub.uploadedAt, updatedAt: dub.uploadedAt };
+    const onPlayPack = vi.fn();
+    const onOpenPack = vi.fn();
+    const { container } = render(<SharedWithMeTemplate dubs={[dub]} packs={[{ ...pack, kind }]} mediaKind={kind}
+      currentUsername="receiver" onPlay={vi.fn()} onDownload={vi.fn()} onPlayPack={onPlayPack} onOpenPack={onOpenPack} onSharePack={vi.fn()} />);
+    const label = kind === "sample" ? "Sample" : "Dub";
+    expect(screen.getByRole("article", { name: `${label} Pack: Shared release` })).toBeVisible();
+    expect(container.querySelectorAll("article.dub-card")).toHaveLength(1);
+    expect(screen.queryByRole("button", { name: "Share pack" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Play all" }));
+    expect(onPlayPack).toHaveBeenCalledWith([dub], "received");
+    fireEvent.click(screen.getByRole("button", { name: "Open pack" }));
+    expect(onOpenPack).toHaveBeenCalledWith(expect.objectContaining({ id: "received" }));
+    fireEvent.change(screen.getByRole("searchbox"), { target: { value: "Shared release" } });
+    expect(screen.getByRole("article", { name: `${label} Pack: Shared release` })).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: /Show 1/ }));
+    expect(screen.getByRole("article", { name: "Secret track" })).toBeVisible();
+  });
+
   it("filters all distribution types on apply, supports search and restores all types on clear", () => {
     const publicDub: Dub = { ...dub, id: "public", title: "Worldwide", distribution: "worldwide", tags: ["Jungle"], bpm: 170, audioFormat: "MP3", bitrateKbps: 320 };
     const alist: Dub = { ...dub, id: "alist", title: "Exclusive", distribution: "alist" };

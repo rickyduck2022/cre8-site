@@ -5,6 +5,7 @@ import { Badge } from "../../atoms/Badge/Badge";
 import { FilterTab } from "../../atoms/FilterTab/FilterTab";
 import { Pagination, usePagination } from "../../molecules/Pagination/Pagination";
 import type { Dub } from "../communityTypes";
+import type { MediaKind } from "../../types/domain";
 import { formatLocalTimestamp, formatRelativeTime } from "../templateFormatters";
 import { TrackArtwork } from "../shared/TrackArtwork";
 import { DubCard } from "../../organisms/DubCard/DubCard";
@@ -19,12 +20,15 @@ import "./LatestDubsTemplate.css";
 type FeedOrder = "newest" | "liked";
 
 export interface LatestDubsTemplateProps {
+  mediaKind?: MediaKind;
+  activePackId?: string | null;
   dubs: Dub[];
   packs?: DubPack[];
-  onPlayPack?: (dubs: Dub[]) => void;
+  onPlayPack?: (dubs: Dub[], packId?: string) => void;
+  onSharePack?: (pack: DubPack) => void;
   onOpenPack?: (pack: DubPack) => void;
   onDownloadPack?: (pack: DubPack) => Promise<void>;
-  onActivateQueue?: (dubs: Dub[]) => boolean | void;
+  onActivateQueue?: (dubs: Dub[], packId?: string) => boolean | void;
   crateId?: string;
   crateName?: string;
   likedDubIds: Set<string>;
@@ -70,11 +74,14 @@ export interface LatestDubsTemplateProps {
 }
 
 export function LatestDubsTemplate({
+  mediaKind,
+  activePackId,
   dubs,
   packs = [],
   onPlayPack,
   onOpenPack,
   onDownloadPack,
+  onSharePack,
   onActivateQueue,
   crateId,
   crateName,
@@ -123,6 +130,7 @@ export function LatestDubsTemplate({
   const headerTarget = useContext(CollectionHeaderContext);
   const sortExplanationId = useId();
   const showPriority = prioritizeAList && dubs.some((dub) => dub.distribution === "alist");
+  const noun = mediaKind === "sample" ? "samples" : "dubs";
 
   const visibleDubs = useMemo(() => {
     const needle = query.trim().toLocaleLowerCase();
@@ -190,11 +198,11 @@ export function LatestDubsTemplate({
             <p>
               {crateName
                 ? "Dubs saved in this crate."
-                : "Discover the freshest dubs from artists across the Drum & Bass and Jungle scene."}
+                : `Discover the freshest ${noun} from artists across the Drum & Bass and Jungle scene.`}
             </p>
           </div>
           <Badge dot variant="audio">
-            {dubs.length} fresh dubs
+            {dubs.length} fresh {noun}
           </Badge>
         </section>
       ) : (
@@ -202,16 +210,16 @@ export function LatestDubsTemplate({
       )}
 
       {!compactHeader && showPriority && (
-        <p className="latest-dubs-template__priority">A-List dubs appear first. Sort order applies within each distribution.</p>
+        <p className="latest-dubs-template__priority">A-List {noun} appear first. Sort order applies within each distribution.</p>
       )}
       <DubSearchToolbar query={query}>
         {(onSearch) => (
           <>
             {compactHeader && showPriority && (
-              <span className="sr-only" id={sortExplanationId}>A-List dubs appear first. Sort order applies within each distribution.</span>
+              <span className="sr-only" id={sortExplanationId}>A-List {noun} appear first. Sort order applies within each distribution.</span>
             )}
             <div className="feed-toolbar">
-              <div className="feed-toolbar__filters" role="tablist" aria-label="Sort dubs" aria-describedby={compactHeader && showPriority ? sortExplanationId : undefined}>
+              <div className="feed-toolbar__filters" role="tablist" aria-label={`Sort ${noun}`} aria-describedby={compactHeader && showPriority ? sortExplanationId : undefined}>
                 <FilterTab active={order === "newest"} onClick={() => setOrder("newest")}>
                   Newest
                 </FilterTab>
@@ -232,7 +240,7 @@ export function LatestDubsTemplate({
                 <ChevronDown aria-hidden="true" />
               </label>
             </div>
-            <DubSearch query={query} onQueryChange={(value) => onQueryChange?.(value)} filters={filters} onFiltersChange={(value) => onFiltersChange?.(value)} onSearch={onSearch} fileTypes={fileTypes} resultCount={visibleDubs.length} isSearching={isSearching} error={searchError} showDistributionFilter={showDistributionFilter} />
+            <DubSearch mediaKind={mediaKind} query={query} onQueryChange={(value) => onQueryChange?.(value)} filters={filters} onFiltersChange={(value) => onFiltersChange?.(value)} onSearch={onSearch} fileTypes={fileTypes} resultCount={visibleDubs.length} isSearching={isSearching} error={searchError} showDistributionFilter={showDistributionFilter} />
           </>
         )}
       </DubSearchToolbar>
@@ -246,16 +254,17 @@ export function LatestDubsTemplate({
         {isSearching && (
           <div className="latest-dubs-template__loading" role="status">
             <span className="button__spinner" aria-hidden="true" />
-            Searching dubs…
+            Searching {noun}…
           </div>
         )}
         {!isSearching && pagination.items.map((entry) => entry.type === "pack" && onPlayPack && onOpenPack ? (
           <DubPackCard key={`pack-${entry.pack.id}`} pack={entry.pack} likedDubIds={likedDubIds}
-            onActivateQueue={onActivateQueue} onPrevious={onPrevious} onNext={onNext}
+            activePackId={activePackId} onActivateQueue={onActivateQueue} onPrevious={onPrevious} onNext={onNext}
             shuffle={shuffle} repeat={repeat} onShuffleChange={onShuffleChange} onRepeatChange={onRepeatChange}
             nowPlayingId={nowPlayingId} isPlaying={isPlaying} currentTimeSeconds={currentTimeSeconds}
             durationSeconds={durationSeconds} volume={volume} playbackError={playbackError}
             onPlay={onPlay} onPlayAll={onPlayPack} onOpenPack={onOpenPack} onDownloadPack={onDownloadPack}
+            onSharePack={entry.pack.distribution !== "private" || entry.pack.ownerUsername === currentUsername ? onSharePack : undefined}
             onDownload={onDownload} onOpenProfile={onOpenProfile} onSeek={onSeek} onSeekProgress={onSeekProgress}
             onVolumeChange={onVolumeChange} matchingDubIds={visibleDubIds} />
         ) : entry.type === "dub" ? (
@@ -293,14 +302,14 @@ export function LatestDubsTemplate({
         {visibleDubs.length === 0 && !isSearching && !searchError && (
           <div className="empty-state">
             <Search aria-hidden="true" />
-            <strong>No dubs found</strong>
+            <strong>No {noun} found</strong>
             <span>Try another search or adjust the filters.</span>
           </div>
         )}
       </section>
       {!isSearching && <Pagination
         itemCount={entries.length}
-        label={entries.some((entry) => entry.type === "pack") ? "Releases" : "Dubs"}
+        label={entries.some((entry) => entry.type === "pack") ? "Releases" : mediaKind === "sample" ? "Samples" : "Dubs"}
         onPageChange={pagination.setPage}
         onPageSizeChange={pagination.setPageSize}
         page={pagination.page}

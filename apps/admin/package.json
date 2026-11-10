@@ -9,6 +9,7 @@
     "typecheck": "tsc -b --pretty false"
   },
   "dependencies": {
+    "@craft/icons": "workspace:*",
     "@craft/tokens": "workspace:*",
     "@craft/ui": "workspace:*",
     "react": "^19.0.0",

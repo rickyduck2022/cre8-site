@@ -24,7 +24,7 @@ export function DubSearchToolbar({ children, query }: DubSearchToolbarProps) {
     const collection = toolbar?.parentElement;
     if (!toolbar || !viewport || !collection) return;
 
-    if (toolbar.closest(".dashboard-template__collection-header")) {
+    if (toolbar.closest(".dashboard-template")) {
       viewport.scrollTop = 0;
     } else {
       collection.style.setProperty("--dub-search-results-min-height", `${Math.max(0, viewport.clientHeight - toolbar.offsetHeight)}px`);

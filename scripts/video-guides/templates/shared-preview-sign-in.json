@@ -18,7 +18,7 @@
     { "type": "include", "fragment": "signed-in" },
     { "type": "include", "fragment": "publish-dub" },
     { "type": "navigate", "destination": "my-dubs" },
-    { "type": "waitFor", "target": { "role": "heading", "name": "My Dubs" } },
+    { "type": "waitFor", "target": { "role": "heading", "name": "Your Dubs" } },
     { "type": "click", "target": { "role": "button", "name": "Share {{trackTitle}}" } },
     { "type": "waitFor", "target": { "role": "dialog", "name": "Share {{trackTitle}}" } },
     { "type": "click", "target": { "role": "tab", "name": "External link" } },
@@ -71,7 +71,7 @@
       "caption": "Start signed in, then open the account menu.",
       "actions": [
         { "type": "navigate", "destination": "my-dubs" },
-        { "type": "waitFor", "target": { "role": "heading", "name": "My Dubs" } },
+        { "type": "waitFor", "target": { "role": "heading", "name": "Your Dubs" } },
         { "type": "click", "target": { "role": "button", "name": "Account menu for {{artistName}}" } }
       ],
       "holdMs": 4500

@@ -4,6 +4,7 @@ import {
   FriendsFeed,
   Download,
   Disc3,
+  AudioLines,
   MessageCircle,
   LockKeyhole,
   Users,
@@ -29,20 +30,25 @@ import {
   NotificationViewport,
   ProfileTemplate,
   ShareDubDialog,
+  SharePackDialog,
+  canSharePack,
+  canShareDub,
   SharedWithMeTemplate,
   shareDubToFriends,
   createEmptyDubSearchFilters,
   getDubSearchFilterCount,
   type DubSearchFilters,
   type Dub,
+  type DubPack,
   type NotificationMessage,
   type NavigationSection,
+  type MediaKind,
 } from "@craft/ui";
 import { DemoModeNotice } from "../components/DemoModeNotice";
 import { AListApplication } from "../components/AListApplication";
 import { AppPlayer } from "../components/AppPlayer";
 import { PackWorkspace } from "../components/PackWorkspace";
-import { downloadPack, packHash } from "../services/packs";
+import { downloadPack } from "../services/packs";
 import { PushSettings, removeDevicePushSubscription } from "../components/PushSettings";
 import { useCommunity } from "../hooks/useCommunity";
 import { useMemberSearch } from "../hooks/useMemberSearch";
@@ -56,18 +62,22 @@ import "./App.css";
 
 const sectionLabels: Record<CommunitySection, string> = {
   dubs: "Dub Vault",
+  samples: "Sample Vault",
   alist: "A-List",
-  "shared-with-me": "Shared With Me",
+  "shared-with-me": "Dubs shared with you",
+  "shared-samples": "Samples shared with you",
   "alist-application": "A-List Submission",
   buddies: "Friend List",
   messenger: "Messenger",
   profile: "My Profile",
   library: "My Library",
-  "my-dubs": "My Dubs",
+  "my-dubs": "Your Dubs",
+  "my-samples": "Your Samples",
 };
 
 const sectionIcons: Record<CommunitySection, ReactNode> = {
   dubs: <FriendsFeed />,
+  samples: <AudioLines />,
   alist: <Disc3 />,
   "alist-application": <Users />,
   buddies: <Friends />,
@@ -75,7 +85,9 @@ const sectionIcons: Record<CommunitySection, ReactNode> = {
   profile: <Users />,
   library: <Download />,
   "shared-with-me": <LockKeyhole />,
+  "shared-samples": <LockKeyhole />,
   "my-dubs": <Disc3 />,
+  "my-samples": <AudioLines />,
 };
 
 const sections = Object.keys(sectionLabels) as CommunitySection[];
@@ -92,28 +104,36 @@ function getSectionFromHash(hash: string): CommunitySection {
   return sections.includes(section) ? section : "dubs";
 }
 
-function createNavigationSections(unreadCount: number, aListApproved: boolean, sharedCount: number, feedCount: number, aListCount: number): NavigationSection[] {
-  return [
-    {
-      label: "Your space",
-      items: sections.filter((section) => section !== "alist" || aListApproved).map((section) => ({
+function createNavigationSections(unreadCount: number, aListApproved: boolean, sharedCount: number, feedCount: number, aListCount: number, sampleCount: number, sharedSampleCount: number): NavigationSection[] {
+  const groups: { label: string; mediaKind?: MediaKind; sections: CommunitySection[] }[] = [
+    { label: "Dubs", mediaKind: "dub", sections: ["dubs", "my-dubs", "shared-with-me"] },
+    { label: "Samples", mediaKind: "sample", sections: ["samples", "my-samples", "shared-samples"] },
+    { label: "Your space", sections: sections.filter((section) => !["dubs", "my-dubs", "samples", "my-samples", "shared-with-me", "shared-samples"].includes(section)) },
+  ];
+  return groups.map((group) => ({
+      label: group.label,
+      items: group.sections.filter((section) => section !== "alist" || aListApproved).map((section) => ({
         label: sectionLabels[section],
         icon: sectionIcons[section],
         href: `#${section}`,
-        variant: section === "alist" ? "alist" as const : section === "shared-with-me" ? "private" as const : undefined,
+        mediaKind: group.mediaKind,
+        variant: section === "alist" ? "alist" as const : section === "shared-with-me" || section === "shared-samples" ? "private" as const : undefined,
         badge:
           section === "dubs"
             ? String(feedCount)
+            : section === "samples"
+            ? String(sampleCount)
             : section === "alist"
             ? String(aListCount)
             : section === "shared-with-me"
             ? String(sharedCount)
+            : section === "shared-samples"
+            ? String(sharedSampleCount)
             : section === "messenger" && unreadCount > 0
             ? String(unreadCount)
             : undefined,
       })),
-    },
-  ];
+    }));
 }
 
 export function App({ appStatus }: { appStatus?: ReactNode } = {}) {
@@ -159,6 +179,7 @@ export function App({ appStatus }: { appStatus?: ReactNode } = {}) {
     markConversationRead,
     loadOlderMessages,
     sendMessage,
+    sendPackMessage,
     shareDubWithAListMember,
     unsendMessage,
     updateProfile,
@@ -180,15 +201,23 @@ export function App({ appStatus }: { appStatus?: ReactNode } = {}) {
   });
   const [searchQuery, setSearchQuery] = useState("");
   const [feedFilters, setFeedFilters] = useState<DubSearchFilters>(createEmptyDubSearchFilters);
+  const [sampleFilters, setSampleFilters] = useState<DubSearchFilters>(createEmptyDubSearchFilters);
   const [aListFilters, setAListFilters] = useState<DubSearchFilters>(createEmptyDubSearchFilters);
-  const dubSearchFilters = activeSection === "alist" ? aListFilters : feedFilters;
-  const setDubSearchFilters = activeSection === "alist" ? setAListFilters : setFeedFilters;
-  const dubSearch = useDubSearch(searchQuery, dubSearchFilters, activeSection === "dubs" || (activeSection === "alist" && state.member?.aListApproved === true), activeSection === "alist" ? "alist" : "feed");
+  const vaultKind = activeSection === "samples" ? "sample" : activeSection === "dubs" ? "dub" : undefined;
+  const dubSearchFilters = activeSection === "alist" ? aListFilters : activeSection === "samples" ? sampleFilters : feedFilters;
+  const setDubSearchFilters = activeSection === "alist" ? setAListFilters : activeSection === "samples" ? setSampleFilters : setFeedFilters;
+  const dubSearch = useDubSearch(searchQuery, dubSearchFilters, Boolean(vaultKind) || (activeSection === "alist" && state.member?.aListApproved === true), activeSection === "alist" ? "alist" : "feed", vaultKind);
   const isDubSearchActive = Boolean(searchQuery.trim() || getDubSearchFilterCount(dubSearchFilters));
   const [memberSearchQuery, setMemberSearchQuery] = useState("");
   const { members: memberSearchResults, isSearching: isSearchingMembers } = useMemberSearch(memberSearchQuery);
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [myDubsTab, setMyDubsTab] = useState<"dubs" | "packs">("dubs");
+  const [mySamplesTab, setMySamplesTab] = useState<"dubs" | "packs">("dubs");
+  const isMySamples = activeSection === "my-samples";
+  const ownedMediaKind = isMySamples ? "sample" : "dub";
+  const ownedMediaTitle = isMySamples ? "Your Samples" : "Your Dubs";
+  const ownedMediaTab = isMySamples ? mySamplesTab : myDubsTab;
+  const setOwnedMediaTab = isMySamples ? setMySamplesTab : setMyDubsTab;
   const [createPack, setCreatePack] = useState(false);
   const [pendingPackDub, setPendingPackDub] = useState<Dub | null>(null);
   const [isUploadSubmitting, setIsUploadSubmitting] = useState(false);
@@ -197,6 +226,7 @@ export function App({ appStatus }: { appStatus?: ReactNode } = {}) {
   const [deletingDub, setDeletingDub] = useState<Dub | null>(null);
   const [shareDubTargetId, setShareDubTargetId] = useState<string | null>(null);
   const [sharingDub, setSharingDub] = useState<{ dub: Dub; failedIds?: string[]; sentIds?: string[] } | null>(null);
+  const [sharingPack, setSharingPack] = useState<DubPack | null>(null);
   const [isProfileEditOpen, setIsProfileEditOpen] = useState(false);
   const [isStartConversationOpen, setIsStartConversationOpen] = useState(false);
   const [loginUsername, setLoginUsername] = useState("");
@@ -209,15 +239,20 @@ export function App({ appStatus }: { appStatus?: ReactNode } = {}) {
   useEffect(() => { setPublishedDub(null); }, [state.member?.id]);
 
   const sharedDubs = state.dubs.filter((dub) => state.sharedDubIds.has(dub.id));
+  const sharedDubCount = sharedDubs.filter((dub) => (dub.mediaKind ?? "dub") === "dub").length;
+  const sharedSampleCount = sharedDubs.length - sharedDubCount;
+  const sharedMediaKind = activeSection === "shared-samples" ? "sample" : "dub";
   const approved = state.member?.aListApproved === true;
   useEffect(() => {
     if (state.member) returnToSharedDub();
   }, [state.member?.id]);
-  const feedCount = state.dubs.filter((dub) => isFeedDub(dub, false, approved)).length;
+  const vaultDubs = vaultKind ? state.dubs.filter((dub) => (dub.mediaKind ?? "dub") === vaultKind) : state.dubs;
+  const feedCount = state.dubs.filter((dub) => (dub.mediaKind ?? "dub") === "dub" && isFeedDub(dub, false, approved)).length;
+  const sampleCount = state.dubs.filter((dub) => dub.mediaKind === "sample" && isFeedDub(dub, false, approved)).length;
   const aListCount = state.dubs.filter((dub) => isFeedDub(dub, true, approved)).length;
   const navigationSections = useMemo(
-    () => createNavigationSections(unreadCount, approved, sharedDubs.length, feedCount, aListCount),
-    [unreadCount, approved, sharedDubs.length, feedCount, aListCount],
+    () => createNavigationSections(unreadCount, approved, sharedDubCount, feedCount, aListCount, sampleCount, sharedSampleCount),
+    [unreadCount, approved, sharedDubCount, feedCount, aListCount, sampleCount, sharedSampleCount],
   );
   const interactiveNavigationSections = navigationSections.map((section) => ({
     ...section,
@@ -235,6 +270,11 @@ export function App({ appStatus }: { appStatus?: ReactNode } = {}) {
     hasTrack: Boolean(previewTrack),
     enabled: !loading && Boolean(state.member),
   });
+  const openPackInPlayer = (pack: DubPack) => {
+    // Keep the current track when the pack is already playing; otherwise start the pack queue.
+    if (state.queuePackId !== pack.id || !previewTrack) playPack(pack.items.map((item) => item.dub), pack.id);
+    playerLayout.selectPosition("fullscreen");
+  };
   const dubsById = new Map(state.dubs.map((dub) => [dub.id, dub]));
   const suggestedByUsername = new Map(state.suggestedMembers.map((member) => [member.username, member]));
   const profile =
@@ -247,10 +287,27 @@ export function App({ appStatus }: { appStatus?: ReactNode } = {}) {
   const myDubs = state.member
     ? state.dubs.filter((dub) => dub.uploader === state.member?.username)
     : [];
+  const ownedMedia = myDubs.filter((dub) => (dub.mediaKind ?? "dub") === ownedMediaKind);
+  const ownedPacks = state.member ? state.packs.filter((pack) => pack.kind === ownedMediaKind && pack.ownerUsername === state.member?.username) : [];
   const packPlaybackControls = {
+    activePackId: state.queuePackId,
     onActivateQueue: activatePackQueue, onPrevious: playPreviousDub, onNext: playNextDub,
     onShuffleChange: setShuffle, onRepeatChange: setRepeat, shuffle: state.shuffle, repeat: state.repeat,
   };
+  const activePack = state.queuePackId ? state.packs.find((pack) => pack.id === state.queuePackId
+    && pack.items.some(({ dub }) => dub.id === previewTrack?.id)) ?? null : null;
+  const sharingUsername = state.member?.username;
+  const sharePack = sharingUsername
+    ? state.packs.find((pack) => pack.id === sharingPack?.id && canSharePack(pack, sharingUsername))
+    : undefined;
+  function beginSharingPack(pack: DubPack) {
+    if (state.member && canSharePack(pack, state.member.username)) setSharingPack(pack);
+    else notify("Only the uploader can share a private pack.", "error");
+  }
+  async function handleDownloadPack(pack: DubPack) {
+    await downloadPack(pack.id);
+    await refreshCommunity();
+  }
   const profileUploads = isOwnProfile
     ? myDubs
     : state.dubs.filter((dub) => dub.uploader === profile?.username && (dub.distribution === "worldwide" || (dub.distribution === "alist" && dub.aListPublic === true)));
@@ -538,6 +595,18 @@ export function App({ appStatus }: { appStatus?: ReactNode } = {}) {
         <footer className="app-sticky-footer" aria-label="Media and navigation">
         <AppPlayer
           track={previewTrack}
+          pack={activePack}
+          onShare={activePack
+            ? canSharePack(activePack, state.member.username) ? () => beginSharingPack(activePack) : undefined
+            : previewTrack && canShareDub(previewTrack, state.member.username) ? () => beginSharingDub(previewTrack) : undefined}
+          onDownload={previewTrack ? () => activePack ? handleDownloadPack(activePack) : downloadDub(previewTrack) : undefined}
+          playlist={activePack ? {
+            ...packPlaybackControls, nowPlayingId: state.nowPlayingId, isPlaying: state.isPlaying,
+            likedDubIds: state.likedDubIds, onPlay: togglePlayback, onPlayAll: playPack, onDownload: downloadDub,
+            onSeek: seekPlayback, onSeekProgress: seekPlaybackProgress, currentTimeSeconds: state.currentTime,
+            durationSeconds: state.duration, volume: state.volume, onVolumeChange: setVolume,
+            playbackError: state.playbackError, onOpenProfile: openProfile,
+          } : undefined}
           layout={playerLayout}
           onOpenProfile={openProfile}
           playback={{
@@ -562,34 +631,36 @@ export function App({ appStatus }: { appStatus?: ReactNode } = {}) {
           }}
         />
         <MobileNavigation activeItem={sectionLabels[activeSection]}
-          primaryHrefs={["#dubs", "#library", "#profile", "#messenger"]}
+          primaryHrefs={["#dubs", "#samples", "#profile", "#messenger"]}
           sections={interactiveNavigationSections} />
         </footer>
       }
     >
       <div className={`app-content${activeSection === "messenger" ? " app-content--messenger" : ""}`}>
         {activeSection !== "messenger" && <DemoModeNotice />}
-        {publishedDub && activeSection !== "my-dubs" && activeSection !== "messenger" && (
+        {publishedDub && activeSection !== "my-dubs" && activeSection !== "my-samples" && activeSection !== "messenger" && (
           <section className="app-published-dub" aria-label="Published dub">
-            <p><strong>{publishedDub.title}</strong> is published. Manage its details and access in My Dubs.</p>
-            <Button onClick={() => { navigateTo("my-dubs"); setPublishedDub(null); }} size="small">View in My Dubs</Button>
+            <p><strong>{publishedDub.title}</strong> is published. Manage its details and access in Your Dubs.</p>
+            <Button onClick={() => { navigateTo("my-dubs"); setPublishedDub(null); }} size="small">View in Your Dubs</Button>
             <Button onClick={() => setPublishedDub(null)} size="small" variant="tertiary" aria-label="Dismiss published dub shortcut">Dismiss</Button>
           </section>
         )}
-        {(activeSection === "dubs" || (activeSection === "alist" && state.member.aListApproved)) && (
+        {(vaultKind || (activeSection === "alist" && state.member.aListApproved)) && (
           <>
             <LatestDubsTemplate
               key={activeSection}
-              packs={state.packs}
-              onActivateQueue={activatePackQueue}
+              packs={vaultKind ? state.packs.filter((pack) => pack.kind === vaultKind) : state.packs}
+              mediaKind={vaultKind}
+              activePackId={state.queuePackId} onActivateQueue={activatePackQueue}
               onPlayPack={playPack}
-              onOpenPack={(pack) => { window.location.hash = packHash(pack.id); }}
+              onSharePack={beginSharingPack}
+              onOpenPack={openPackInPlayer}
               onDownloadPack={async (pack) => { await downloadPack(pack.id); await refreshCommunity(); }}
               dubs={isDubSearchActive ? (dubSearch.results ?? []).map((dub) => {
                 const current = dubsById.get(dub.id);
-                return current && isFeedDub(current, activeSection === "alist", state.member?.aListApproved === true, dubSearchFilters.distributions.includes("private")) ? current : null;
-              }).filter((dub): dub is Dub => dub !== null) : state.dubs.filter((dub) => isFeedDub(dub, activeSection === "alist", state.member?.aListApproved === true))}
-              prioritizeAList={activeSection === "dubs"}
+                return current && (!vaultKind || (current.mediaKind ?? "dub") === vaultKind) && isFeedDub(current, activeSection === "alist", state.member?.aListApproved === true, dubSearchFilters.distributions.includes("private")) ? current : null;
+              }).filter((dub): dub is Dub => dub !== null) : vaultDubs.filter((dub) => isFeedDub(dub, activeSection === "alist", state.member?.aListApproved === true))}
+              prioritizeAList={Boolean(vaultKind)}
               queryAlreadyFiltered={isDubSearchActive}
               likedDubIds={state.likedDubIds}
               nowPlayingId={state.nowPlayingId}
@@ -613,16 +684,16 @@ export function App({ appStatus }: { appStatus?: ReactNode } = {}) {
               onDeleteDub={beginDubDelete}
               onShareWithFriend={beginSharingDub}
               showIntro={false}
-              compactHeader={activeSection === "dubs"}
-              showDistributionFilter={activeSection === "dubs"}
-              feedName={activeSection === "alist" ? "A-List" : "Dub Vault"}
+              compactHeader={Boolean(vaultKind)}
+              showDistributionFilter={Boolean(vaultKind)}
+              feedName={sectionLabels[activeSection]}
               onOpenProfile={openProfile}
               onPlay={togglePlayback}
               onQueryChange={setSearchQuery}
               query={searchQuery}
               filters={dubSearchFilters}
               onFiltersChange={setDubSearchFilters}
-              fileTypes={[...new Set(state.dubs.filter((dub) => isFeedDub(dub, activeSection === "alist", state.member?.aListApproved === true, activeSection === "dubs")).map((dub) => dub.audioFormat ?? dub.audioFileName?.split(".").pop()?.toUpperCase()).filter((value): value is string => Boolean(value)))].sort()}
+              fileTypes={[...new Set(vaultDubs.filter((dub) => isFeedDub(dub, activeSection === "alist", state.member?.aListApproved === true, Boolean(vaultKind))).map((dub) => dub.audioFormat ?? dub.audioFileName?.split(".").pop()?.toUpperCase()).filter((value): value is string => Boolean(value)))].sort()}
               isSearching={dubSearch.isSearching}
               searchError={dubSearch.error}
             />
@@ -684,9 +755,13 @@ export function App({ appStatus }: { appStatus?: ReactNode } = {}) {
             onShareWithFriend={beginSharingDub}
           />
         )}
-        {activeSection === "shared-with-me" && (
-          <SharedWithMeTemplate
-            dubs={sharedDubs}
+        {(activeSection === "shared-with-me" || activeSection === "shared-samples") && (
+          <SharedWithMeTemplate key={sharedMediaKind} mediaKind={sharedMediaKind}
+            dubs={sharedDubs.filter((dub) => (dub.mediaKind ?? "dub") === sharedMediaKind)}
+            packs={state.packs.filter((pack) => pack.kind === sharedMediaKind && state.sharedPackIds?.has(pack.id))}
+            activePackId={state.queuePackId} onActivateQueue={activatePackQueue} onPlayPack={playPack}
+            onOpenPack={openPackInPlayer}
+            onDownloadPack={handleDownloadPack} onSharePack={beginSharingPack}
             currentUsername={state.member.username}
             likedDubIds={state.likedDubIds}
             nowPlayingId={state.nowPlayingId}
@@ -712,24 +787,25 @@ export function App({ appStatus }: { appStatus?: ReactNode } = {}) {
             onDelete={beginDubDelete}
           />
         )}
-        {activeSection === "my-dubs" && (
+        {(activeSection === "my-dubs" || isMySamples) && (
           <div>
-          <div className="pack-tabs" role="group" aria-label="My Dubs view">
-            <Button variant={myDubsTab === "dubs" ? "primary" : "secondary"} aria-pressed={myDubsTab === "dubs"} onClick={() => setMyDubsTab("dubs")}>Dubs</Button>
-            <Button variant={myDubsTab === "packs" ? "primary" : "secondary"} aria-pressed={myDubsTab === "packs"} onClick={() => setMyDubsTab("packs")}>Packs</Button>
-            {myDubsTab === "dubs" && <Button variant="secondary" onClick={() => { setMyDubsTab("packs"); setCreatePack(true); }}>Create pack</Button>}
+          <div className="pack-tabs" role="group" aria-label={`${ownedMediaTitle} view`}>
+            <Button variant={ownedMediaTab === "dubs" ? "primary" : "secondary"} aria-pressed={ownedMediaTab === "dubs"} onClick={() => setOwnedMediaTab("dubs")}>{isMySamples ? "Samples" : "Dubs"}</Button>
+            <Button variant={ownedMediaTab === "packs" ? "primary" : "secondary"} aria-pressed={ownedMediaTab === "packs"} onClick={() => setOwnedMediaTab("packs")}>Packs</Button>
+            {ownedMediaTab === "dubs" && <Button variant="secondary" onClick={() => { setOwnedMediaTab("packs"); setCreatePack(true); }}>Create pack</Button>}
           </div>
-          {myDubsTab === "packs" ? <PackWorkspace key={state.member.id} username={state.member.username} approved={approved}
+          {ownedMediaTab === "packs" ? <PackWorkspace key={`${state.member.id}-${ownedMediaKind}`} username={state.member.username} approved={approved} mediaKind={ownedMediaKind}
             {...packPlaybackControls}
             dubs={myDubs} artists={state.artists} buddies={state.buddies} playback={state}
             onPlay={togglePlayback} onPlayAll={playPack} onSeek={seekPlaybackProgress} onVolume={setVolume}
             onDownloadDub={async (dub) => { await downloadDubFile(dub.id); await refreshCommunity(); }} onCommunityChange={async () => { await refreshCommunity(); }}
             create={createPack} pendingDub={pendingPackDub} onOpened={() => { setCreatePack(false); setPendingPackDub(null); }} />
-            : <MyDubsTemplate
-            dubs={myDubs}
-            packs={state.packs} ownerUsername={state.member.username}
-            onActivateQueue={activatePackQueue} onPlayPack={playPack}
-            onOpenPack={(pack) => { window.location.hash = packHash(pack.id); }}
+            : <MyDubsTemplate key={ownedMediaKind} mediaKind={ownedMediaKind} title={ownedMediaTitle}
+            dubs={ownedMedia}
+            packs={ownedPacks} ownerUsername={state.member.username}
+            activePackId={state.queuePackId} onActivateQueue={activatePackQueue} onPlayPack={playPack}
+            onSharePack={beginSharingPack}
+            onOpenPack={openPackInPlayer}
             onDownloadPack={async (pack) => { await downloadPack(pack.id); await refreshCommunity(); }}
             likedDubIds={state.likedDubIds}
             nowPlayingId={state.nowPlayingId}
@@ -749,13 +825,16 @@ export function App({ appStatus }: { appStatus?: ReactNode } = {}) {
             onRepeatChange={setRepeat}
             onDownload={downloadDub}
             onPlay={togglePlayback}
-            onShareDub={() => setIsUploadOpen(true)}
+            onShareDub={() => {
+              if (isMySamples) { setOwnedMediaTab("packs"); setCreatePack(true); }
+              else setIsUploadOpen(true);
+            }}
             onEditDub={beginDubEdit}
             onDeleteDub={beginDubDelete}
             onRevokeGrant={revokeDubGrant}
             onOpenProfile={openProfile}
             onShareWithFriend={beginSharingDub}
-            onAddToPack={(dub) => { setPendingPackDub(dub); setMyDubsTab("packs"); }}
+            onAddToPack={(dub) => { setPendingPackDub(dub); setOwnedMediaTab("packs"); }}
           />
           }
           </div>
@@ -766,6 +845,11 @@ export function App({ appStatus }: { appStatus?: ReactNode } = {}) {
             conversations={state.conversations}
             dubs={state.dubs}
             shareableDubs={myDubs}
+            packs={state.packs}
+            shareablePacks={state.packs.filter((pack) => state.member !== null && canSharePack(pack, state.member.username))}
+            likedDubIds={state.likedDubIds}
+            onPlayPack={playPack} onOpenPack={openPackInPlayer}
+            onDownloadPack={handleDownloadPack} onSendPack={sendPackMessage} activePackId={state.queuePackId} onActivateQueue={activatePackQueue}
             initialBuddyId={chatBuddyId}
             navigationKey={chatNavigationKey}
             chatConnectionStatus={chatConnectionStatus}
@@ -804,8 +888,9 @@ export function App({ appStatus }: { appStatus?: ReactNode } = {}) {
             profile={profile}
             uploads={profileUploads}
             packs={state.packs}
-            likedDubIds={state.likedDubIds} onActivateQueue={activatePackQueue} onPlayPack={playPack}
-            onOpenPack={(pack) => { window.location.hash = packHash(pack.id); }}
+            likedDubIds={state.likedDubIds} activePackId={state.queuePackId} onActivateQueue={activatePackQueue} onPlayPack={playPack}
+            onSharePack={beginSharingPack}
+            onOpenPack={openPackInPlayer}
             onDownloadPack={async (pack) => { await downloadPack(pack.id); await refreshCommunity(); }}
             isPlaying={state.isPlaying}
             currentTimeSeconds={state.currentTime}
@@ -839,6 +924,8 @@ export function App({ appStatus }: { appStatus?: ReactNode } = {}) {
         notifications={activeNotifications}
         onDismiss={dismissNotification}
       />
+      {sharePack && <SharePackDialog key={sharePack.id} pack={sharePack}
+        buddies={state.buddies} onClose={() => setSharingPack(null)} onSend={sendPackMessage} />}
       {sharingDub && (
         <ShareDubDialog
           buddies={(dubsById.get(sharingDub.dub.id) ?? sharingDub.dub).distribution === "alist" && !(dubsById.get(sharingDub.dub.id) ?? sharingDub.dub).aListPublic ? aListMembers : state.buddies}

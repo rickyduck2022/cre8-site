@@ -11,7 +11,7 @@ export async function runGuideActions(page, actions, guide, variables, assets, {
     if (action.type === "navigate") {
       if (guide.hasTouch) {
         const main = page.getByRole("navigation", { name: "Main sections", exact: true });
-        if (["dubs", "library", "profile", "messenger"].includes(action.destination)) {
+        if (["dubs", "samples", "profile", "messenger"].includes(action.destination)) {
           await activate(main.locator(`a[href="#${action.destination}"]`), guide);
         } else {
           await activate(main.getByRole("button", { name: "More", exact: true }), guide);
@@ -72,8 +72,8 @@ export async function runGuideActions(page, actions, guide, variables, assets, {
         break;
       case "captureLink": {
         const url = new URL(await locator.inputValue());
-        if (url.origin !== new URL(page.url()).origin || url.hash.split("?")[0] !== "#share") {
-          throw new Error("Expected an external dub link on the isolated app origin.");
+        if (url.origin !== new URL(page.url()).origin || !["#share", "#pack"].includes(url.hash.split("?")[0])) {
+          throw new Error("Expected an external release link on the isolated app origin.");
         }
         variables[action.variable] = url.href;
         break;

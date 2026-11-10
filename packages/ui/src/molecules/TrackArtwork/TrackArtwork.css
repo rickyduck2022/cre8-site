@@ -1,0 +1,29 @@
+.track-artwork {
+  align-items: center;
+  aspect-ratio: 1;
+  background:
+    radial-gradient(ellipse at 70% 22%, rgb(255 255 255 / 24%), transparent 35%),
+    linear-gradient(145deg, #25313b, #10151b 72%);
+  border: 1px solid rgb(255 255 255 / 10%);
+  border-radius: 0.5rem;
+  color: var(--audio-active);
+  display: flex;
+  flex-direction: column;
+  flex: none;
+  height: 3rem;
+  justify-content: center;
+  overflow: hidden;
+  position: relative;
+  width: 3rem;
+}
+.track-artwork > svg { height: 1.25rem; width: 1.25rem; }
+.track-artwork--whitelabel {
+  background:
+    radial-gradient(circle at center, transparent 0 17%, rgb(255 255 255 / 9%) 18% 19%, transparent 20% 30%, rgb(255 255 255 / 8%) 31% 32%, transparent 33%),
+    linear-gradient(145deg, #34383e, #111317 72%);
+  color: #f3f4f6;
+}
+.track-artwork__image { height: 100%; object-fit: cover; position: absolute; width: 100%; }
+.track-artwork--image { background: #17191d; }
+.track-artwork--large { height: 8rem; width: 8rem; }
+.track-artwork--large > svg { height: 2rem; width: 2rem; }

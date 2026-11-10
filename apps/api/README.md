@@ -12,6 +12,9 @@ The app's header, footer, floating and docked audio players include a Close
 control. Closing stops playback and hides the player until another dub is
 played. The current listening position is saved, and volume, shuffle and repeat
 preferences are retained for the session.
+Player layout actions share a single attached control rail: above footer and
+mini players, below the header player. Mini-player dragging, keyboard movement,
+position selection and closing stay available without separate floating tabs.
 
 The production web build is an installable PWA. Serve it over HTTPS (or
 localhost); service workers are disabled in the Vite development server.
@@ -65,6 +68,13 @@ artist in immediately. Signing out clears the server-side session and expires
 the session cookie.
 
 ## Message and shared-dub push notifications
+
+Community `sharedDubIds` includes accessible published files from received packs
+as well as individual dub shares. Pack receipt is derived from full received
+message history or current private pack grants, with pack and file permissions
+checked before inclusion. This supports both dub and sample shared-file pages.
+The accompanying `sharedPackIds` identifies accessible received packs so clients
+can display whole releases rather than infer receipt from public discovery.
 
 Web push is optional and disabled until the server has VAPID credentials.
 Generate a key pair with `pnpm --filter @craft/api exec web-push generate-vapid-keys`
@@ -227,6 +237,14 @@ the newest page; pass `?before=<message-id>` to fetch the page immediately
 before that message. Responses include `hasMoreMessages` so clients can stop
 requesting history when they reach the beginning of the conversation.
 
+`POST /api/conversations/:buddyId/messages` accepts `{text, packId}` to attach a
+published Dub Pack or Sample Pack. `dubId` and `packId` are mutually exclusive.
+The sender must have pack access; private packs can only be sent by their owner.
+Adding a private recipient requires `confirmPackAccess: true` (otherwise 409)
+and preserves existing grants. Restricted A-List recipients must be approved.
+Revocation sanitizes inaccessible pack attachments from conversation responses.
+Unsend clears the attachment without revoking any previously granted access.
+
 Crate owners can create crates, rename them with `PATCH /api/crates/:crateId`,
 delete them with `DELETE /api/crates/:crateId`, and add or remove dubs with the
 `/api/crates/:crateId/dubs/:dubId` routes. Deleting a crate does not delete the
@@ -240,6 +258,20 @@ seeks, pauses, track changes and sign-out, and advances through playable
 community dubs in snapshot order (wrapping at the ends). Shuffle chooses a
 different track and previous follows shuffle history; repeat loops the current
 track. Replacing or deleting the audio clears saved positions for that dub.
+Pack playback instead uses an explicit client-side queue: Next/Previous, shuffle
+and repeat remain inside that pack. The active queue's pack identity is separate
+from its track membership so overlapping releases retain the correct playlist
+and share/download context.
+
+Dub responses include derived `mediaKind: "dub" | "sample"`. Published Sample
+Pack membership takes precedence over Dub Pack membership; drafts do not
+reclassify existing releases. Classification is recomputed from membership,
+not stored as another editable field. Pack item responses carry that pack's kind
+for playback context. Existing access checks still apply independently.
+`GET /api/dubs/search` accepts optional `mediaKind=dub|sample`; omitting it keeps
+the mixed-media behavior for existing clients. Pack title matching respects the
+selected kind. The two vaults use this scope for search and the same classification
+for their default feeds, available formats and navigation counts.
 
 The seeded demo accounts are `meladee` / `meladee` and `holik` / `holik`.
 Passwords are stored as salted scrypt hashes. On a local run, community records,

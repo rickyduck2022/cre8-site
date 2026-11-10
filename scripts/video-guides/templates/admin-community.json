@@ -1,0 +1,29 @@
+{
+  "id": "admin-community",
+  "title": "Explore community administration",
+  "description": "Use the shared admin navigation, member and release searches, snapshot metrics and refresh controls.",
+  "fixture": "admin",
+  "entryPath": "/admin/",
+  "assets": { "audio": { "env": "GUIDE_AUDIO_PATH" } },
+  "steps": [
+    { "caption": "1. Overview brings artist reviews, member discovery and release activity into one workspace.", "actions": [
+      { "type": "waitFor", "target": { "role": "heading", "name": "Your community, in focus." } }
+    ] },
+    { "caption": "2. Browse members opens a searchable directory with community profile links.", "actions": [
+      { "type": "click", "target": { "role": "button", "name": "Browse members" } },
+      { "type": "fill", "target": { "label": "Search members" }, "value": "Demo Artist" }
+    ] },
+    { "caption": "3. A search with no results offers Clear search, without losing the directory.", "actions": [
+      { "type": "fill", "target": { "label": "Search members" }, "value": "no matching artist" },
+      { "type": "click", "target": { "role": "button", "name": "Clear search" } }
+    ] },
+    { "caption": "4. Releases lists community uploads, their owners and engagement counts.", "actions": [
+      { "type": "click", "target": { "text": "Releases" } },
+      { "type": "fill", "target": { "label": "Search releases" }, "value": "Night Sessions" }
+    ] },
+    { "caption": "5. Refresh data retrieves a new snapshot. The dashboard does not claim to be an always-live feed.", "actions": [
+      { "type": "click", "target": { "role": "button", "name": "Refresh data" } },
+      { "type": "waitFor", "target": { "role": "heading", "name": "Releases" } }
+    ] }
+  ]
+}

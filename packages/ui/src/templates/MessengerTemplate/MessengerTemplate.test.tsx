@@ -2,6 +2,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testi
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { MessengerTemplate, type MessengerTemplateProps } from "./MessengerTemplate";
 import type { Dub } from "../communityTypes";
+import type { DubPack } from "../../types/domain";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
@@ -10,6 +11,31 @@ beforeAll(() => {
   HTMLDialogElement.prototype.close = function () { this.removeAttribute("open"); };
 });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
+
+it.each(["dub", "sample"] as const)("shares and renders a %s pack through the Messenger picker", async (kind) => {
+  const pack: DubPack = { id: "pack", title: "Toolkit", description: "", kind, status: "published",
+    distribution: "private", aListPublic: false, licence: "Original works", ownerUsername: "you", ownerDisplayName: "You",
+    items: [], totalBytes: 0, createdAt: "2026-11-10", updatedAt: "2026-11-10" };
+  const onSendPack = vi.fn(async () => true);
+  render(<MessengerTemplate
+    buddies={[{ id: "friend", username: "amber", displayName: "Amber", presence: "online", genre: "Jungle", role: "DJ", bio: "", groups: [] }]}
+    conversations={[{ buddyId: "friend", messages: [{ id: "message", sender: "them", text: "Shared pack", packId: "pack", sentAt: "2026-11-10T12:00:00Z" }] }]}
+    dubs={[]} packs={[pack]} shareablePacks={[pack]} initialBuddyId="friend"
+    chatConnectionStatus="connected" nowPlayingId={null} isPlaying={false}
+    onOpenProfile={vi.fn()} onPlay={vi.fn()} onStartConversation={vi.fn()}
+    onSelectConversation={vi.fn()} onLoadOlderMessages={vi.fn(async () => null)} onSendMessage={vi.fn(async () => true)}
+    onSendPack={onSendPack} onPlayPack={vi.fn()} onOpenPack={vi.fn()} />);
+  expect(screen.getByRole("article", { name: `${kind === "sample" ? "Sample" : "Dub"} Pack: Toolkit` })).toBeVisible();
+  expect(within(screen.getByRole("log", { name: "Conversation messages" })).getByText("Shared pack")).toBeVisible();
+  fireEvent.click(screen.getByRole("button", { name: "Share a pack" }));
+  const picker = screen.getByRole("region", { name: "Packs available to share" });
+  fireEvent.click(within(picker).getByRole("button", { name: "Share Toolkit" }));
+  const dialog = screen.getByRole("dialog", { name: `Share ${kind === "sample" ? "Sample" : "Dub"} Pack` });
+  expect(within(dialog).getByRole("button", { name: "Send pack" })).toBeDisabled();
+  fireEvent.click(within(dialog).getByRole("checkbox", { name: /Grant selected friends access/ }));
+  fireEvent.click(within(dialog).getByRole("button", { name: "Send pack" }));
+  await waitFor(() => expect(onSendPack).toHaveBeenCalledWith("friend", pack, true));
+});
 
 describe("MessengerTemplate message submission", () => {
   function setup(onSendMessage: MessengerTemplateProps["onSendMessage"]) {
@@ -167,7 +193,7 @@ describe("MessengerTemplate shared dubs", () => {
     />);
     fireEvent.click(screen.getByRole("button", { name: "Share one of My Dubs" }));
     const picker = mobile
-      ? screen.getByRole("dialog", { name: "Share one of My Dubs" })
+      ? screen.getByRole("dialog", { name: "Share dubs and packs" })
       : screen.getByRole("region", { name: "My Dubs available to share" });
     const card = within(picker).getByRole("article");
     expect(card).toHaveClass("dub-card", "dub-card--compact", "dub-card--private");
@@ -197,14 +223,14 @@ describe("MessengerTemplate shared dubs", () => {
     expect(trigger).toHaveClass("button", "button--primary", "button--small");
     expect(trigger).toHaveAttribute("aria-haspopup", "dialog");
     fireEvent.click(trigger);
-    const dialog = screen.getByRole("dialog", { name: "Share one of My Dubs" });
+    const dialog = screen.getByRole("dialog", { name: "Share dubs and packs" });
     fireEvent.change(within(dialog).getByRole("searchbox", { name: "Search My Dubs to share" }), { target: { value: "jungle" } });
     act(() => { mobile = false; listener?.(); });
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(screen.getByRole("region", { name: "My Dubs available to share" })).toBeVisible();
     expect(screen.getByRole("searchbox", { name: "Search My Dubs to share" })).toHaveValue("jungle");
     act(() => { mobile = true; listener?.(); });
-    const reopened = screen.getByRole("dialog", { name: "Share one of My Dubs" });
+    const reopened = screen.getByRole("dialog", { name: "Share dubs and packs" });
     expect(within(reopened).getByRole("searchbox")).toHaveValue("jungle");
     fireEvent(reopened, new Event("cancel", { bubbles: false, cancelable: true }));
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();

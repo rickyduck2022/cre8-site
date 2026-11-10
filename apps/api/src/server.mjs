@@ -556,6 +556,11 @@ function canAccessPack(pack, user) {
     && (pack.grants ?? []).some((grant) => (grant.userId ?? grant.id) === user.id);
 }
 
+function dubMediaKind(data, dub) {
+  return data.packs.some((pack) => pack.status === "published" && pack.kind === "sample" && pack.dubIds.includes(dub.id))
+    ? "sample" : "dub";
+}
+
 function packResponse(data, pack, user, { includeOwnerGrants = false } = {}) {
   const owner = data.users.find((item) => item.id === pack.ownerId);
   const response = {
@@ -598,6 +603,7 @@ function packResponse(data, pack, user, { includeOwnerGrants = false } = {}) {
 
 function packDubResponse(data, pack, dub, user) {
   const response = publicDub(data, dub, user?.id);
+  response.mediaKind = pack.kind;
   if (pack.status === "draft" && dub.draftPackId === pack.id) {
     response.distribution = pack.distribution;
     response.aListPublic = pack.distribution === "alist" && pack.aListPublic === true;
@@ -636,6 +642,7 @@ function externallySharedDub(data, dub, authenticated) {
   const fullDuration = minutes * 60 + seconds;
   return {
     id: track.id,
+    mediaKind: track.mediaKind,
     title: track.title,
     artist: track.artist,
     artistAListApproved: track.artistAListApproved,
@@ -685,6 +692,7 @@ function publicDub(data, dub, currentUserId) {
   const artistUser = data.users.find((item) => item.id === artist?.userId);
   const result = {
     ...publicFields,
+    mediaKind: dubMediaKind(data, dub),
     artist: artist?.name ?? publicFields.artist,
     artistAListApproved: artistUser?.aListApproved === true,
     uploaderAListApproved: uploader?.aListApproved === true,
@@ -746,7 +754,15 @@ function communitySnapshot(data, user) {
   const artists = data.artists.filter((artist) => artist.userId === user.id);
   const friendships = data.friendships.filter((friendship) => friendship.ownerId === user.id);
   const friendUserIds = new Set(friendships.map((friendship) => friendship.friendUserId));
+  const receivedPackIds = new Set(data.conversations
+    .filter((conversation) => conversation.ownerId === user.id)
+    .flatMap((conversation) => conversation.messages
+      .filter((message) => message.sender === "them" && message.packId && !message.unsent)
+      .map((message) => message.packId)));
+  const receivedPacks = data.packs.filter((pack) => canAccessPack(pack, user)
+    && (receivedPackIds.has(pack.id) || (pack.grants ?? []).some((grant) => (grant.userId ?? grant.id) === user.id)));
   const receivedDubIds = new Set([
+    ...receivedPacks.flatMap((pack) => pack.dubIds),
     ...data.dubShares.filter((share) => share.recipientId === user.id).map((share) => share.dubId),
     ...data.dubGrants.filter((grant) => grant.userId === user.id).map((grant) => grant.dubId),
     ...data.conversations.filter((conversation) => conversation.ownerId === user.id)
@@ -808,6 +824,7 @@ function communitySnapshot(data, user) {
     packs: data.packs.filter((pack) => pack.status === "published" && canAccessPack(pack, user))
       .map((pack) => packResponse(data, pack, user)),
     sharedDubIds: accessibleDubs.filter((dub) => receivedDubIds.has(dub.id)).map((dub) => dub.id),
+    sharedPackIds: receivedPacks.map((pack) => pack.id),
     buddies,
     conversations,
     likedDubIds: data.likes.filter((like) => like.userId === user.id && canAccessDub(data, data.dubs.find((dub) => dub.id === like.dubId), user)).map((like) => like.dubId),
@@ -906,6 +923,27 @@ function createConversationMessage(data, user, buddyId, input) {
   }
   const recipient = data.users.find((item) => item.id === friendship.friendUserId);
   if (!recipient) return { error: "Friend not found.", status: 404 };
+  if (input.packId !== undefined && (typeof input.packId !== "string" || !input.packId || input.dubId !== undefined)) {
+    return { error: "Share either a dub or a pack.", status: 400 };
+  }
+  if (input.packId) {
+    const pack = data.packs?.find((item) => item.id === input.packId);
+    if (!pack || pack.status !== "published" || !canAccessPack(pack, user)
+      || (pack.distribution === "private" && pack.ownerId !== user.id)) {
+      return { error: "The shared pack is unavailable.", status: 404 };
+    }
+    if (pack.distribution === "alist" && !pack.aListPublic && !recipient.aListApproved) {
+      return { error: "A-List packs can only be shared with approved A-List members.", status: 403 };
+    }
+    if (pack.distribution === "private" && !(pack.grants ?? []).some((grant) => (grant.userId ?? grant.id) === recipient.id)) {
+      if (input.confirmPackAccess !== true) {
+        return { error: "Confirm access to all current pack files before sharing.", status: 409 };
+      }
+      pack.grants ??= [];
+      pack.grants.push({ userId: recipient.id, grantedAt: new Date().toISOString() });
+      pack.updatedAt = new Date().toISOString();
+    }
+  }
   if (input.dubId) {
     const dub = data.dubs.find((item) => item.id === input.dubId);
     if (!canAccessDub(data, dub, user) || (dub.distribution === "private" && dub.uploaderId !== user.id)) {
@@ -925,7 +963,7 @@ function createConversationMessage(data, user, buddyId, input) {
   const sentAt = new Date().toISOString();
   const messageId = randomUUID();
   const dubId = input.dubId || undefined;
-  const senderMessage = { id: messageId, sender: "you", text, sentAt, dubId };
+  const senderMessage = { id: messageId, sender: "you", text, sentAt, dubId, packId: input.packId || undefined };
   const recipientMessage = { ...senderMessage, sender: "them" };
   findOrCreateConversation(data, user.id, friendship.id).messages.push(senderMessage);
   findOrCreateConversation(data, recipient.id, recipientFriendship.id).messages.push(recipientMessage);
@@ -949,6 +987,7 @@ function unsendConversationMessage(data, user, buddyId, messageId) {
 
   message.text = "";
   message.dubId = undefined;
+  message.packId = undefined;
   message.unsent = true;
   const recipientFriendship = data.friendships.find(
     (item) => item.ownerId === friendship.friendUserId && item.friendUserId === user.id,
@@ -960,6 +999,7 @@ function unsendConversationMessage(data, user, buddyId, messageId) {
   if (recipientMessage) {
     recipientMessage.text = "";
     recipientMessage.dubId = undefined;
+    recipientMessage.packId = undefined;
     recipientMessage.unsent = true;
   }
   return { recipientId: friendship.friendUserId };
@@ -2097,6 +2137,11 @@ export function createApiServer({
         return;
       }
       if (request.method === "GET" && route === "/api/dubs/search") {
+        const mediaKind = url.searchParams.get("mediaKind");
+        if (mediaKind !== null && !["dub", "sample"].includes(mediaKind)) {
+          json(response, 400, { error: "Choose a valid media kind." });
+          return;
+        }
         const distribution = url.searchParams.get("distribution") ?? "worldwide";
         if (!["worldwide", "alist", "feed"].includes(distribution)) {
           json(response, 400, { error: "Choose a valid feed." });
@@ -2130,10 +2175,12 @@ export function createApiServer({
         }
         const matchingPackDubIds = new Set(query ? data.packs
           .filter((pack) => pack.status === "published" && canAccessPack(pack, user)
+            && (!mediaKind || pack.kind === mediaKind)
             && `${pack.title} ${pack.description} ${pack.kind === "sample" ? "Sample Pack" : "Dub Pack"}`.toLocaleLowerCase().includes(query))
           .flatMap((pack) => pack.dubIds) : []);
         const filtered = data.dubs.filter((dub) => {
           if (dub.draftPackId) return false;
+          if (mediaKind && dubMediaKind(data, dub) !== mediaKind) return false;
           if ((distribution === "feed" ? !(distributionTypes.length ? distributionTypes : ["worldwide", "alist"]).includes(dub.distribution) : dub.distribution !== distribution) || !canAccessDub(data, dub, user)) return false;
           const dubTags = dub.tags ?? [];
           const format = dub.audioFormat ?? audioFormat(dub.audioFileName);

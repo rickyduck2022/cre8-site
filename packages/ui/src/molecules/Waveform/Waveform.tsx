@@ -1,4 +1,4 @@
-import { useId, useRef, type KeyboardEvent, type MouseEvent, type PointerEvent } from "react";
+import { useId, useLayoutEffect, useRef, useState, type KeyboardEvent, type MouseEvent, type PointerEvent } from "react";
 import "../Molecules.css";
 
 export interface WaveformProps {
@@ -22,19 +22,42 @@ const defaultPeaks = Array.from({ length: 64 }, (_, index) => {
   return 0.14 + wave * 0.86;
 });
 
-function smoothPath(peaks: number[]) {
+/** Resamples peaks so the rendered density stays constant at any width. */
+function resamplePeaks(peaks: number[], count: number) {
+  if (peaks.length === 0 || count <= 0) return [];
+  if (count === peaks.length) return peaks;
+  if (count > peaks.length) {
+    return Array.from({ length: count }, (_, index) => {
+      const position = count === 1 ? 0 : index * (peaks.length - 1) / (count - 1);
+      const low = Math.floor(position);
+      const high = Math.min(peaks.length - 1, low + 1);
+      return peaks[low] + (peaks[high] - peaks[low]) * (position - low);
+    });
+  }
+  return Array.from({ length: count }, (_, index) => {
+    const start = Math.floor(index * peaks.length / count);
+    const end = Math.max(start + 1, Math.floor((index + 1) * peaks.length / count));
+    let bucketPeak = 0;
+    for (let source = start; source < end; source += 1) bucketPeak = Math.max(bucketPeak, peaks[source]);
+    return bucketPeak;
+  });
+}
+
+function smoothPath(peaks: number[], width = 256, height = 32) {
   if (peaks.length === 0) return "";
+  const mid = height / 2;
+  const amplitude = mid - 1;
   const points = peaks.map((peak, index) => ({
-    x: peaks.length === 1 ? 128 : index * 256 / (peaks.length - 1),
-    height: Math.max(2, Math.min(30, peak * 30)) / 2,
+    x: peaks.length === 1 ? width / 2 : index * width / (peaks.length - 1),
+    height: Math.max(1, Math.min(amplitude, peak * amplitude)),
   }));
   const edge = (values: typeof points, direction: number) => values.map((point, index) => {
     const next = values[index + 1];
     return next
-      ? `Q ${point.x} ${16 + direction * point.height} ${(point.x + next.x) / 2} ${16 + direction * (point.height + next.height) / 2}`
-      : `L ${point.x} ${16 + direction * point.height}`;
+      ? `Q ${point.x} ${mid + direction * point.height} ${(point.x + next.x) / 2} ${mid + direction * (point.height + next.height) / 2}`
+      : `L ${point.x} ${mid + direction * point.height}`;
   }).join(" ");
-  return `M 0 16 ${edge(points, -1)} L 256 16 ${edge([...points].reverse(), 1)} Z`;
+  return `M 0 ${mid} ${edge(points, -1)} L ${width} ${mid} ${edge([...points].reverse(), 1)} Z`;
 }
 
 export function Waveform({
@@ -51,8 +74,30 @@ export function Waveform({
   const clipId = useId();
   const shadowId = useId();
   const dragPointerId = useRef<number | null>(null);
+  const svgRef = useRef<SVGSVGElement | null>(null);
+  const [measured, setMeasured] = useState<{ width: number; height: number } | null>(null);
   const safeProgress = Math.max(0, Math.min(1, progress));
-  const path = variant === "smooth" ? smoothPath(peaks) : "";
+
+  // Render geometry at the element's actual size so bars keep a constant
+  // density and curves are never stretched, whatever the container width.
+  useLayoutEffect(() => {
+    const svg = svgRef.current;
+    if (!svg || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(([entry]) => {
+      const { width, height } = entry.contentRect;
+      setMeasured(width >= 8 && height >= 8 ? { width: Math.round(width), height: Math.round(height) } : null);
+    });
+    observer.observe(svg);
+    return () => observer.disconnect();
+  }, []);
+
+  const viewWidth = measured?.width ?? (variant === "smooth" ? 256 : peaks.length * 4);
+  const viewHeight = measured?.height ?? 32;
+  const barPeaks = variant === "bars" && measured
+    ? resamplePeaks(peaks, Math.max(2, Math.floor(measured.width / 4)))
+    : peaks;
+  const barOffset = measured ? Math.max(0, (viewWidth - barPeaks.length * 4) / 2) : 0;
+  const path = variant === "smooth" ? smoothPath(peaks, viewWidth, viewHeight) : "";
 
   function seekFromPointer(event: MouseEvent<SVGSVGElement>) {
     if (!onSeek) return;
@@ -98,6 +143,7 @@ export function Waveform({
 
   return (
     <svg
+      ref={svgRef}
       aria-label={label}
       aria-valuemax={onSeek ? 100 : undefined}
       aria-valuemin={onSeek ? 0 : undefined}
@@ -118,12 +164,12 @@ export function Waveform({
       onPointerUp={endDrag}
       role={onSeek ? "slider" : "img"}
       tabIndex={onSeek ? 0 : undefined}
-      viewBox={`0 0 ${variant === "smooth" ? 256 : peaks.length * 4} 32`}
+      viewBox={`0 0 ${viewWidth} ${viewHeight}`}
       preserveAspectRatio="none"
     >
       {(variant === "smooth" || insetShadow) && (
         <defs>
-          {variant === "smooth" && <clipPath id={clipId}><rect width={256 * safeProgress} height="32" /></clipPath>}
+          {variant === "smooth" && <clipPath id={clipId}><rect width={viewWidth * safeProgress} height={viewHeight} /></clipPath>}
           {insetShadow && <filter id={shadowId} x="0" y="0" width="100%" height="100%" colorInterpolationFilters="sRGB">
             <feGaussianBlur in="SourceAlpha" stdDeviation="1" result="blur" />
             <feOffset in="blur" dy="1" result="offset" />
@@ -139,19 +185,20 @@ export function Waveform({
           <path className="waveform__unplayed" d={path} />
           <path className="waveform__played" clipPath={`url(#${clipId})`} filter={insetShadow ? `url(#${shadowId})` : undefined} d={path} />
         </>
-      ) : peaks.map((peak, index) => {
-        const height = Math.max(2, Math.min(30, peak * 30));
+      ) : barPeaks.map((peak, index) => {
+        const maxHeight = viewHeight - 2;
+        const height = Math.max(2, Math.min(maxHeight, peak * maxHeight));
         return (
           <rect
             key={index}
-            x={index * 4 + 1}
-            y={(32 - height) / 2}
+            x={barOffset + index * 4 + 1}
+            y={(viewHeight - height) / 2}
             width="2"
             height={height}
             rx="1"
-            filter={insetShadow && index / peaks.length < safeProgress ? `url(#${shadowId})` : undefined}
+            filter={insetShadow && index / barPeaks.length < safeProgress ? `url(#${shadowId})` : undefined}
             className={
-              index / peaks.length < safeProgress
+              index / barPeaks.length < safeProgress
                 ? "waveform__played"
                 : "waveform__unplayed"
             }

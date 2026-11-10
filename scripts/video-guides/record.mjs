@@ -9,6 +9,7 @@ import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { loadTemplate, resolveAssets, subtitleTime, wrapCaption } from "./template.mjs";
 import { runGuideActions } from "./actions.mjs";
+import { prepareGuideFixture } from "./fixtures.mjs";
 import { createApiServer } from "../../apps/api/src/server.mjs";
 
 const execute = promisify(execFile);
@@ -26,6 +27,9 @@ if (id === "--list") {
   const assets = resolveAssets(guide, root);
   const webDirectory = join(root, "apps", "web", "dist");
   if (!existsSync(join(webDirectory, "index.html"))) throw new Error("Build the app first: pnpm build");
+  if (guide.fixture === "admin" && !existsSync(join(root, "apps", "admin", "dist", "index.html"))) {
+    throw new Error("Build administration first: pnpm --filter @craft/admin build");
+  }
   const outputDirectory = resolve(root, guide.outputDirectory);
   if (relative(root, outputDirectory).startsWith("..")) throw new Error("Guide output must stay inside the repository.");
   mkdirSync(outputDirectory, { recursive: true });
@@ -34,9 +38,11 @@ if (id === "--list") {
   const subtitlePath = join(outputDirectory, `${outputName}.srt`);
   const temporary = mkdtempSync(join(tmpdir(), "cre8-guide-"));
   const variables = { ...guide.variables, demoPassword: randomBytes(18).toString("base64url") };
+  if (guide.fixture) process.env.ADMIN_USERNAMES = "guideadmin";
   const server = createApiServer({
     dataPath: join(temporary, "data", "community.json"),
     mediaDirectory: join(temporary, "media"), webDirectory,
+    adminDirectory: join(root, "apps", "admin", "dist"),
     adminSeed: {}, pushService: null,
   });
   let browser;
@@ -59,6 +65,7 @@ if (id === "--list") {
       isMobile: guide.isMobile, hasTouch: guide.hasTouch,
     });
     await context.grantPermissions(["clipboard-read", "clipboard-write"], { origin });
+    await prepareGuideFixture(context, origin, guide, variables, assets);
     await context.addInitScript(() => {
       document.addEventListener("DOMContentLoaded", () => {
         const style = document.createElement("style");
@@ -80,7 +87,7 @@ if (id === "--list") {
     const started = performance.now();
     page.setDefaultTimeout(guide.timeoutMs);
     page.on("pageerror", (error) => failures.push(error.stack ?? error.message));
-    await page.goto(origin, { waitUntil: "networkidle" });
+    await page.goto(`${origin}${guide.entryPath ?? "/"}`, { waitUntil: "networkidle" });
     const timeline = [];
     for (const [index, step] of guide.steps.entries()) {
       const start = index === 0 ? 0 : (performance.now() - started) / 1000;

@@ -7,10 +7,11 @@ import { TrackTag } from "../../atoms/TrackTag/TrackTag";
 import { DubActionsMenu } from "../../molecules/DubActionsMenu/DubActionsMenu";
 import { NowPlaying } from "../../molecules/NowPlaying/NowPlaying";
 import { TrackFileMetadata } from "../../molecules/TrackFileMetadata/TrackFileMetadata";
-import { AudioPlayer } from "../AudioPlayer/AudioPlayer";
-import type { Dub } from "../../types/domain";
-import { formatLocalTimestamp, formatRelativeTime } from "../../templates/templateFormatters";
-import { TrackArtwork } from "../../templates/shared/TrackArtwork";
+import { AudioPlayer, type AudioPlayerProps } from "../AudioPlayer/AudioPlayer";
+import type { Dub, MediaKind } from "../../types/domain";
+import { formatLocalTimestamp, formatRelativeTime } from "../../utils/formatters";
+import { TrackArtwork } from "../../molecules/TrackArtwork/TrackArtwork";
+import "../../foundations/MediaPalette.css";
 import { useMobileLayout } from "../../utils/useMobileLayout";
 import "../../foundations/DistributionSurfaces.css";
 import "./DubCard.css";
@@ -18,6 +19,7 @@ import "./DubCard.css";
 export interface DubCardProps {
   dub: Dub;
   variant?: "default" | "playlist";
+  mediaKind?: MediaKind;
   trackNumber?: number;
   musicalKey?: string;
   playbackDisabled?: boolean;
@@ -50,6 +52,21 @@ export interface DubCardProps {
   onManageAccess?: () => void;
   onAddToPack?: (dub: Dub) => void;
   manageable?: boolean;
+}
+
+export interface DubCardCollectionProps {
+  variant: "collection";
+  mediaKind?: MediaKind;
+  distribution?: Dub["distribution"];
+  label: string;
+  className?: string;
+  header: ReactNode;
+  actions: ReactNode;
+  player?: AudioPlayerProps;
+  playbackLabel: string;
+  playbackDisabled?: boolean;
+  isCurrentTrack?: boolean;
+  children?: ReactNode;
 }
 
 function DistributionTag({ distribution = "worldwide" }: { distribution?: Dub["distribution"] }) {
@@ -88,8 +105,27 @@ export function CompactDubCard({ dub, action, onOpenProfile, shared = false }: C
   );
 }
 
-export function DubCard({
+export function DubCard(props: DubCardProps | DubCardCollectionProps) {
+  if (props.variant === "collection") {
+    const { label, className, mediaKind = "dub", distribution = props.player?.distribution, header, actions, player, playbackLabel, playbackDisabled, isCurrentTrack, children } = props;
+    return <article aria-label={label} className={["dub-card", "dub-card--collection", `media-kind--${mediaKind}`, distribution === "alist" && "dub-card--alist", isCurrentTrack && "dub-card--current", className].filter(Boolean).join(" ")}>
+      {header}
+      {actions}
+      {player && <fieldset className="dub-card__collection-player" disabled={playbackDisabled} aria-label={playbackLabel}>
+        <AudioPlayer mediaKind={mediaKind} {...player} variant="full" transportVariant="full"
+          className={isCurrentTrack ? "dub-card__player--current" : undefined}
+          onSeek={playbackDisabled ? undefined : player.onSeek}
+          onSeekProgress={playbackDisabled ? undefined : player.onSeekProgress} />
+      </fieldset>}
+      {children}
+    </article>;
+  }
+  return <TrackDubCard {...props} />;
+}
+
+function TrackDubCard({
   dub,
+  mediaKind = dub.mediaKind ?? "dub",
   variant = "default",
   trackNumber,
   musicalKey,
@@ -164,11 +200,12 @@ export function DubCard({
 
   if (variant === "playlist") {
     return (
-      <article aria-label={dub.title} className={`dub-card dub-card--playlist${isCurrentTrack ? " dub-card--current" : ""}${dub.distribution === "alist" ? " dub-card--alist" : dub.distribution === "private" ? " dub-card--private" : ""}`}>
+      <article aria-label={dub.title} className={`dub-card dub-card--playlist media-kind--${mediaKind}${isCurrentTrack ? " dub-card--current" : ""}${dub.distribution === "alist" ? " dub-card--alist" : dub.distribution === "private" ? " dub-card--private" : ""}`}>
         <div className="dub-card__playlist-track">
           {trackNumber !== undefined && <span className="dub-card__track-number" aria-label={`Track ${trackNumber}`}>{trackNumber}</span>}
           <fieldset className="dub-card__playlist-player" disabled={playbackDisabled} aria-label={`Playback for ${dub.title}`}>
             <AudioPlayer
+              mediaKind={mediaKind}
               className={isCurrentTrack ? "dub-card__player--current" : undefined}
               distribution={dub.distribution ?? "worldwide"}
               transportVariant="minimal"
@@ -207,7 +244,7 @@ export function DubCard({
   }
 
   return (
-    <article className={`dub-card${dub.distribution === "alist" ? " dub-card--alist" : dub.distribution === "private" ? " dub-card--private" : ""}`}>
+    <article className={`dub-card media-kind--${mediaKind}${dub.distribution === "alist" ? " dub-card--alist" : dub.distribution === "private" ? " dub-card--private" : ""}`}>
       <div className="dub-card__topline">
         {onOpenProfile ? (
           <button aria-label={`View ${dub.uploaderDisplayName}'s profile`} className="dub-card__avatar" onClick={() => onOpenProfile(dub.uploader)} type="button">
@@ -239,6 +276,7 @@ export function DubCard({
       <div className="dub-card__track">
         <div className="dub-card__track-info">
           <AudioPlayer
+            mediaKind={mediaKind}
             className={isCurrentTrack || isPlaying ? "dub-card__player--current" : undefined}
             distribution={dub.distribution ?? "worldwide"}
             onPlayChange={() => onPlay(dub)}

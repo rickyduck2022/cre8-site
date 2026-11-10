@@ -1,10 +1,37 @@
 import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { DashboardTemplate } from "./DashboardTemplate";
+import { LibraryTemplate } from "../LibraryTemplate/LibraryTemplate";
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.unstubAllGlobals();
+});
 
 describe("DashboardTemplate", () => {
+  it.each([false, true])("keeps collection controls in content on desktop and in the header on mobile (%s)", (mobile) => {
+    vi.stubGlobal("matchMedia", () => ({
+      matches: mobile,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }));
+    const { container } = render(
+      <DashboardTemplate header={<div />} navigation={<div />} scrollContent>
+        <LibraryTemplate downloads={[]} />
+      </DashboardTemplate>,
+    );
+    const search = screen.getByRole("searchbox", { name: /Search tracks/ });
+    const viewport = screen.getByRole("region", { name: "Page content" });
+    if (mobile) {
+      expect(viewport).not.toContainElement(search);
+      expect(container.querySelector(".dashboard-template__header")).toContainElement(search);
+    } else {
+      expect(viewport).toContainElement(search);
+      expect(container.querySelector(".dashboard-template__header")).not.toContainElement(search);
+      expect(search.closest(".dub-search-toolbar")).toBeInTheDocument();
+    }
+  });
+
   it("omits the footer player when none is provided", () => {
     const { rerender } = render(<DashboardTemplate audioPlayer={null} header={<div />} navigation={<div />}>Content</DashboardTemplate>);
     expect(screen.queryByRole("region", { name: /Audio player/ })).not.toBeInTheDocument();

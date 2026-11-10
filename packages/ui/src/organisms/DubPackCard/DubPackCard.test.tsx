@@ -19,6 +19,42 @@ const props = {
   onPlay: vi.fn(), onDownload: vi.fn(), onPlayAll: vi.fn(), onOpenPack: vi.fn(),
 };
 
+it.each(["dub", "sample"] as const)("marks A-List %s packs independently of their contents or publication status", (kind) => {
+  const { rerender } = render(<DubPackCard {...props} pack={{ ...pack, kind, distribution: "alist", aListPublic: true }} />);
+  expect(screen.getByRole("article", { name: `${kind === "sample" ? "Sample" : "Dub"} Pack: Night Sessions` }))
+    .toHaveClass("dub-card--alist", `media-kind--${kind}`);
+  expect(screen.getByText("Public A-List")).toHaveClass("badge--accent");
+  expect(screen.getByText("A-List release")).toBeVisible();
+  rerender(<DubPackCard {...props} pack={{ ...pack, kind, distribution: "alist", status: "draft", items: [] }} />);
+  expect(screen.getByRole("article")).toHaveClass("dub-card--alist");
+  expect(screen.getByText("A-List")).toHaveClass("badge--accent");
+  rerender(<DubPackCard {...props} pack={{ ...pack, kind }} />);
+  expect(screen.getByRole("article")).not.toHaveClass("dub-card--alist");
+  expect(screen.getByText("Worldwide")).not.toHaveClass("badge--accent");
+});
+
+it.each(["dub", "sample"] as const)("uses %s media colors and pauses/resumes without restarting the active pack", (kind) => {
+  const onActivateQueue = vi.fn(() => true);
+  const { rerender } = render(<DubPackCard {...props} pack={{ ...pack, kind }} activePackId="pack" nowPlayingId="1"
+    isPlaying onActivateQueue={onActivateQueue} />);
+  const pause = screen.getByRole("button", { name: "Pause pack" });
+  expect(pause).toHaveClass("button--audio", `media-kind--${kind}`);
+  fireEvent.click(pause);
+  expect(props.onPlay).toHaveBeenLastCalledWith(pack.items[1].dub);
+  expect(props.onPlayAll).not.toHaveBeenCalled();
+  rerender(<DubPackCard {...props} pack={{ ...pack, kind }} activePackId="pack" nowPlayingId="1"
+    isPlaying={false} onActivateQueue={onActivateQueue} />);
+  fireEvent.click(screen.getByRole("button", { name: "Play all" }));
+  expect(props.onPlay).toHaveBeenLastCalledWith(pack.items[1].dub);
+  rerender(<DubPackCard {...props} pack={{ ...pack, kind }} activePackId="overlapping" nowPlayingId="1"
+    isPlaying onActivateQueue={onActivateQueue} />);
+  fireEvent.click(screen.getByRole("button", { name: "Play all" }));
+  expect(props.onPlayAll).toHaveBeenLastCalledWith(pack.items.map(({ dub }) => dub), pack.id);
+  fireEvent.click(screen.getByRole("button", { name: kind === "sample" ? "Show 2 samples" : "Show 2 tracks" }));
+  const rows = screen.getByRole("list");
+  expect(within(rows).getAllByRole("region").every((player) => player.classList.contains(`media-kind--${kind}`))).toBe(true);
+});
+
 it("keeps packs compact until expanded and uses ordered shared playlist cards", () => {
   render(<DubPackCard {...props} />);
   expect(screen.getByRole("heading", { name: pack.title })).toBeVisible();
@@ -30,7 +66,7 @@ it("keeps packs compact until expanded and uses ordered shared playlist cards", 
   expect(within(playlist).getAllByRole("article").map((card) => card.getAttribute("aria-label"))).toEqual(["Opening", "Closing"]);
   expect(within(playlist).getAllByText("F minor")).toHaveLength(2);
   fireEvent.click(screen.getByRole("button", { name: "Play all" }));
-  expect(props.onPlayAll).toHaveBeenCalledWith(pack.items.map(({ dub }) => dub));
+  expect(props.onPlayAll).toHaveBeenCalledWith(pack.items.map(({ dub }) => dub), pack.id);
   fireEvent.click(screen.getByRole("button", { name: "Open pack" }));
   expect(props.onOpenPack).toHaveBeenCalledWith(pack);
   fireEvent.click(screen.getByRole("button", { name: "Hide playlist" }));
@@ -72,7 +108,7 @@ it.each(["dub", "sample"] as const)("activates the %s pack for all playlist cont
   fireEvent.click(screen.getByRole("button", { name: kind === "sample" ? "Show 2 samples" : "Show 2 tracks" }));
   const controls = screen.getByRole("group", { name: "Night Sessions playback controls" });
   fireEvent.click(within(controls).getByRole("button", { name: "Next track" }));
-  expect(onActivateQueue).toHaveBeenLastCalledWith(pack.items.map(({ dub }) => dub));
+  expect(onActivateQueue).toHaveBeenLastCalledWith(pack.items.map(({ dub }) => dub), pack.id);
   expect(onNext).toHaveBeenCalledOnce();
   fireEvent.click(within(controls).getByRole("button", { name: "Previous track" }));
   expect(onPrevious).toHaveBeenCalledOnce();
@@ -96,4 +132,59 @@ it("does not run pack controls if queue activation reports unavailable files", (
   fireEvent.click(within(screen.getByRole("article", { name: "Closing" })).getByRole("button", { name: "Play" }));
   expect(onNext).not.toHaveBeenCalled();
   expect(props.onPlay).not.toHaveBeenCalled();
+});
+
+it.each(["dub", "sample"] as const)("composes a %s pack from DubCard with full controls while collapsed", (kind) => {
+  const onActivateQueue = vi.fn(() => true);
+  const onSeekProgress = vi.fn();
+  const onVolumeChange = vi.fn();
+  const { rerender } = render(<DubPackCard {...props} pack={{ ...pack, kind }} onActivateQueue={onActivateQueue}
+    onSeekProgress={onSeekProgress} onVolumeChange={onVolumeChange} volume={0.4} />);
+  const card = screen.getByRole("article", { name: `${kind === "sample" ? "Sample" : "Dub"} Pack: ${pack.title}` });
+  expect(card).toHaveClass("dub-card", "dub-card--collection", "dub-pack-card");
+  expect(screen.queryByRole("list")).not.toBeInTheDocument();
+  const controls = screen.getByRole("group", { name: "Night Sessions playback controls" });
+  expect(within(controls).getByRole("region", { name: "Audio player: Opening" })).toHaveClass("audio-player--full");
+  for (const name of ["Previous track", "Next track", "Enable shuffle", "Enable repeat"]) {
+    expect(within(controls).getByRole("button", { name })).toBeVisible();
+  }
+  fireEvent.click(within(controls).getByRole("button", { name: "Play" }));
+  expect(props.onPlayAll).toHaveBeenCalledWith(pack.items.map(({ dub }) => dub), pack.id);
+  fireEvent.keyDown(within(controls).getByRole("slider", { name: "Opening playback progress" }), { key: "End" });
+  expect(onActivateQueue).toHaveBeenCalledTimes(2);
+  expect(onSeekProgress).toHaveBeenCalledWith(1, pack.items[0].dub);
+  const volume = within(controls).getByRole("slider", { name: "Volume" });
+  expect(volume).toHaveValue("40");
+  fireEvent.change(volume, { target: { value: "80" } });
+  expect(onVolumeChange).toHaveBeenCalledWith(0.8);
+
+  rerender(<DubPackCard {...props} pack={{ ...pack, kind }} nowPlayingId="1" isPlaying currentTimeSeconds={15}
+    durationSeconds={60} onActivateQueue={onActivateQueue} onSeekProgress={onSeekProgress} />);
+  expect(within(controls).getByRole("region", { name: "Audio player: Closing" })).toBeVisible();
+  expect(within(controls).getByRole("slider", { name: "Closing playback progress" })).toHaveAttribute("aria-valuenow", "25");
+  fireEvent.click(within(controls).getByRole("button", { name: "Pause" }));
+  expect(props.onPlay).toHaveBeenCalledWith(pack.items[1].dub);
+  fireEvent.click(screen.getByRole("button", { name: "Show 2 " + (kind === "sample" ? "samples" : "tracks") }));
+  expect(screen.getAllByRole("button", { name: "Next track" })).toHaveLength(1);
+});
+
+it("disables draft controls, seeking and downloads without losing the playlist", () => {
+  const onSeekProgress = vi.fn();
+  render(<DubPackCard {...props} pack={{ ...pack, status: "draft" }} onSeekProgress={onSeekProgress}
+    onActivateQueue={() => true} onDownloadPack={vi.fn()} />);
+  expect(screen.getByRole("button", { name: "Play all" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "Download ZIP" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "Play" })).toBeDisabled();
+  expect(screen.queryByRole("slider", { name: "Opening playback progress" })).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Show 2 samples" }));
+  const playlist = screen.getByRole("list");
+  for (const button of within(playlist).getAllByRole("button")) expect(button).toBeDisabled();
+  expect(onSeekProgress).not.toHaveBeenCalled();
+});
+
+it("retains empty packs without fabricating a track or player", () => {
+  render(<DubPackCard {...props} pack={{ ...pack, items: [] }} />);
+  expect(screen.getByRole("heading", { name: pack.title })).toBeVisible();
+  expect(screen.getByRole("button", { name: "Play all" })).toBeDisabled();
+  expect(screen.queryByRole("group", { name: "Night Sessions playback controls" })).not.toBeInTheDocument();
 });

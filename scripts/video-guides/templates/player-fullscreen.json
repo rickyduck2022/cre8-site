@@ -1,0 +1,27 @@
+{
+  "id": "player-fullscreen",
+  "title": "Fullscreen and minimized player",
+  "description": "Move between compact, fullscreen and minimized playback without losing your track or queue.",
+  "fixture": "community",
+  "assets": { "audio": { "env": "GUIDE_AUDIO_PATH" } },
+  "steps": [
+    { "caption": "1. Play a Sample Pack. Its green controls identify samples.", "actions": [
+      { "type": "navigate", "destination": "samples" },
+      { "type": "click", "target": { "role": "button", "name": "Play all", "within": { "role": "article", "name": "Sample Pack: Jungle Toolkit" } } }
+    ] },
+    { "caption": "2. Choose Full screen from the persistent player's position menu.", "actions": [
+      { "type": "click", "target": { "role": "button", "name": "Choose player position" } },
+      { "type": "click", "target": { "role": "button", "name": "Full screen" } }
+    ] },
+    { "caption": "3. The fullscreen view includes transport, waveform and the current pack playlist.", "actions": [
+      { "type": "waitFor", "target": { "role": "region", "name": "Current pack playlist" }, "reveal": true }
+    ] },
+    { "caption": "4. Close the fullscreen view to minimize, rather than stop, playback.", "actions": [
+      { "type": "click", "target": { "role": "button", "name": "Close", "within": { "role": "dialog", "name": "Now playing" } } }
+    ] },
+    { "caption": "5. Expand returns to fullscreen. The track and pack queue are preserved.", "actions": [
+      { "type": "click", "target": { "role": "button", "name": "Expand audio player" } },
+      { "type": "waitFor", "target": { "role": "dialog", "name": "Now playing" } }
+    ] }
+  ]
+}

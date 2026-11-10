@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { Button, DubPackIdentity, PackPlaylist, SearchField, type PackQueueControls, type Buddy, type Dub } from "@craft/ui";
+import { Button, DubPackIdentity, PackPlaylist, PackPlaybackButton, SearchField, type PackQueueControls, type Buddy, type Dub } from "@craft/ui";
 import { downloadPack, packRequest, packUrl, packTypeLabel, PackSignInRequired, signInForPack, type Pack } from "../services/packs";
 
 export interface PackPlayback {
@@ -18,7 +18,7 @@ interface Props extends PackQueueControls {
   buddies?: Buddy[];
   playback: PackPlayback;
   onPlay: (dub: Dub) => void;
-  onPlayAll: (dubs: Dub[]) => void;
+  onPlayAll: (dubs: Dub[], packId?: string) => void;
   onSeek: (progress: number, dub: Dub) => void;
   onVolume: (volume: number) => void;
   onDownloadDub: (dub: Dub) => Promise<void>;
@@ -43,7 +43,8 @@ export function PackView({ pack, authenticated, owner, buddies = [], playback, o
   const busy = useRef(false);
   const publicPack = pack.distribution === "worldwide" || (pack.distribution === "alist" && pack.aListPublic);
   const title = packTypeLabel(pack.kind);
-  const current = pack.items.find(({ dub }) => dub.id === playback.nowPlayingId)?.dub;
+  const current = queueControls.activePackId === undefined || queueControls.activePackId === pack.id
+    ? pack.items.find(({ dub }) => dub.id === playback.nowPlayingId)?.dub : undefined;
   const published = pack.status === "published";
   async function run(action: () => Promise<void>) {
     if (busy.current) return;
@@ -73,12 +74,18 @@ export function PackView({ pack, authenticated, owner, buddies = [], playback, o
   const eligible = buddies.filter((buddy) => pack.distribution !== "alist" || pack.aListPublic || buddy.aListApproved);
   const matchingFriends = eligible.filter((buddy) => `${buddy.displayName} ${buddy.username}`.toLowerCase().includes(query.trim().toLowerCase()));
   return (
-    <article className="pack-view" aria-label={`${title}: ${pack.title}`}>
+    <article className={`pack-view media-kind--${pack.kind}${pack.distribution === "alist" ? " pack-view--alist" : ""}`} aria-label={`${title}: ${pack.title}`}>
       <DubPackIdentity pack={pack} />
       {!published && <p className="pack-notice">Only you can see this draft. Add your files and review the pack before publishing.</p>}
       <div className="pack-actions">
         {published && <div className="pack-actions__primary">
-          <Button disabled={!pack.items.length || !published} onClick={() => onPlayAll(pack.items.map(({ dub }) => dub))}>{authenticated ? "Play all" : "Preview all"}</Button>
+          <PackPlaybackButton kind={pack.kind} playing={Boolean(current && playback.isPlaying)} preview={!authenticated}
+            disabled={!pack.items.length || !published} onClick={() => {
+              const tracks = pack.items.map(({ dub }) => dub);
+              if (queueControls.onActivateQueue?.(tracks, pack.id) === false) return;
+              if (current) onPlay(current);
+              else onPlayAll(tracks, pack.id);
+            }} />
           <Button variant="secondary" disabled={pending || !pack.items.length || !published} loading={downloading} onClick={download}>{authenticated ? "Download pack (ZIP)" : "Sign in to download pack"}</Button>
         </div>}
         <div className="pack-actions__secondary">
@@ -136,11 +143,16 @@ export function PackView({ pack, authenticated, owner, buddies = [], playback, o
           {!eligible.length && <p>Add eligible friends in Friend List before sharing.</p>}
           {eligible.length > 0 && !matchingFriends.length && <p>No friends match your search.</p>}
           {recipients.length > 0 && <p className="pack-muted">{recipients.length} {recipients.length === 1 ? "friend" : "friends"} selected</p>}
-          {pack.distribution === "private" && Boolean(pack.grants?.length) && <label className="pack-check">
+          {pack.distribution === "private" && <label className="pack-check">
             <input type="checkbox" checked={confirmRecipients} onChange={(event) => setConfirmRecipients(event.currentTarget.checked)} />
             Grant selected friends access to all files currently in this pack.</label>}
-          <Button disabled={pending || !recipients.length || (pack.distribution === "private" && Boolean(pack.grants?.length) && !confirmRecipients)} onClick={() => void run(async () => {
-            await packRequest(`/api/packs/${pack.id}/share`, "POST", { buddyIds: recipients, confirmNewAccess: confirmRecipients });
+          <Button disabled={pending || !recipients.length || (pack.distribution === "private" && !confirmRecipients)} onClick={() => void run(async () => {
+            for (const buddyId of recipients) {
+              await packRequest(`/api/conversations/${encodeURIComponent(buddyId)}/messages`, "POST", {
+                text: `Shared a ${title}: ${pack.title}`, packId: pack.id, confirmPackAccess: confirmRecipients,
+              });
+              setRecipients((current) => current.filter((id) => id !== buddyId));
+            }
             await onRefresh(); setRecipients([]); setConfirmRecipients(false); setMessage("Pack shared with the selected friends.");
           })}>Share with selected friends</Button>
           {pack.distribution === "private" && <section aria-label="Pack access"><h3>Current access</h3>
@@ -154,7 +166,7 @@ export function PackView({ pack, authenticated, owner, buddies = [], playback, o
         </> : <p>Use External link to share this public pack. Private sharing is managed by its uploader.</p>}
       </section>}
       {owner && onDelete && <footer className="pack-danger"><Button variant="tertiary" disabled={pending} onClick={() => setConfirmDelete(!confirmDelete)}>Delete pack</Button>
-        {confirmDelete && <div role="group" aria-label="Confirm pack deletion"><p>Delete this pack? Its dubs remain in My Dubs. Pack-only access will be removed; downloaded files cannot be recalled.</p>
+        {confirmDelete && <div role="group" aria-label="Confirm pack deletion"><p>Delete this pack? Its files remain in Your Dubs or Your Samples based on their remaining published pack memberships. Pack-only access will be removed; downloaded files cannot be recalled.</p>
           <Button disabled={pending} onClick={() => void run(async () => { await packRequest(`/api/packs/${pack.id}`, "DELETE"); await onRefresh(); onDelete(); })}>Confirm delete pack</Button>
           <Button variant="secondary" onClick={() => setConfirmDelete(false)}>Cancel</Button></div>}</footer>}
     </article>

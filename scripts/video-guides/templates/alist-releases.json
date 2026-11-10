@@ -1,0 +1,25 @@
+{
+  "id": "alist-releases",
+  "title": "Recognise and play A-List releases",
+  "description": "Identify orange A-List distribution and use the matching dark player with orange media controls.",
+  "fixture": "community",
+  "assets": { "audio": { "env": "GUIDE_AUDIO_PATH" } },
+  "steps": [
+    { "caption": "1. A-List release cards use orange borders and audience badges, distinct from normal Dub releases.", "actions": [
+      { "type": "waitFor", "target": { "role": "article", "name": "Dub Pack: A-List Exclusives" }, "reveal": true }
+    ] },
+    { "caption": "2. Expand the release to browse its ordered tracks.", "actions": [
+      { "type": "click", "target": { "role": "button", "name": "Show 2 tracks", "within": { "role": "article", "name": "Dub Pack: A-List Exclusives" } } }
+    ] },
+    { "caption": "3. Open pack uses the dark A-List player with orange playback and waveform controls.", "actions": [
+      { "type": "click", "target": { "role": "button", "name": "Open pack", "within": { "role": "article", "name": "Dub Pack: A-List Exclusives" } } },
+      { "type": "waitFor", "target": { "role": "dialog", "name": "Now playing" } }
+    ] },
+    { "caption": "4. Public A-List releases can be shared externally. Restricted releases require approved access.", "actions": [
+      { "type": "click", "target": { "role": "button", "name": "Close", "within": { "role": "dialog", "name": "Now playing" } } }
+    ] },
+    { "caption": "5. Artist approval and release audience are separate: an approved artist can publish worldwide too.", "actions": [
+      { "type": "waitFor", "target": { "role": "article", "name": "Dub Pack: Night Sessions" }, "reveal": true }
+    ] }
+  ]
+}

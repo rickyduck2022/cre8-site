@@ -1,0 +1,27 @@
+{
+  "id": "received-packs",
+  "title": "Find packs shared with you",
+  "description": "Find received Dub and Sample Packs in the matching shared section and open their scoped playlists.",
+  "fixture": "received",
+  "assets": { "audio": { "env": "GUIDE_AUDIO_PATH" } },
+  "steps": [
+    { "caption": "1. Open Dubs shared with you to find received releases, including private Dub Packs.", "actions": [
+      { "type": "navigate", "destination": "shared-with-me" },
+      { "type": "waitFor", "target": { "role": "article", "name": "Dub Pack: Private Sessions" } }
+    ] },
+    { "caption": "2. The release appears once as a pack card. Expand it to see the individual files.", "actions": [
+      { "type": "click", "target": { "role": "button", "name": "Show 2 tracks" } }
+    ] },
+    { "caption": "3. Samples shared with you is separate and uses the green sample palette.", "actions": [
+      { "type": "navigate", "destination": "shared-samples" },
+      { "type": "waitFor", "target": { "role": "article", "name": "Sample Pack: Private Toolkit" } }
+    ] },
+    { "caption": "4. Open pack launches the fullscreen player with only this Sample Pack's files.", "actions": [
+      { "type": "click", "target": { "role": "button", "name": "Open pack" } },
+      { "type": "waitFor", "target": { "role": "dialog", "name": "Now playing" } }
+    ] },
+    { "caption": "5. Access can be revoked by the uploader. Downloading never grants sample reuse permission.", "actions": [
+      { "type": "click", "target": { "role": "button", "name": "Close", "within": { "role": "dialog", "name": "Now playing" } } }
+    ] }
+  ]
+}

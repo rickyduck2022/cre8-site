@@ -15,6 +15,9 @@ export const themeColors = {
   cyan: {
     400: "#35C5D8",
   },
+  green: {
+    400: "#4DD89A",
+  },
   blue: {
     500: "#4285F4",
   },
@@ -43,6 +46,7 @@ export const semanticTokens = {
   },
   audio: {
     active: "var(--color-cyan-400)",
+    "sample-active": "var(--color-green-400)",
     inactive: "var(--color-neutral-700)",
   },
   focus: {

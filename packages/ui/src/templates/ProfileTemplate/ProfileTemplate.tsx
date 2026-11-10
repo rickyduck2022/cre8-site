@@ -17,6 +17,7 @@ import "../CommunityPageTemplates.css";
 import "./ProfileTemplate.css";
 
 export interface ProfileTemplateProps {
+  activePackId?: string | null;
   profile: MemberProfile;
   uploads: Dub[];
   packs?: DubPackCollectionProps["packs"];
@@ -24,6 +25,7 @@ export interface ProfileTemplateProps {
   onPlayPack?: DubPackCollectionProps["onPlayAll"];
   onOpenPack?: DubPackCollectionProps["onOpenPack"];
   onDownloadPack?: DubPackCollectionProps["onDownloadPack"];
+  onSharePack?: DubPackCollectionProps["onSharePack"];
   onActivateQueue?: DubPackCollectionProps["onActivateQueue"];
   isOwnProfile: boolean;
   playingDubId: string | null;
@@ -60,7 +62,9 @@ export function ProfileTemplate({
   onPlayPack,
   onOpenPack,
   onDownloadPack,
+  onSharePack,
   onActivateQueue,
+  activePackId,
   isOwnProfile,
   playingDubId,
   isPlaying,
@@ -164,9 +168,9 @@ export function ProfileTemplate({
             ownerUsername={profile.username} likedDubIds={likedDubIds}
             nowPlayingId={playingDubId} isPlaying={isPlaying} currentTimeSeconds={currentTimeSeconds}
             durationSeconds={durationSeconds} volume={volume} shuffle={shuffle} repeat={repeat} playbackError={playbackError}
-            onPlay={onPlay} onPlayAll={onPlayPack} onOpenPack={onOpenPack} onDownloadPack={onDownloadPack}
+            onPlay={onPlay} onPlayAll={onPlayPack} onOpenPack={onOpenPack} onDownloadPack={onDownloadPack} onSharePack={onSharePack}
             onDownload={onDownload} onOpenProfile={onOpenProfile} onSeek={onSeek} onSeekProgress={onSeekProgress}
-            onActivateQueue={onActivateQueue} onPrevious={onPrevious} onNext={onNext}
+            activePackId={activePackId} onActivateQueue={onActivateQueue} onPrevious={onPrevious} onNext={onNext}
             onShuffleChange={onShuffleChange} onRepeatChange={onRepeatChange} onVolumeChange={onVolumeChange} />}
           <div className="section-heading">
             <div>

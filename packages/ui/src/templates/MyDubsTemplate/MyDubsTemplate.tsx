@@ -9,16 +9,21 @@ import { DubCard } from "../../organisms/DubCard/DubCard";
 import { DubStatistics } from "../../organisms/DubStatistics/DubStatistics";
 import { DubPackCollection, type DubPackCollectionProps } from "../../organisms/DubPackCard/DubPackCollection";
 import type { Dub } from "../communityTypes";
+import type { MediaKind } from "../../types/domain";
 import "../CommunityPageTemplates.css";
 import "./MyDubsTemplate.css";
 
 export interface MyDubsTemplateProps {
+  mediaKind?: MediaKind;
+  title?: string;
+  activePackId?: string | null;
   dubs: Dub[];
   packs?: DubPackCollectionProps["packs"];
   ownerUsername?: string;
   onPlayPack?: DubPackCollectionProps["onPlayAll"];
   onOpenPack?: DubPackCollectionProps["onOpenPack"];
   onDownloadPack?: DubPackCollectionProps["onDownloadPack"];
+  onSharePack?: DubPackCollectionProps["onSharePack"];
   onActivateQueue?: DubPackCollectionProps["onActivateQueue"];
   likedDubIds: Set<string>;
   nowPlayingId: string | null;
@@ -48,13 +53,17 @@ export interface MyDubsTemplateProps {
 }
 
 export function MyDubsTemplate({
+  mediaKind,
+  title = mediaKind === "sample" ? "Your Samples" : "My Dubs",
   dubs,
   packs = [],
   ownerUsername,
   onPlayPack,
   onOpenPack,
   onDownloadPack,
+  onSharePack,
   onActivateQueue,
+  activePackId,
   likedDubIds,
   nowPlayingId,
   isPlaying,
@@ -81,6 +90,9 @@ export function MyDubsTemplate({
   onAddToPack,
   onOpenProfile,
 }: MyDubsTemplateProps) {
+  const isSample = mediaKind === "sample";
+  const noun = isSample ? "sample" : "dub";
+  const uploadLabel = isSample ? "Create Sample Pack" : "Share a dub";
   const [query, setQuery] = useState("");
   const statisticsRefs = useRef(new Map<string, HTMLDetailsElement>());
   const filteredDubs = useMemo(() => {
@@ -103,34 +115,34 @@ export function MyDubsTemplate({
       <section className="page-intro">
         <div>
           <span className="eyebrow">YOUR STUDIO</span>
-          <h1>My Dubs</h1>
-          <p>Manage your releases and keep your music moving.</p>
+          <h1>{title}</h1>
+          <p>{isSample ? "Manage your samples, packs and usage terms." : "Manage your releases and keep your music moving."}</p>
         </div>
         <div className="my-dubs-template__intro-actions">
-          <Badge dot variant="audio">{dubs.length} {dubs.length === 1 ? "dub" : "dubs"}</Badge>
-          <Button aria-label="Share a dub" hideLabelOnMobile leadingIcon={<ShareDubIcon desktopIcon={<AudioLines />} />} onClick={onShareDub}>
-            Share a dub
+          <Badge dot variant="audio">{dubs.length} {noun}{dubs.length === 1 ? "" : "s"}</Badge>
+          <Button aria-label={uploadLabel} hideLabelOnMobile leadingIcon={<ShareDubIcon desktopIcon={<AudioLines />} />} onClick={onShareDub}>
+            {uploadLabel}
           </Button>
         </div>
       </section>
 
       <SearchField
-        aria-label="Search my dubs"
+        aria-label={isSample ? "Search your samples" : title === "My Dubs" ? "Search my dubs" : "Search your dubs"}
         onChange={(event) => setQuery(event.currentTarget.value)}
         placeholder="Search your tracks, tags, or genres"
         value={query}
       />
 
       {ownerUsername && onPlayPack && onOpenPack && <DubPackCollection
-        packs={packs} ownerUsername={ownerUsername} query={query} likedDubIds={likedDubIds}
+        packs={packs} mediaKind={mediaKind} ownerUsername={ownerUsername} query={query} likedDubIds={likedDubIds}
         nowPlayingId={nowPlayingId} isPlaying={isPlaying} currentTimeSeconds={currentTimeSeconds}
         durationSeconds={durationSeconds} volume={volume} shuffle={shuffle} repeat={repeat} playbackError={playbackError}
-        onPlay={onPlay} onPlayAll={onPlayPack} onOpenPack={onOpenPack} onDownloadPack={onDownloadPack}
+        onPlay={onPlay} onPlayAll={onPlayPack} onOpenPack={onOpenPack} onDownloadPack={onDownloadPack} onSharePack={onSharePack}
         onDownload={onDownload} onOpenProfile={onOpenProfile} onSeek={onSeek} onSeekProgress={onSeekProgress}
-        onActivateQueue={onActivateQueue} onPrevious={onPrevious} onNext={onNext}
+        activePackId={activePackId} onActivateQueue={onActivateQueue} onPrevious={onPrevious} onNext={onNext}
         onShuffleChange={onShuffleChange} onRepeatChange={onRepeatChange} onVolumeChange={onVolumeChange} />}
 
-      <section aria-label="My Dubs" className="my-dubs-template__list feed-list">
+      <section aria-label={title} className="my-dubs-template__list feed-list">
         {pagination.items.map((dub) => (
           <div className="my-dubs-template__track" key={dub.id}>
             <DubCard
@@ -176,15 +188,15 @@ export function MyDubsTemplate({
         {filteredDubs.length === 0 && (
           <div className="empty-state">
             <Search aria-hidden="true" />
-            <strong>{dubs.length ? "No dubs found" : "Your first dub starts here"}</strong>
-            <span>{dubs.length ? "Try another track, tag, or genre." : "Share a dub to add it to your collection."}</span>
-            {!dubs.length && <Button aria-label="Share a dub" hideLabelOnMobile leadingIcon={<ShareDubIcon desktopIcon={<AudioLines />} />} onClick={onShareDub}>Share a dub</Button>}
+            <strong>{dubs.length ? `No ${noun}s found` : `Your first ${noun} starts here`}</strong>
+            <span>{dubs.length ? "Try another track, tag, or genre." : isSample ? "Create a Sample Pack to upload samples and define their usage terms." : "Share a dub to add it to your collection."}</span>
+            {!dubs.length && <Button aria-label={uploadLabel} hideLabelOnMobile leadingIcon={<ShareDubIcon desktopIcon={<AudioLines />} />} onClick={onShareDub}>{uploadLabel}</Button>}
           </div>
         )}
       </section>
       <Pagination
         itemCount={filteredDubs.length}
-        label="My dubs"
+        label={isSample ? "Your samples" : "My dubs"}
         onPageChange={pagination.setPage}
         onPageSizeChange={pagination.setPageSize}
         page={pagination.page}

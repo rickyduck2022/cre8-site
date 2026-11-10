@@ -32,3 +32,4 @@ export * from "./ChatComposer/ChatComposer";
 export * from "./DubManagementActions/DubManagementActions";
 export * from "./DubActionsMenu/DubActionsMenu";
 export * from "./TrackFileMetadata/TrackFileMetadata";
+export * from "./PackPlaybackButton/PackPlaybackButton";

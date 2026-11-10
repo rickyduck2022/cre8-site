@@ -1,0 +1,29 @@
+{
+  "id": "manage-pack",
+  "title": "Manage pack details and access",
+  "description": "Edit a saved pack and revoke private pack access without deleting its audio files.",
+  "fixture": "community",
+  "assets": { "audio": { "env": "GUIDE_AUDIO_PATH" } },
+  "steps": [
+    { "caption": "1. Open Your Dubs, then Packs to manage published releases and private drafts.", "actions": [
+      { "type": "navigate", "destination": "my-dubs" },
+      { "type": "click", "target": { "role": "button", "name": "Packs" } }
+    ] },
+    { "caption": "2. Open Private Sessions from its management card.", "actions": [
+      { "type": "fill", "target": { "label": "Search packs" }, "value": "Private Sessions" },
+      { "type": "click", "target": { "role": "button", "name": "Open pack" } }
+    ] },
+    { "caption": "3. Manage access shows the friends currently granted access to this pack.", "actions": [
+      { "type": "click", "target": { "role": "button", "name": "Manage access · 1" } },
+      { "type": "waitFor", "target": { "role": "region", "name": "Pack access" }, "reveal": true }
+    ] },
+    { "caption": "4. Revoke removes this pack's grant. Separate file grants and downloads remain unaffected.", "actions": [
+      { "type": "click", "target": { "role": "button", "name": "Revoke pack access for Demo Listener" } },
+      { "type": "waitFor", "target": { "text": "No friends currently have pack access." } }
+    ] },
+    { "caption": "5. Edit pack reopens its saved details and file arrangement without re-uploading audio.", "actions": [
+      { "type": "click", "target": { "role": "button", "name": "Edit pack" } },
+      { "type": "waitFor", "target": { "role": "region", "name": "Pack editor" } }
+    ] }
+  ]
+}

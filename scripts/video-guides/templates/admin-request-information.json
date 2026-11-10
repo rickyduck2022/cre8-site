@@ -1,0 +1,24 @@
+{
+  "id": "admin-request-information",
+  "title": "Request artist information",
+  "description": "Filter pending submissions, request a specific update and verify the decision history.",
+  "fixture": "admin",
+  "entryPath": "/admin/#applications",
+  "assets": { "audio": { "env": "GUIDE_AUDIO_PATH" } },
+  "steps": [
+    { "caption": "1. Filter the review queue to pending submissions and choose the artist.", "actions": [
+      { "type": "select", "target": { "role": "combobox", "name": "Application status" }, "value": "pending" },
+      { "type": "click", "target": { "text": "@newartist" } }
+    ] },
+    { "caption": "2. Read the artist's story, then write a specific request in the decision panel.", "actions": [
+      { "type": "fill", "target": { "label": "Message to artist (required when requesting information)" }, "value": "Please add your next radio date and the show name." }
+    ] },
+    { "caption": "3. Request more information notifies the artist and lets them resubmit their answers.", "actions": [
+      { "type": "click", "target": { "role": "button", "name": "Request more information" } }
+    ] },
+    { "caption": "4. Choose the more-information status to find the submission again and read its decision history.", "actions": [
+      { "type": "select", "target": { "role": "combobox", "name": "Application status" }, "value": "more_information" },
+      { "type": "waitFor", "target": { "role": "heading", "name": "Decision history" }, "reveal": true }
+    ] }
+  ]
+}

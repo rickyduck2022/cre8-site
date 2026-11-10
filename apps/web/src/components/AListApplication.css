@@ -1,20 +1,108 @@
 .alist-application {
   display: grid;
-  gap: 1.25rem;
+  gap: var(--spacing-4);
+  max-width: 68rem;
   min-width: 0;
+  width: 100%;
 }
 
-.alist-application__form,
-.alist-application__status {
-  background: var(--surface-raised);
-  border: 1px solid var(--border-default);
-  border-radius: 0.75rem;
-  padding: clamp(1rem, 3vw, 1.5rem);
+.alist-application__intro {
+  display: grid;
+  gap: var(--spacing-4);
+  padding: var(--spacing-2) 0;
+}
+
+.alist-application__intro h1 {
+  font-size: var(--type-size-heading);
+  margin: var(--spacing-2) 0;
+}
+
+.alist-application p {
+  color: var(--text-secondary);
+  font-size: var(--type-size-compact);
+  line-height: var(--type-leading-body);
+  margin: 0;
+}
+
+.alist-application__intro-note {
+  align-items: center;
+  background: color-mix(in srgb, var(--action-primary) 6%, var(--surface-raised));
+  border: 1px solid color-mix(in srgb, var(--action-primary) 25%, var(--border-default));
+  border-radius: var(--radius-md);
+  display: flex;
+  gap: var(--spacing-3);
+  padding: var(--spacing-4);
+}
+
+.alist-application__intro-note > svg {
+  color: var(--action-primary);
+  flex: none;
+  height: 1.5rem;
+  width: 1.5rem;
+}
+
+.alist-application__intro-note p span {
+  display: block;
+  font-size: var(--type-size-micro);
+  margin-top: var(--spacing-1);
 }
 
 .alist-application__form {
   display: grid;
-  gap: 1.25rem;
+  gap: var(--spacing-4);
+  min-width: 0;
+}
+
+.alist-application__section,
+.alist-application__status {
+  background: var(--surface-raised);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  min-width: 0;
+  overflow: hidden;
+}
+
+.alist-application__section-heading {
+  align-items: start;
+  background: color-mix(in srgb, var(--surface-canvas) 45%, var(--surface-raised));
+  border-bottom: 1px solid var(--border-default);
+  display: grid;
+  gap: var(--spacing-3);
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  padding: var(--spacing-4);
+}
+
+.alist-application__section-number {
+  align-items: center;
+  background: color-mix(in srgb, var(--action-primary) 12%, var(--surface-canvas));
+  border: 1px solid color-mix(in srgb, var(--action-primary) 25%, var(--border-default));
+  border-radius: var(--radius-sm);
+  color: var(--action-primary);
+  display: inline-flex;
+  font-family: var(--font-mono);
+  font-size: var(--type-size-compact);
+  height: 2rem;
+  justify-content: center;
+  width: 2rem;
+}
+
+.alist-application__section-heading h2 {
+  font-size: var(--type-size-body);
+  margin: 0 0 var(--spacing-1);
+}
+
+.alist-application__requirement {
+  border: 1px solid var(--border-default);
+  border-radius: 2rem;
+  color: var(--text-secondary);
+  font-size: var(--type-size-micro);
+  padding: var(--spacing-1) var(--spacing-2);
+}
+
+.alist-application__section-body {
+  display: grid;
+  gap: var(--spacing-4);
+  padding: clamp(1rem, 3vw, 1.5rem);
 }
 
 .alist-application__form label {
@@ -22,24 +110,37 @@
   display: grid;
   font-size: var(--type-size-compact);
   font-weight: var(--type-weight-medium);
-  gap: 0.5rem;
+  gap: var(--spacing-2);
   line-height: var(--type-leading-body);
+  min-width: 0;
 }
 
 .alist-application__form input:not([type="checkbox"]),
 .alist-application__form textarea {
   background: var(--surface-canvas);
   border: 1px solid var(--border-default);
-  border-radius: 0.5rem;
+  border-radius: var(--radius-sm);
   box-shadow: var(--shadow-input);
+  box-sizing: border-box;
   color: var(--text-primary);
   font: inherit;
   font-size: var(--type-size-input);
   font-weight: var(--type-weight-regular);
   line-height: var(--type-leading-body);
+  min-height: 2.75rem;
   min-width: 0;
   padding: 0.65rem 0.75rem;
   width: 100%;
+}
+
+.alist-application__form input::placeholder,
+.alist-application__form textarea::placeholder {
+  color: var(--text-secondary);
+  opacity: 0.7;
+}
+
+.alist-application__form textarea {
+  resize: vertical;
 }
 
 .alist-application__form input:focus-visible,
@@ -50,62 +151,208 @@
 }
 
 .alist-application__form fieldset {
-  border: 1px solid var(--border-default);
-  border-radius: 0.5rem;
+  border: 0;
   display: grid;
-  gap: 1rem;
+  gap: var(--spacing-3);
   margin: 0;
   min-width: 0;
-  padding: 1rem;
+  padding: 0;
 }
 
 .alist-application__form legend {
   color: var(--text-primary);
-  font-size: var(--type-size-body);
+  font-size: var(--type-size-compact);
   font-weight: var(--type-weight-strong);
-  padding: 0 0.3rem;
+  margin-bottom: var(--spacing-3);
+  padding: 0;
 }
 
-.alist-application__form p,
-.alist-application__status p {
+.alist-application__grid {
+  display: grid;
+  gap: var(--spacing-4);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.alist-application__roles {
+  display: grid;
+  gap: var(--spacing-2);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 8rem), 1fr));
+}
+
+.alist-application__roles label {
+  align-items: center;
+  background: var(--surface-canvas);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  gap: var(--spacing-3) var(--spacing-2);
+  grid-template-columns: minmax(0, 1fr) auto;
+  min-height: 5rem;
+  padding: var(--spacing-3);
+}
+
+.alist-application__roles label > svg {
   color: var(--text-secondary);
+  height: 1.25rem;
+  width: 1.25rem;
+}
+
+.alist-application__roles label > span {
+  grid-column: 1 / -1;
+  grid-row: 2;
+}
+
+.alist-application__roles input {
+  accent-color: var(--action-primary);
+  grid-column: 2;
+  grid-row: 1;
+  height: 1rem;
+  margin: 0;
+  width: 1rem;
+}
+
+.alist-application__roles label:has(input:checked) {
+  background: color-mix(in srgb, var(--action-primary) 10%, var(--surface-canvas));
+  border-color: var(--action-primary);
+}
+
+.alist-application__roles label:has(input:checked) > svg {
+  color: var(--action-primary);
+}
+
+.alist-application__roles label:hover {
+  border-color: var(--action-primary);
+}
+
+.alist-application__roles label:has(input:focus-visible) {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.alist-application__highlights {
+  display: grid;
+  gap: var(--spacing-4);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.alist-application__highlight legend > svg {
+  color: var(--action-primary);
+  height: 1rem;
+  margin-right: var(--spacing-2);
+  vertical-align: middle;
+  width: 1rem;
+}
+
+.alist-application__list {
+  display: grid;
+  gap: var(--spacing-2);
+}
+
+.alist-application__list label {
+  align-items: center;
+  gap: var(--spacing-2);
+  grid-template-columns: auto minmax(0, 1fr);
+}
+
+.alist-application__list-number {
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--type-size-micro);
+}
+
+.alist-application__socials {
+  display: grid;
+  gap: var(--spacing-3);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.alist-application__social-card {
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  display: grid;
+  gap: var(--spacing-3);
+  min-width: 0;
+  padding: var(--spacing-4);
+}
+
+.alist-application__provider {
+  align-items: center;
+  display: flex;
+  gap: var(--spacing-2);
+}
+
+.alist-application__provider > span {
+  background: var(--surface-control);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--type-size-micro);
+  padding: var(--spacing-2);
+}
+
+.alist-application__provider h3 {
   font-size: var(--type-size-compact);
-  line-height: var(--type-leading-body);
   margin: 0;
 }
 
+.alist-application__character-count {
+  color: var(--text-secondary);
+  font-size: var(--type-size-micro);
+  justify-self: end;
+}
+
 .alist-application__status {
+  border-left: 3px solid var(--action-primary);
   display: grid;
-  gap: 0.5rem;
+  gap: var(--spacing-2);
+  padding: var(--spacing-4);
 }
 
 .alist-application__form .alist-application__error {
   color: var(--color-danger);
 }
 
-.alist-application__grid {
-  display: grid;
-  gap: 0.75rem;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
-}
-
-.alist-application__roles {
+.alist-application__submit {
+  align-items: center;
+  background: var(--surface-raised);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
   display: flex;
   flex-wrap: wrap;
-  gap: 0.75rem 1rem;
+  gap: var(--spacing-4);
+  justify-content: space-between;
+  padding: clamp(1rem, 3vw, 1.5rem);
 }
 
-.alist-application__roles label {
-  align-items: center;
-  display: flex;
-  font-weight: var(--type-weight-regular);
+.alist-application__submit strong {
+  display: block;
+  font-size: var(--type-size-body);
+  margin-bottom: var(--spacing-1);
 }
 
-.alist-application__roles input {
-  accent-color: var(--action-primary);
-  margin: 0;
-}
+@media (max-width: 760px) {
+  .alist-application__highlights,
+  .alist-application__socials,
+  .alist-application__grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
 
-.alist-application__form > .button {
-  justify-self: start;
+  .alist-application__highlight + .alist-application__highlight {
+    border-top: 1px solid var(--border-default);
+    padding-top: var(--spacing-4);
+  }
+
+  .alist-application__section-heading {
+    gap: var(--spacing-2);
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .alist-application__requirement {
+    grid-column: 2;
+    justify-self: start;
+  }
+
+  .alist-application__submit > .button {
+    width: 100%;
+  }
 }

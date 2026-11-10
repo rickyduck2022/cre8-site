@@ -43,7 +43,11 @@
       "actions": [
         { "type": "click", "target": { "role": "button", "name": "Choose player position" } },
         { "type": "click", "target": { "role": "button", "name": "Pop out" } }
-      ]
+      ],
+      "profileOverrides": { "mobile": { "caption": "5. Choose Minimized from the position menu to use the mini player.", "actions": [
+        { "type": "click", "target": { "role": "button", "name": "Choose player position" } },
+        { "type": "click", "target": { "role": "button", "name": "Minimized" } }
+      ] } }
     },
     {
       "caption": "6. Select Pause to stop playback without closing the player.",

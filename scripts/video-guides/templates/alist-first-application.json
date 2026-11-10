@@ -1,0 +1,32 @@
+{
+  "id": "alist-first-application",
+  "title": "Submit your artist story",
+  "description": "Complete the redesigned five-section A-List form and submit an initial application.",
+  "fixture": "new-application",
+  "entryPath": "/#alist-application",
+  "assets": { "audio": { "env": "GUIDE_AUDIO_PATH" } },
+  "steps": [
+    { "caption": "1. A-List Submission starts with your artist identity. Select every role that applies.", "actions": [
+      { "type": "fill", "target": { "label": "Artist name" }, "value": "New Artist" },
+      { "type": "click", "target": { "role": "checkbox", "name": "DJ" } },
+      { "type": "click", "target": { "role": "checkbox", "name": "Producer" } }
+    ] },
+    { "caption": "2. Tell the team about your experience behind the decks and in the studio.", "actions": [
+      { "type": "fill", "target": { "label": "How long have you been DJing?" }, "value": "8 years of clubs and community radio" },
+      { "type": "fill", "target": { "label": "How long have you been producing? (optional)" }, "value": "5 years of jungle and drum & bass" }
+    ] },
+    { "caption": "3. Add optional highlights from your scene: events, supporting artists and record labels.", "actions": [
+      { "type": "fill", "target": { "label": "Event or brand 1" }, "value": "Community Sessions" },
+      { "type": "fill", "target": { "label": "Supporting artist 1" }, "value": "Local Selectors" },
+      { "type": "fill", "target": { "label": "Record label 1" }, "value": "Independent" }
+    ] },
+    { "caption": "4. Link a social profile. Follower counts are optional, self-reported and unverified.", "actions": [
+      { "type": "fill", "target": { "label": "Instagram profile URL" }, "value": "https://instagram.com/example" }
+    ] },
+    { "caption": "5. Add anything else, review your answers and submit your story to the cre8 team.", "actions": [
+      { "type": "fill", "target": { "role": "textbox", "name": "Additional information (optional)" }, "value": "Monthly radio resident supporting emerging producers." },
+      { "type": "click", "target": { "role": "button", "name": "Submit application" } },
+      { "type": "waitFor", "target": { "text": "Your application is awaiting review." }, "reveal": true }
+    ] }
+  ]
+}

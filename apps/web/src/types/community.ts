@@ -9,4 +9,4 @@ export type {
   Presence,
 } from "@craft/ui";
 
-export type CommunitySection = "dubs" | "alist" | "alist-application" | "buddies" | "messenger" | "profile" | "library" | "shared-with-me" | "my-dubs";
+export type CommunitySection = "dubs" | "samples" | "alist" | "alist-application" | "buddies" | "messenger" | "profile" | "library" | "shared-with-me" | "shared-samples" | "my-dubs" | "my-samples";

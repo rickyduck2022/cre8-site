@@ -1,5 +1,6 @@
-import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { act, cleanup, fireEvent, render, screen, within, waitFor } from "@testing-library/react";
+import type { DubPack } from "./types/domain";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "../../../apps/web/src/app/App";
 
 const mocks = vi.hoisted(() => ({ community: vi.fn() }));
@@ -26,13 +27,21 @@ function community(dubs: typeof dub[], nowPlayingId: string | null) {
   return {
     loading: false,
     unreadCount: 0,
+    notifications: [],
+    activeNotifications: [],
     state: {
       member: { id: "user", username: "amber", displayName: "Amber", genre: "Jungle" },
-      dubs, nowPlayingId, isPlaying: false, currentTime: 42, duration: 180,
+      dubs, packs: [], nowPlayingId, isPlaying: false, currentTime: 42, duration: 180,
       sharedDubIds: new Set(), likedDubIds: new Set(), buddies: [], suggestedMembers: [],
+      conversations: [],
     },
   };
 }
+
+beforeAll(() => {
+  HTMLDialogElement.prototype.showModal = function () { this.open = true; };
+  HTMLDialogElement.prototype.close = function () { this.open = false; };
+});
 
 beforeEach(() => {
   const data = new Map<string, string>();
@@ -53,6 +62,100 @@ afterEach(() => {
 });
 
 describe("app footer player", () => {
+  it("supports persistent full screen and minimized views without changing playback", () => {
+    vi.stubGlobal("innerWidth", 390);
+    const togglePlayback = vi.fn();
+    mocks.community.mockReturnValue({ ...community([dub], "one"), togglePlayback });
+    let app = render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "Choose player position" }));
+    fireEvent.click(screen.getByRole("button", { name: "Full screen", exact: true }));
+    let dialog = screen.getByRole("dialog", { name: "Now playing" });
+    expect(within(dialog).getByRole("region", { name: "Audio player: Night Drive" })).not.toHaveClass("audio-player--minimized");
+    expect(screen.getByRole("main")).toHaveClass("community-dashboard-template--player-fullscreen");
+    expect(JSON.parse(window.localStorage.getItem("cre8:player-layout")!).placement.other).toBe("fullscreen");
+    app.unmount();
+    app = render(<App />);
+    dialog = screen.getByRole("dialog", { name: "Now playing" });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Choose player position" }));
+    expect(within(dialog).getByRole("button", { name: "Full screen", exact: true })).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Minimized", exact: true }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Audio player: Night Drive" })).toHaveClass("audio-player--minimized");
+    expect(screen.getByRole("button", { name: "Choose player position" })).toHaveFocus();
+    fireEvent.click(screen.getByRole("button", { name: "Expand audio player" }));
+    dialog = screen.getByRole("dialog", { name: "Now playing" });
+    fireEvent(dialog, new Event("cancel", { cancelable: true }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(togglePlayback).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Expand audio player" }));
+    vi.stubGlobal("innerWidth", 1440);
+    fireEvent(window, new Event("resize"));
+    const desktopDialog = screen.getByRole("dialog", { name: "Now playing" });
+    expect(within(desktopDialog).getByRole("region", { name: "Audio player: Night Drive" })).not.toHaveClass("audio-player--minimized");
+    vi.stubGlobal("innerWidth", 390);
+    fireEvent(window, new Event("resize"));
+    expect(screen.getByRole("dialog", { name: "Now playing" })).toBeVisible();
+  });
+
+  it("opens a pack in the full screen player from its Open pack action on desktop", () => {
+    vi.stubGlobal("innerWidth", 1440);
+    const pack: DubPack = { id: "active", title: "Night Sessions", description: "", kind: "dub", status: "published",
+      distribution: "worldwide", aListPublic: false, licence: "Original works", ownerUsername: "amber", ownerDisplayName: "Amber",
+      items: [{ dub }, { dub: { ...dub, id: "two", title: "Closing" } }], totalBytes: 0, createdAt: dub.uploadedAt, updatedAt: dub.uploadedAt };
+    const playPack = vi.fn();
+    const data = community([dub], "one");
+    mocks.community.mockReturnValue({ ...data, state: { ...data.state, packs: [pack] },
+      playPack, togglePlayback: vi.fn(), activatePackQueue: vi.fn(() => true), downloadDub: vi.fn() });
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "Choose player position" }));
+    fireEvent.click(screen.getByRole("button", { name: "Full screen", exact: true }));
+    const dialog = screen.getByRole("dialog", { name: "Now playing" });
+    expect(within(dialog).getByRole("region", { name: "Audio player: Night Drive" })).not.toHaveClass("audio-player--minimized");
+    expect(JSON.parse(window.localStorage.getItem("cre8:player-layout")!).placement.other).toBe("fullscreen");
+  });
+
+  it.each([
+    ["dub", 390], ["sample", 390], ["dub", 1440], ["sample", 1440],
+  ] as const)("shows the active %s pack queue at %ipx and scopes playlist row playback", async (kind, width) => {
+    vi.stubGlobal("innerWidth", width);
+    const pack: DubPack = { id: "active", title: "Night Sessions", description: "", kind, status: "published",
+      distribution: "worldwide", aListPublic: false, licence: "Original works", ownerUsername: "amber", ownerDisplayName: "Amber",
+      items: [{ dub }, { dub: { ...dub, id: "two", title: "Closing" } }], totalBytes: 0, createdAt: dub.uploadedAt, updatedAt: dub.uploadedAt };
+    const activatePackQueue = vi.fn(() => true);
+    const togglePlayback = vi.fn();
+    const downloadDub = vi.fn(async () => undefined);
+    const data = community([dub, pack.items[1].dub], "one");
+    mocks.community.mockReturnValue({ ...data, state: { ...data.state, packs: [pack], queuePackId: pack.id },
+      activatePackQueue, togglePlayback, downloadDub, playPack: vi.fn() });
+    const app = render(<App />);
+    const queue = screen.getByRole("region", { name: "Current pack playlist" });
+    expect(queue.querySelector(".app-player__pack-title")).toHaveTextContent("Night Sessions");
+    expect(queue.querySelector(".app-player__pack-position")).toHaveTextContent("1/2");
+    expect(queue.closest(".app-player")).toHaveClass(`media-kind--${kind}`);
+    expect(within(queue).getAllByRole("article").map((row) => row.getAttribute("aria-label"))).toEqual(["Night Drive", "Closing"]);
+    fireEvent.click(within(within(queue).getByRole("article", { name: "Closing" })).getByRole("button", { name: "Play", exact: true }));
+    expect(activatePackQueue).toHaveBeenCalledWith(pack.items.map(({ dub }) => dub), "active");
+    expect(togglePlayback).toHaveBeenCalledWith(pack.items[1].dub);
+    expect(screen.getByRole("button", { name: `Share ${kind === "sample" ? "Sample" : "Dub"} Pack: Night Sessions` })).toBeVisible();
+    fireEvent.click(within(queue).getByRole("button", { name: /Night Sessions/ }));
+    expect(within(queue).queryByRole("list")).not.toBeInTheDocument();
+    mocks.community.mockReturnValue({ ...data, togglePlayback, downloadDub });
+    app.rerender(<App />);
+    expect(screen.queryByRole("region", { name: "Current pack playlist" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Download dub: Night Drive" }));
+    await waitFor(() => expect(downloadDub).toHaveBeenCalledWith(dub));
+  });
+  it("uses the active pack audience for the global player without changing sample colors", () => {
+    const pack: DubPack = { id: "active", title: "A-List Sessions", description: "", kind: "sample", status: "published",
+      distribution: "alist", aListPublic: false, licence: "Original works", ownerUsername: "amber", ownerDisplayName: "Amber",
+      items: [{ dub }], totalBytes: 0, createdAt: dub.uploadedAt, updatedAt: dub.uploadedAt };
+    const data = community([dub], "one");
+    mocks.community.mockReturnValue({ ...data, state: { ...data.state, packs: [pack], queuePackId: pack.id } });
+    render(<App />);
+    const player = screen.getByRole("region", { name: "Current pack playlist" }).closest(".app-player");
+    expect(player).toHaveClass("audio-player--alist", "media-kind--sample");
+    expect(player).toHaveTextContent("Playback paused · A-List release");
+  });
   it.each([375, 900, 1440])("wires mini-player previous, next and play controls at width %i", (width) => {
     vi.stubGlobal("innerWidth", width);
     const playPreviousDub = vi.fn();
@@ -73,7 +176,7 @@ describe("app footer player", () => {
   });
 
   it.each([
-    [1440, "Header"], [1440, "Footer"], [1440, "Left sidebar"], [1440, "Pop out"],
+    [1440, "Header"], [1440, "Footer"], [1440, "Left sidebar"], [1440, "Right dock"], [1440, "Pop out"],
     [375, "Left edge"], [375, "Right edge"],
   ] as const)("closes the %s-width %s player without discarding its saved layout", (width, position) => {
     vi.stubGlobal("innerWidth", width);
@@ -143,7 +246,7 @@ describe("app footer player", () => {
     fireEvent.click(screen.getByRole("button", { name: "Footer" }));
     fireEvent.click(screen.getByRole("button", { name: "Choose player position" }));
     expect(screen.queryByRole("slider", { name: "Opacity" })).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Pop out" }));
+    fireEvent.click(screen.getByRole("button", { name: "Minimized" }));
     expect(player).toHaveStyle({ opacity: "0.7" });
     vi.stubGlobal("innerWidth", 1440);
     fireEvent(window, new Event("resize"));
@@ -159,7 +262,7 @@ describe("app footer player", () => {
     vi.stubGlobal("innerWidth", 1440);
     mocks.community.mockReturnValue(community([dub], "one"));
     let app = render(<App />);
-    for (const [label, expectedClass] of [["Header", "community-dashboard-template--player-header"], ["Footer", null], ["Left sidebar", "community-dashboard-template--player-docked"]] as const) {
+    for (const [label, expectedClass] of [["Header", "community-dashboard-template--player-header"], ["Footer", null], ["Left sidebar", "community-dashboard-template--player-docked"], ["Right dock", "community-dashboard-template--player-right"]] as const) {
       fireEvent.click(screen.getByRole("button", { name: "Choose player position" }));
       fireEvent.click(screen.getByRole("button", { name: label }));
       app.unmount();
@@ -171,6 +274,32 @@ describe("app footer player", () => {
         expect(screen.getByRole("main")).not.toHaveClass("community-dashboard-template--player-header");
       }
     }
+  });
+
+  it("falls back to the footer below desktop width without losing the right dock preference", () => {
+    vi.stubGlobal("innerWidth", 1440);
+    mocks.community.mockReturnValue(community([dub], "one"));
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "Choose player position" }));
+    fireEvent.click(screen.getByRole("button", { name: "Right dock" }));
+    expect(screen.getByRole("main")).toHaveClass("community-dashboard-template--player-right");
+    const saved = window.localStorage.getItem("cre8:player-layout");
+    for (const width of [1050, 375]) {
+      vi.stubGlobal("innerWidth", width);
+      fireEvent(window, new Event("resize"));
+      expect(screen.getByRole("main")).not.toHaveClass("community-dashboard-template--player-right");
+      fireEvent.click(screen.getByRole("button", { name: "Choose player position" }));
+      expect(screen.queryByRole("button", { name: "Right dock" })).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Footer" })).toHaveAttribute("aria-pressed", "true");
+      fireEvent.keyDown(document, { key: "Escape" });
+      expect(window.localStorage.getItem("cre8:player-layout")).toBe(saved);
+    }
+    vi.stubGlobal("innerWidth", 1440);
+    fireEvent(window, new Event("resize"));
+    expect(screen.getByRole("main")).toHaveClass("community-dashboard-template--player-right");
+    fireEvent.click(screen.getByRole("button", { name: "Pop out audio player" }));
+    expect(screen.getByRole("main")).not.toHaveClass("community-dashboard-template--player-right");
+    expect(screen.getByRole("region", { name: "Audio player: Night Drive" })).toHaveClass("audio-player--minimized");
   });
 
   it("restores mobile opacity after remounting, but not while snapped", () => {
@@ -191,7 +320,7 @@ describe("app footer player", () => {
     expect(screen.getByRole("region", { name: "Audio player: Night Drive" }).style.opacity).toBe("");
     fireEvent.click(screen.getByRole("button", { name: "Choose player position" }));
     expect(screen.queryByRole("slider", { name: "Opacity" })).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Pop out" }));
+    fireEvent.click(screen.getByRole("button", { name: "Minimized" }));
     expect(screen.getByRole("region", { name: "Audio player: Night Drive" })).toHaveStyle({ opacity: "0.45" });
   });
 

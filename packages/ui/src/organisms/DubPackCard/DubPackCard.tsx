@@ -1,10 +1,11 @@
 import { useId, useState } from "react";
-import { AudioLines, ChevronDown } from "@craft/icons";
+import { AudioLines, ChevronDown, MessageCircle } from "@craft/icons";
 import { Badge } from "../../atoms/Badge/Badge";
 import { Button } from "../../atoms/Button/Button";
-import { TrackArtwork } from "../../templates/shared/TrackArtwork";
+import { TrackArtwork } from "../../molecules/TrackArtwork/TrackArtwork";
+import { PackPlaybackButton } from "../../molecules/PackPlaybackButton/PackPlaybackButton";
 import { useAsyncSubmission } from "../../utils/useAsyncSubmission";
-import type { DubCardProps } from "../DubCard/DubCard";
+import { DubCard, type DubCardProps } from "../DubCard/DubCard";
 import { PackPlaylist, type PackQueueControls } from "./PackPlaylist";
 import type { Dub, DubPack } from "../../types/domain";
 import "./DubPackCard.css";
@@ -35,7 +36,7 @@ export function DubPackIdentity({ pack, compact = false }: { pack: DubPack; comp
     return total + (Number.isFinite(minutes + seconds) ? minutes * 60 + seconds : 0);
   }, 0);
   const Heading = compact ? "h2" : "h1";
-  return <header className={`pack-identity${compact ? " pack-identity--compact" : ""}`}>
+  return <header className={`pack-identity${compact ? " pack-identity--compact" : ""}${pack.distribution === "alist" ? " pack-identity--alist" : ""}`}>
     <div className="pack-artwork">
       {pack.artworkUrl ? <img src={pack.artworkUrl} alt="" />
         : pack.items[0] ? <TrackArtwork dub={pack.items[0].dub} large />
@@ -45,7 +46,7 @@ export function DubPackIdentity({ pack, compact = false }: { pack: DubPack; comp
       <div className="pack-badges">
         <span className="eyebrow">{packTypeLabel(pack.kind)}</span>
         <Badge variant={pack.status === "draft" ? "default" : "audio"}>{pack.status === "draft" ? "Draft" : "Published"}</Badge>
-        <Badge variant="default">{packAudience(pack)}</Badge>
+        <Badge variant={pack.distribution === "alist" ? "accent" : "default"}>{packAudience(pack)}</Badge>
       </div>
       <Heading>{pack.title}</Heading>
       <p className="pack-muted">{pack.ownerDisplayName}</p>
@@ -62,36 +63,74 @@ export interface DubPackCardProps extends PackQueueControls, Pick<DubCardProps,
   nowPlayingId: string | null;
   isPlaying: boolean;
   likedDubIds: Set<string>;
-  onPlayAll: (dubs: Dub[]) => void;
+  onPlayAll: (dubs: Dub[], packId?: string) => void;
+  onSharePack?: (pack: DubPack) => void;
   onOpenPack: (pack: DubPack) => void;
   onDownloadPack?: (pack: DubPack) => Promise<void>;
   matchingDubIds?: Set<string>;
 }
 
 export function DubPackCard({
-  pack, nowPlayingId, isPlaying, likedDubIds, onPlayAll, onOpenPack, onDownloadPack, matchingDubIds, ...playback
+  pack, nowPlayingId, isPlaying, activePackId, likedDubIds, onPlayAll, onOpenPack, onDownloadPack, onSharePack, matchingDubIds, ...playback
 }: DubPackCardProps) {
   const [expanded, setExpanded] = useState(false);
   const playlistId = useId();
   const download = useAsyncSubmission("The pack could not be downloaded.", pack.id);
   const matches = pack.items.filter(({ dub }) => !matchingDubIds || matchingDubIds.has(dub.id));
-  const playing = pack.items.some(({ dub }) => dub.id === nowPlayingId);
-  return <article className={`dub-pack-card${playing ? " dub-pack-card--current" : ""}`} aria-label={`${packTypeLabel(pack.kind)}: ${pack.title}`}>
-    <DubPackIdentity pack={pack} compact />
-    <div className="dub-pack-card__actions">
-      <Button size="small" disabled={!pack.items.length} onClick={() => onPlayAll(pack.items.map(({ dub }) => dub))}>Play all</Button>
+  const tracks = pack.items.map(({ dub }) => dub);
+  const current = activePackId === undefined || activePackId === pack.id ? tracks.find((dub) => dub.id === nowPlayingId) : undefined;
+  const playing = Boolean(current);
+  const track = current ?? tracks[0];
+  const disabled = pack.status !== "published" || !tracks.length;
+  function withinPack(action: () => void) {
+    if (!disabled && playback.onActivateQueue?.(tracks, pack.id) !== false) action();
+  }
+  return <DubCard variant="collection" mediaKind={pack.kind} distribution={pack.distribution} className={`dub-pack-card${playing ? " dub-pack-card--current" : ""}`}
+    label={`${packTypeLabel(pack.kind)}: ${pack.title}`} isCurrentTrack={playing}
+    header={<DubPackIdentity pack={pack} compact />}
+    playbackLabel={`${pack.title} playback controls`} playbackDisabled={disabled}
+    player={track ? {
+      track: {
+        title: track.title, artist: track.artist, duration: track.duration,
+        artistAListApproved: track.artistAListApproved,
+        artworkContent: <TrackArtwork dub={track} />,
+        onArtistClick: playback.onOpenProfile ? () => playback.onOpenProfile?.(track.uploader) : undefined,
+      },
+      distribution: pack.distribution,
+      playing: playing && isPlaying,
+      currentTimeSeconds: playing ? playback.currentTimeSeconds : 0,
+      durationSeconds: playing ? playback.durationSeconds : undefined,
+      playbackError: playing ? playback.playbackError : undefined,
+      contextLabel: playing ? (isPlaying ? "Now playing" : "Paused") : undefined,
+      volume: playback.volume, onVolumeChange: playback.onVolumeChange,
+      shuffle: playback.shuffle, repeat: playback.repeat,
+      onPlayChange: () => withinPack(() => current ? playback.onPlay(current) : onPlayAll(tracks, pack.id)),
+      onPrevious: playback.onPrevious ? () => withinPack(() => playback.onPrevious?.()) : undefined,
+      onNext: playback.onNext ? () => withinPack(() => playback.onNext?.()) : undefined,
+      onShuffleChange: playback.onShuffleChange ? (value) => withinPack(() => playback.onShuffleChange?.(value)) : undefined,
+      onRepeatChange: playback.onRepeatChange ? (value) => withinPack(() => playback.onRepeatChange?.(value)) : undefined,
+      onSeek: playback.onSeek ? (time) => withinPack(() => playback.onSeek?.(time, track)) : undefined,
+      onSeekProgress: playback.onSeekProgress ? (progress) => withinPack(() => playback.onSeekProgress?.(progress, track)) : undefined,
+    } : undefined}
+    actions={<div className="dub-pack-card__actions">
+      <PackPlaybackButton kind={pack.kind} playing={playing && isPlaying} size="small" disabled={disabled}
+        onClick={() => withinPack(() => current ? playback.onPlay(current) : onPlayAll(tracks, pack.id))} />
       <Button size="small" variant="secondary" aria-expanded={expanded} aria-controls={playlistId} onClick={() => setExpanded(!expanded)}
         leadingIcon={<ChevronDown aria-hidden="true" />}>{expanded ? "Hide playlist" : `Show ${packFileCount(pack.kind, pack.items.length)}`}</Button>
-      {onDownloadPack && <Button size="small" variant="secondary" disabled={download.pending} loading={download.pending}
+      {onDownloadPack && <Button size="small" variant="secondary" disabled={disabled || download.pending} loading={download.pending}
         onClick={() => void download.run(() => onDownloadPack(pack))}>Download ZIP</Button>}
+      {onSharePack && <Button size="small" variant="secondary" disabled={disabled} leadingIcon={<MessageCircle aria-hidden="true" />}
+        onClick={() => onSharePack(pack)}>Share pack</Button>}
       <Button size="small" variant="tertiary" onClick={() => onOpenPack(pack)}>Open pack</Button>
-    </div>
+    </div>}>
+    {track && <p className="pack-muted dub-pack-card__queue-hint">This pack only · Loop repeats the playlist</p>}
     {playing && <p className="dub-pack-card__status" role="status">{isPlaying ? "Now playing from this pack" : "Pack playback paused"}</p>}
     {download.error && <p className="dub-pack-card__error" role="alert">{download.error}</p>}
     <div id={playlistId} hidden={!expanded}>
       {expanded && matches.length !== pack.items.length && <p className="pack-muted">{packFileCount(pack.kind, matches.length)} {matches.length === 1 ? "matches" : "match"} your filters. Open the pack to see all files.</p>}
-      {expanded && <PackPlaylist {...playback} pack={pack} nowPlayingId={nowPlayingId} isPlaying={isPlaying}
-        likedDubIds={likedDubIds} onPlayAll={onPlayAll} matchingDubIds={matchingDubIds} />}
+      {expanded && <PackPlaylist {...playback} activePackId={activePackId} pack={pack} nowPlayingId={nowPlayingId} isPlaying={isPlaying}
+        likedDubIds={likedDubIds} onPlayAll={onPlayAll} matchingDubIds={matchingDubIds}
+        showControls={false} disabled={disabled} downloadDisabled={disabled} />}
     </div>
-  </article>;
+  </DubCard>;
 }

@@ -74,6 +74,21 @@
   color: var(--text-primary);
 }
 
+.button--audio {
+  background: var(--media-accent, var(--audio-active));
+  box-shadow: var(--shadow-control-audio);
+  color: var(--color-neutral-950);
+}
+
+.button--audio:not(:disabled):hover {
+  background: color-mix(in srgb, var(--media-accent, var(--audio-active)) 90%, var(--color-neutral-50));
+  box-shadow: var(--shadow-control-audio-hover);
+}
+
+.button--audio:not(:disabled):active {
+  background: color-mix(in srgb, var(--media-accent, var(--audio-active)) 85%, var(--color-neutral-950));
+}
+
 .button--secondary:not(:disabled):hover {
   background: var(--surface-raised);
 }

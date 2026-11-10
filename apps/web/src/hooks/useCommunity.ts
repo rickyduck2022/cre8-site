@@ -36,6 +36,7 @@ interface CommunitySnapshot {
   dubs: Dub[];
   packs?: DubPack[];
   sharedDubIds: string[];
+  sharedPackIds?: string[];
   buddies: Buddy[];
   conversations: Conversation[];
   likedDubIds: string[];
@@ -53,6 +54,7 @@ interface CommunityState {
   dubs: Dub[];
   packs: DubPack[];
   sharedDubIds: Set<string>;
+  sharedPackIds: Set<string>;
   buddies: Buddy[];
   conversations: Conversation[];
   likedDubIds: Set<string>;
@@ -74,6 +76,7 @@ const initialState: CommunityState = {
   dubs: [],
   packs: [],
   sharedDubIds: new Set(),
+  sharedPackIds: new Set(),
   buddies: [],
   conversations: [],
   likedDubIds: new Set(),
@@ -156,6 +159,7 @@ export function useCommunity() {
       dubs: snapshot.dubs,
       packs: snapshot.packs ?? [],
       sharedDubIds: new Set(snapshot.sharedDubIds),
+      sharedPackIds: new Set(snapshot.sharedPackIds ?? []),
       buddies: snapshot.buddies,
       conversations: snapshot.conversations.map((conversation) => {
         const existing = current.conversations.find((item) => item.buddyId === conversation.buddyId);
@@ -165,6 +169,8 @@ export function useCommunity() {
             (existing?.messages ?? []).map((message) =>
               message.dubId && !snapshot.dubs.some((dub) => dub.id === message.dubId)
                 ? { ...message, dubId: undefined, text: "This dub is no longer available." }
+                : message.packId && !snapshot.packs?.some((pack) => pack.id === message.packId)
+                  ? { ...message, packId: undefined, text: "This pack is no longer available." }
                 : message,
             ),
             conversation.messages,
@@ -502,6 +508,8 @@ export function useCommunity() {
                   page.messages.map((message) =>
                     message.dubId && !current.dubs.some((dub) => dub.id === message.dubId)
                       ? { ...message, dubId: undefined, text: "This dub is no longer available." }
+                      : message.packId && !current.packs.some((pack) => pack.id === message.packId)
+                        ? { ...message, packId: undefined, text: "This pack is no longer available." }
                       : message,
                   ),
                   conversation.messages,
@@ -518,11 +526,11 @@ export function useCommunity() {
     }
   }
 
-  async function sendMessage(buddyId: string, text: string, dubId?: string): Promise<boolean> {
+  async function sendMessage(buddyId: string, text: string, dubId?: string, packId?: string, confirmPackAccess = false): Promise<boolean> {
     try {
       applySnapshot(await requestApi<CommunitySnapshot>(
         `/api/conversations/${encodeURIComponent(buddyId)}/messages`,
-        { method: "POST", body: jsonBody({ text, dubId }) },
+        { method: "POST", body: jsonBody({ text, dubId, packId, confirmPackAccess }) },
       ));
       return true;
     } catch (requestError) {
@@ -705,6 +713,8 @@ export function useCommunity() {
     markConversationRead,
     loadOlderMessages,
     sendMessage,
+    sendPackMessage: (buddyId: string, pack: DubPack, confirmAccess: boolean) =>
+      sendMessage(buddyId, `Shared a ${pack.kind === "sample" ? "Sample" : "Dub"} Pack: ${pack.title}`, undefined, pack.id, confirmAccess),
     shareDubWithAListMember,
     unsendMessage,
     createCrate,

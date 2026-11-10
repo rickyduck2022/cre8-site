@@ -54,7 +54,10 @@ Do not run multiple batches concurrently on a shared developer machine.
 After recording all catalogue entries, run `pnpm guides:publish` to generate
 `docs/guides/videos/index.html`: a categorized documentation page with a linked
 table of contents, a step-by-step summary per guide, and desktop and mobile
-players with subtitle links. Publishing fails if any MP4/SRT is missing; pass
+players with subtitle links, recording dates and a journey search. Publishing
+rejects timelines whose title/captions no longer match their template, so stale
+footage cannot silently pass as refreshed coverage.
+Publishing fails if any MP4/SRT/timeline is missing; pass
 `--partial` to publish an in-progress library with "not published yet"
 placeholders for missing recordings. Categories and stable journey IDs are
 maintained in [`catalogue.json`](../../scripts/video-guides/catalogue.json).
@@ -89,8 +92,9 @@ Each step has:
   reserved for the runtime-generated password.
 - A target may include `within: { "role": "dialog", "name": "Share a dub" }`
   (or another named region) to disambiguate controls.
-- `navigate` takes a `destination`: `dubs`, `library`, `profile`, `messenger`,
-  `buddies` or `my-dubs`. It uses the actual sidebar on desktop and primary
+- `navigate` takes a `destination`: `dubs`, `samples`, `library`, `profile`, `messenger`,
+  `buddies`, `my-dubs`, `my-samples`, `shared-with-me`, `shared-samples`,
+  `alist` or `alist-application`. It uses the actual sidebar on desktop and primary
   tabs/More menu on mobile, without copying navigation steps into templates.
 - `include` takes a `fragment` from
   [`fragments.json`](../../scripts/video-guides/fragments.json). Shared setup
@@ -98,7 +102,7 @@ Each step has:
 - `download` uses the real browser action and requires a nonempty downloaded
   file. `press` sends a `value` such as `ArrowRight` to a control.
 - `captureLink` reads a share-link textbox into runtime `sharedUrl`; `visit`
-  takes a `value` such as `{{sharedUrl}}`. Both reject links outside the
+  takes a `value` such as `{{sharedUrl}}`, including public pack links. Both reject links outside the
   isolated app origin.
 
 Example:
@@ -121,6 +125,17 @@ By default the first scene starts at the sign-in page of an empty demo database.
 An optional `setup` action array runs before the recorded journey, on a separate
 page in the same isolated browser context. Use it to create a demo account and
 start a guide already signed in without repeating the signup footage.
+
+Journeys that need received packs, approved artists or admin access may use a
+named `fixture`: `community`, `received`, `new-application`, `application` or
+`admin`. [`fixtures.mjs`](../../scripts/video-guides/fixtures.mjs) creates these
+prerequisites through the real local API, including real uploads, publishing,
+friend grants and admin decisions. It signs in only the recording context.
+The recorder configures a temporary admin allowlist in its own child process,
+never the shared dev server. Accounts use runtime-generated passwords.
+An optional `entryPath` starts at a local app/admin section (e.g.
+`/admin/#applications`); off-origin entries are rejected. Build admin before
+recording administration guides.
 
 ## Desktop and mobile reuse
 
@@ -176,16 +191,16 @@ step**, rather than copying the whole journey:
 
 ```json
 {
-  "caption": "Open My Dubs from the sidebar.",
+  "caption": "Open Your Dubs from the sidebar.",
   "actions": [
-    { "type": "click", "target": { "role": "link", "name": "My Dubs" } }
+    { "type": "click", "target": { "role": "link", "name": "Your Dubs" } }
   ],
   "profileOverrides": {
     "mobile": {
-      "caption": "Open More, then choose My Dubs.",
+      "caption": "Open More, then choose Your Dubs.",
       "actions": [
         { "type": "click", "target": { "role": "button", "name": "More" } },
-        { "type": "click", "target": { "role": "link", "name": "My Dubs" } }
+        { "type": "click", "target": { "role": "link", "name": "Your Dubs" } }
       ]
     }
   }
@@ -253,12 +268,15 @@ and guide numbers below are navigation labels; template IDs remain stable.
 
 - **2.1 Find a dub** (`find-dub`): search, tags, BPM range and sorting.
 - **2.2 Playback and mini player** (`playback-mini-player`).
-- **2.3 Download and My Library** (`download-to-library`).
+- **Explore Dubs and Samples** (`sample-vault`): separate vaults and owned workspaces.
+- **Fullscreen and minimized player** (`player-fullscreen`).
+- **Choose your player layout** (`player-docking`): desktop docks and mobile header/footer.
+- **Download and My Library** (`download-to-library`).
 
 ### 3. Publishing and managing dubs
 
 - **3.1 Add and publish a dub** (`add-dub`): signed-in upload, title, artist,
-  Worldwide distribution, local audio, cre8 artwork, publishing and My Dubs.
+  Worldwide distribution, local audio, cre8 artwork, publishing and Your Dubs.
 - **3.2 Edit dub details** (`edit-dub-details`).
 - **3.3 Revoke private access** (`revoke-private-access`).
 
@@ -267,7 +285,7 @@ and guide numbers below are navigation labels; template IDs remain stable.
 - **4.1 Add a friend** (`add-friend`).
 - **4.2 Send a message** (`send-message`).
 - **4.3 Share a private dub with a contact** (`private-dub-share`): choose
-  Private, select a friend at upload, publish, find the upload in My Dubs and
+  Private, select a friend at upload, publish, find the upload in Your Dubs and
   its message in Messenger. Uses the same `GUIDE_AUDIO_PATH` and artwork options
   as add-dub. Setup creates a demo artist and adds the seeded Holik account as a
   friend through the real Friend List UI before recording.
@@ -280,12 +298,34 @@ and guide numbers below are navigation labels; template IDs remain stable.
 - **5.2 Preview, sign in and download** (`shared-preview-sign-in`): anonymous
   preview followed by authenticated playback and downloading.
 
+### 6. Dub and Sample Packs
+
+- **Create a Dub Pack** (`create-dub-pack`): existing files, uploads, arrangement and ZIP.
+- **Create a Sample Pack** (`create-sample-pack`): licence, BPM and musical key.
+- **Listen to a pack** (`pack-playlist`): scoped queue and fullscreen playback.
+- **Manage pack details and access** (`manage-pack`): edit and revoke pack grants.
+- **Send a pack in Messenger** (`share-pack-messenger`).
+- **Share a private pack safely** (`private-pack-share`): explicit all-file confirmation.
+- **Find packs shared with you** (`received-packs`): separate received Dub/Sample cards.
+- **Share a public pack link** (`pack-external-preview`).
+
+### 7. A-List artists and releases
+
+- **Submit your artist story** (`alist-first-application`): the five-section application form.
+- **Apply and resubmit for A-List** (`alist-application`): respond to reviewer feedback.
+- **Recognise and play A-List releases** (`alist-releases`): orange distribution and media palette.
+
+### 8. Community administration
+
+- **Review A-List artists** (`admin-review`): approval, decision history and revocation confirmation.
+- **Request artist information** (`admin-request-information`): required message and queue status.
+- **Explore community administration** (`admin-community`): snapshot, member/release search and refresh.
+
 ### Approval and production
 
-The user approved the remaining key-journey batch for **desktop and mobile** on
-10 November 2026. This supersedes the earlier requirement to confirm each video
-in that batch separately. New journeys outside this catalogue still require
-scope approval. Verify exports and captions before marking a guide complete.
+Refresh the complete catalogue on both desktop and mobile after relevant UX
+changes. Check the real actions before recording, then verify exports and
+captions before marking a guide complete.
 
 Keep both device profiles captioned and silent unless a different format is
 approved. Set up prerequisites off-camera, link related guide titles in the

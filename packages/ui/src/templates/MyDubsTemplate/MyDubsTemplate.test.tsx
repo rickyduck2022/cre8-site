@@ -31,6 +31,17 @@ function renderPage() {
 }
 
 describe("MyDubsTemplate", () => {
+  it("reuses upload entry points and empty states for sample pack creation", () => {
+    const createPack = vi.fn();
+    render(<MyDubsTemplate mediaKind="sample" dubs={[]} likedDubIds={new Set()} nowPlayingId={null} isPlaying={false}
+      onDownload={vi.fn()} onPlay={vi.fn()} onShareDub={createPack} onEditDub={vi.fn()} onDeleteDub={vi.fn()} />);
+    expect(screen.getByRole("heading", { name: "Your Samples" })).toBeVisible();
+    expect(screen.getByText("Your first sample starts here")).toBeVisible();
+    expect(screen.getByRole("searchbox", { name: "Search your samples" })).toBeVisible();
+    for (const button of screen.getAllByRole("button", { name: "Create Sample Pack" })) fireEvent.click(button);
+    expect(createPack).toHaveBeenCalledTimes(2);
+  });
+
   it("shows owned Dub and Sample Packs beside the existing dub management list", () => {
     const pack: DubPack = { id: "pack", title: "Dub release", description: "", kind: "dub", status: "published",
       distribution: "private", aListPublic: false, licence: "", ownerUsername: "amber", ownerDisplayName: "Amber",

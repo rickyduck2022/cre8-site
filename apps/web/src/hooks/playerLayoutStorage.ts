@@ -4,7 +4,7 @@ type PlayerContext = "messenger" | "other";
 
 export interface PlayerLayout {
   minimized: Partial<Record<PlayerContext, boolean>>;
-  placement: Partial<Record<PlayerContext, "header" | "footer">>;
+  placement: Partial<Record<PlayerContext, "header" | "footer" | "right-dock" | "fullscreen">>;
   position: FloatingPlayerPosition;
   opacity: number;
 }
@@ -34,7 +34,7 @@ export function readPlayerLayout(): PlayerLayout {
     const value: unknown = JSON.parse(stored);
     if (isRecord(value)
       && isContextMap(value.minimized, (entry) => typeof entry === "boolean")
-      && isContextMap(value.placement, (entry) => entry === "header" || entry === "footer")
+      && isContextMap(value.placement, (entry) => entry === "header" || entry === "footer" || entry === "right-dock" || entry === "fullscreen")
       && isPosition(value.position)
       && (value.opacity === undefined || (typeof value.opacity === "number"
         && Number.isFinite(value.opacity) && value.opacity >= 30 && value.opacity <= 100))) {

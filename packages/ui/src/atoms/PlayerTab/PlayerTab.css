@@ -37,19 +37,6 @@
   outline-offset: -3px;
 }
 
-.app-player .player-tab::after {
-  background: inherit;
-  border-inline: 1px solid var(--player-tab-border, var(--border-default));
-  box-sizing: border-box;
-  bottom: -0.5rem;
-  content: "";
-  height: 0.5rem;
-  left: -1px;
-  pointer-events: none;
-  position: absolute;
-  width: calc(100% + 2px);
-}
-
 @media (hover: none) {
   .button.player-tab:not(:disabled):hover {
     background: var(--player-tab-surface, var(--surface-media-section));

@@ -1,0 +1,29 @@
+{
+  "id": "sample-vault",
+  "title": "Explore Dubs and Samples",
+  "description": "Use the separate vaults, recognise media colours and find your own samples and packs.",
+  "fixture": "community",
+  "assets": { "audio": { "env": "GUIDE_AUDIO_PATH" } },
+  "steps": [
+    { "caption": "1. Dub Vault groups releases into pack cards, keeping their files together.", "actions": [
+      { "type": "navigate", "destination": "dubs" },
+      { "type": "waitFor", "target": { "role": "article", "name": "Dub Pack: Night Sessions" } }
+    ] },
+    { "caption": "2. Open Samples for the green Sample Vault. Published Sample Packs classify their files as samples.", "actions": [
+      { "type": "navigate", "destination": "samples" },
+      { "type": "waitFor", "target": { "role": "heading", "name": "Sample Vault" } }
+    ] },
+    { "caption": "3. Expand a Sample Pack to see its ordered files without leaving the vault.", "actions": [
+      { "type": "click", "target": { "role": "button", "name": "Show 2 samples", "within": { "role": "article", "name": "Sample Pack: Jungle Toolkit" } } },
+      { "type": "waitFor", "target": { "role": "list", "name": "Jungle Toolkit playlist" }, "reveal": true }
+    ] },
+    { "caption": "4. Your Samples contains your own sample releases and their pack management tools.", "actions": [
+      { "type": "navigate", "destination": "my-samples" },
+      { "type": "waitFor", "target": { "role": "heading", "name": "Your Samples" } }
+    ] },
+    { "caption": "5. Use Packs to manage drafts and published Sample Packs; Dubs has its own matching workspace.", "actions": [
+      { "type": "click", "target": { "role": "button", "name": "Packs" } },
+      { "type": "waitFor", "target": { "role": "heading", "name": "Your Sample Packs" } }
+    ] }
+  ]
+}

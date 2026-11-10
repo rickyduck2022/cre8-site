@@ -7,7 +7,7 @@ const defaults = JSON.parse(readFileSync(resolve(directory, "defaults.json"), "u
 const profiles = JSON.parse(readFileSync(resolve(directory, "profiles.json"), "utf8"));
 const fragments = JSON.parse(readFileSync(resolve(directory, "fragments.json"), "utf8"));
 const actionTypes = new Set(["click", "fill", "waitFor", "upload", "select", "navigate", "captureLink", "visit", "download", "press"]);
-const destinations = new Set(["dubs", "library", "profile", "messenger", "buddies", "my-dubs"]);
+const destinations = new Set(["dubs", "samples", "library", "profile", "messenger", "buddies", "my-dubs", "my-samples", "shared-with-me", "shared-samples", "alist-application", "alist"]);
 const runtimeVariables = new Set(["demoPassword", "sharedUrl"]);
 
 export function expandActions(actions, ancestry = []) {
@@ -31,6 +31,12 @@ export function validateTemplate(template) {
   requireText(template.description, "Guide description");
   if (!template.steps?.length || !Array.isArray(template.steps)) throw new Error("A guide needs steps.");
   const guide = { ...defaults, ...profiles.desktop, ...template };
+  if (guide.fixture !== undefined && !["community", "received", "application", "new-application", "admin"].includes(guide.fixture)) {
+    throw new Error("Unknown guide fixture.");
+  }
+  if (guide.entryPath !== undefined && !/^\/(?:admin\/)?(?:#[a-z-]+)?$/.test(guide.entryPath)) {
+    throw new Error("Guide entryPath must be a local app or admin section.");
+  }
   for (const key of ["holdMs", "actionDelayMs", "typingDelayMs", "timeoutMs", "captionBandHeight"]) {
     if (!Number.isInteger(guide[key]) || guide[key] <= 0) throw new Error(`${key} must be a positive integer.`);
   }
@@ -66,6 +72,7 @@ export function validateTemplate(template) {
     if (asset.path) requireText(asset.path, `Asset ${name} path`);
     if (asset.env && !/^[A-Z][A-Z0-9_]*$/.test(asset.env)) throw new Error(`Asset ${name} env must be an environment variable name.`);
   }
+  if (guide.fixture && !guide.assets?.audio) throw new Error("Guide fixtures require an audio asset.");
   function validateActions(actions) {
     if (!Array.isArray(actions) || !actions.length) throw new Error("Each step or setup needs actions.");
     for (const action of actions) {

@@ -1,0 +1,25 @@
+{
+  "id": "private-pack-share",
+  "title": "Share a private pack safely",
+  "description": "Explicitly confirm all-file access before sending a private Dub Pack to a friend.",
+  "fixture": "community",
+  "assets": { "audio": { "env": "GUIDE_AUDIO_PATH" } },
+  "steps": [
+    { "caption": "1. Your Dubs includes private packs that are visible only to you and authorised recipients.", "actions": [
+      { "type": "navigate", "destination": "my-dubs" },
+      { "type": "waitFor", "target": { "role": "article", "name": "Dub Pack: Private Sessions" }, "reveal": true }
+    ] },
+    { "caption": "2. Share pack opens the friend picker for this private release.", "actions": [
+      { "type": "click", "target": { "role": "button", "name": "Share pack", "within": { "role": "article", "name": "Dub Pack: Private Sessions" } } }
+    ] },
+    { "caption": "3. Choose the recipient and explicitly grant access to all current files in the pack.", "actions": [
+      { "type": "click", "target": { "role": "checkbox", "name": "Demo Listener @demorecipient" } },
+      { "type": "click", "target": { "role": "checkbox", "name": "Grant selected friends access to all current files in this private pack." } }
+    ] },
+    { "caption": "4. Send pack confirms delivery. The uploader can revoke pack access later in pack management.", "actions": [
+      { "type": "click", "target": { "role": "button", "name": "Send pack" } },
+      { "type": "waitFor", "target": { "text": "Pack sent to Demo Listener." } },
+      { "type": "click", "target": { "role": "button", "name": "Done" } }
+    ] }
+  ]
+}

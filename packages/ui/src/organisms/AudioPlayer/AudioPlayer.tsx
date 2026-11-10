@@ -5,7 +5,8 @@ import type { NowPlayingProps } from "../../molecules/NowPlaying/NowPlaying";
 import { NowPlaying } from "../../molecules/NowPlaying/NowPlaying";
 import { TransportControls } from "../../molecules/TransportControls/TransportControls";
 import { Waveform } from "../../molecules/Waveform/Waveform";
-import type { Dub } from "../../types/domain";
+import type { Dub, MediaKind } from "../../types/domain";
+import "../../foundations/MediaPalette.css";
 import "../Organisms.css";
 import "../../foundations/DistributionSurfaces.css";
 
@@ -18,6 +19,7 @@ export interface AudioPlayerProps {
   track?: AudioPlayerTrack | null;
   variant?: "full" | "compact" | "mini" | "docked" | "inline";
   colorVariant?: "default" | "playable" | "controller";
+  mediaKind?: MediaKind;
   transportVariant?: "full" | "minimal";
   contextLabel?: string;
   distribution?: Dub["distribution"];
@@ -67,6 +69,7 @@ function durationFromLabel(duration?: string) {
 export const AudioPlayer = forwardRef<HTMLElement, AudioPlayerProps>(function AudioPlayer({
   className,
   colorVariant = "default",
+  mediaKind = "dub",
   contextLabel,
   currentTimeSeconds = 0,
   durationSeconds,
@@ -134,6 +137,7 @@ export const AudioPlayer = forwardRef<HTMLElement, AudioPlayerProps>(function Au
       className={[
         "organism-card",
         "audio-player",
+        `media-kind--${mediaKind}`,
         `audio-player--${variant}`,
         colorVariant !== "default" && "audio-player--playable",
         colorVariant === "controller" && "audio-player--controller",
@@ -146,9 +150,24 @@ export const AudioPlayer = forwardRef<HTMLElement, AudioPlayerProps>(function Au
         .filter(Boolean)
         .join(" ")}
     >
-      {minimized && dragHandle}
+      {(onMinimizedChange || positionMenu || onClose || (minimized && dragHandle)) && <div className="audio-player__chrome" role="group" aria-label="Audio player layout controls">
+        {minimized && dragHandle}
+        {onMinimizedChange && (
+          <PlayerTab
+            aria-expanded={!minimized}
+            aria-label={minimizeLabel ?? (minimized ? "Expand audio player" : "Minimize audio player")}
+            className="audio-player__minimize"
+            leadingIcon={minimizeIcon === "minimize" || (!minimizeIcon && !minimized) ? <Minimize2 aria-hidden="true" /> : <Maximize2 aria-hidden="true" />}
+            onClick={() => onMinimizedChange(!minimized)}
+          />
+        )}
+        {positionMenu}
+        {onClose && (
+          <PlayerTab aria-label="Close audio player" className="audio-player__close" leadingIcon={<X aria-hidden="true" />} onClick={onClose} />
+        )}
+      </div>}
       <NowPlaying
-        contextLabel={contextLabel}
+        contextLabel={distribution === "alist" ? [contextLabel, "A-List release"].filter(Boolean).join(" · ") : contextLabel}
         artist={track.artist || "Artist"}
         artistAListApproved={track.artistAListApproved}
         artwork={track.artwork}
@@ -212,21 +231,6 @@ export const AudioPlayer = forwardRef<HTMLElement, AudioPlayerProps>(function Au
         <span className="audio-player__error" role="status" title={playbackError}>
           {playbackError}
         </span>
-      )}
-      {onMinimizedChange && (
-        <PlayerTab
-          aria-expanded={!minimized}
-          aria-label={minimizeLabel ?? (minimized ? "Expand audio player" : "Minimize audio player")}
-          className="audio-player__minimize"
-          leadingIcon={minimizeIcon === "minimize" || (!minimizeIcon && !minimized) ? <Minimize2 aria-hidden="true" /> : <Maximize2 aria-hidden="true" />}
-          onClick={() => onMinimizedChange(!minimized)}
-          size="small"
-          variant="tertiary"
-        />
-      )}
-      {positionMenu}
-      {onClose && (
-        <PlayerTab aria-label="Close audio player" className="audio-player__close" leadingIcon={<X aria-hidden="true" />} onClick={onClose} />
       )}
     </section>
   );

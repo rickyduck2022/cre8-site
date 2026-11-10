@@ -12,6 +12,7 @@
   --color-orange-600: #D46B00;
 
   --color-cyan-400: #35C5D8;
+  --color-green-400: #4DD89A;
   --color-blue-500: #4285F4;
 
   /* Semantics */
@@ -51,6 +52,7 @@
   --action-primary-pressed: var(--color-orange-600);
 
   --audio-active: var(--color-cyan-400);
+  --audio-sample-active: var(--color-green-400);
   --audio-inactive: var(--color-neutral-700);
 
   --focus-ring: var(--color-cyan-400);

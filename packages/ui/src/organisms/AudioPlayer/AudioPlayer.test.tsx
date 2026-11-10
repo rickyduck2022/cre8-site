@@ -7,11 +7,31 @@ afterEach(cleanup);
 const track = { title: "Night Drive", artist: "Amber" };
 
 describe("AudioPlayer playback indicator", () => {
+  it("groups layout actions in one ordered rail independently of playback controls", () => {
+    const { rerender } = render(<AudioPlayer track={track} minimized
+      dragHandle={<button>Move player</button>} onMinimizedChange={vi.fn()} onClose={vi.fn()}
+      positionMenu={<button>Choose position</button>} />);
+    const rail = screen.getByRole("group", { name: "Audio player layout controls" });
+    expect(within(rail).getAllByRole("button").map((button) => button.textContent || button.getAttribute("aria-label")))
+      .toEqual(["Move player", "Expand audio player", "Choose position", "Close audio player"]);
+    expect(rail).not.toContainElement(screen.getByRole("button", { name: "Play", exact: true }));
+    rerender(<AudioPlayer track={track} />);
+    expect(screen.queryByRole("group", { name: "Audio player layout controls" })).not.toBeInTheDocument();
+  });
   it("shows a playback context label without replacing track details or transport", () => {
     render(<AudioPlayer track={track} contextLabel="Playback paused" />);
     expect(screen.getByText("Playback paused")).toBeVisible();
     expect(screen.getByText("Night Drive")).toBeVisible();
     expect(screen.getByRole("button", { name: "Play" })).toBeVisible();
+  });
+  it.each(["dub", "sample"] as const)("identifies A-List distribution without replacing the %s media palette", (mediaKind) => {
+    const { rerender } = render(<AudioPlayer track={track} distribution="alist" mediaKind={mediaKind} contextLabel="Playback paused" />);
+    expect(screen.getByText("Playback paused · A-List release")).toBeVisible();
+    expect(screen.getByRole("region", { name: "Audio player: Night Drive" })).toHaveClass("audio-player--alist", `media-kind--${mediaKind}`);
+    rerender(<AudioPlayer track={track} distribution="alist" mediaKind={mediaKind} />);
+    expect(screen.getByText("A-List release")).toBeVisible();
+    rerender(<AudioPlayer track={{ ...track, artistAListApproved: true }} distribution="worldwide" mediaKind={mediaKind} />);
+    expect(screen.queryByText("A-List release")).not.toBeInTheDocument();
   });
   it.each([false, true])("offers an optional close action (minimized: %s)", (minimized) => {
     const close = vi.fn();
@@ -156,4 +176,13 @@ describe("AudioPlayer playback indicator", () => {
     expect(screen.queryByRole("region", { name: /Audio player/ })).not.toBeInTheDocument();
     expect(change).not.toHaveBeenCalled();
   });
+});
+it.each(["full", "inline", "mini"] as const)("keeps sample type separate from %s layout, distribution and controller styling", (variant) => {
+  const { rerender } = render(<AudioPlayer track={{ title: "Texture", artist: "Amber" }} mediaKind="sample"
+    variant={variant} colorVariant="controller" distribution="private" />);
+  const player = screen.getByRole("region", { name: "Audio player: Texture" });
+  expect(player).toHaveClass("media-kind--sample", "audio-player--controller", "audio-player--private", `audio-player--${variant}`);
+  rerender(<AudioPlayer track={{ title: "Texture", artist: "Amber" }} variant={variant} />);
+  expect(player).toHaveClass("media-kind--dub");
+  expect(player).not.toHaveClass("media-kind--sample", "audio-player--private", "audio-player--controller");
 });

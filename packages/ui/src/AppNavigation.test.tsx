@@ -47,7 +47,7 @@ it("offers a contextual My Dubs shortcut after publishing without changing the f
   fireEvent.click(screen.getByRole("button", { name: "Publish test dub" }));
   expect(await screen.findByRole("region", { name: "Published dub" })).toHaveTextContent("New Dub");
   expect(window.location.hash).toBe("#dubs");
-  fireEvent.click(screen.getByRole("button", { name: "View in My Dubs" }));
+  fireEvent.click(screen.getByRole("button", { name: "View in Your Dubs" }));
   expect(window.location.hash).toBe("#my-dubs");
   expect(screen.queryByRole("region", { name: "Published dub" })).not.toBeInTheDocument();
 });

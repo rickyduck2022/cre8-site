@@ -43,6 +43,35 @@ afterEach(() => {
 });
 
 describe("useAudioPlayback", () => {
+  it("keeps standalone Next/Previous and shuffle inside the current media kind without changing pack scope", () => {
+    const sample = { ...dubs[1], mediaKind: "sample" as const };
+    const { result } = renderHook(() => useAudioPlayback([dubs[0], sample, dubs[2]], vi.fn(), "user", null));
+    act(() => result.current.togglePlayback(dubs[0]));
+    act(() => result.current.playNextDub());
+    expect(result.current.state.nowPlayingId).toBe("three");
+    act(() => result.current.playPreviousDub());
+    expect(result.current.state.nowPlayingId).toBe("one");
+    act(() => result.current.togglePlayback(sample));
+    act(() => result.current.setShuffle(true));
+    act(() => result.current.playNextDub());
+    expect(result.current.state.nowPlayingId).toBe("two");
+    act(() => result.current.setShuffle(false));
+    act(() => result.current.playQueue([dubs[0], sample], "mixed"));
+    act(() => result.current.playNextDub());
+    expect(result.current.state.nowPlayingId).toBe("two");
+  });
+  it("tracks the selected pack identity even for overlapping packs and clears it outside the queue", () => {
+    const { result } = renderHook(() => useAudioPlayback(dubs, vi.fn(), "user", null));
+    act(() => result.current.playQueue([dubs[0], dubs[2]], "first"));
+    expect(result.current.state.queuePackId).toBe("first");
+    act(() => result.current.activateQueue([dubs[0], dubs[2]], "second"));
+    expect(result.current.state.queuePackId).toBe("second");
+    act(() => result.current.togglePlayback(dubs[1]));
+    expect(result.current.state.queuePackId).toBeNull();
+    act(() => result.current.playQueue([dubs[0]], "first"));
+    act(() => result.current.closePlayer());
+    expect(result.current.state.queuePackId).toBeNull();
+  });
   it("preserves shuffle selected before Play all and starts inside the pack", () => {
     vi.spyOn(Math, "random").mockReturnValue(0.9);
     const { result } = renderHook(() => useAudioPlayback(dubs, vi.fn(), "user", null));

@@ -1,0 +1,33 @@
+.navigation .navigation__item[class*="media-kind--"] {
+  --focus-ring: var(--media-accent);
+  border: 1px solid transparent;
+}
+
+.navigation .navigation__item--private[class*="media-kind--"] {
+  background: color-mix(in srgb, var(--media-accent) 6%, var(--color-neutral-950));
+  border-color: color-mix(in srgb, var(--media-accent) 40%, var(--border-default));
+  color: var(--media-accent);
+}
+
+.navigation .navigation__item[class*="media-kind--"]:hover,
+.navigation .navigation__item[class*="media-kind--"][aria-current="page"] {
+  background: var(--media-accent);
+  border-color: var(--media-accent);
+  color: var(--color-neutral-950);
+}
+
+.navigation .navigation__item[class*="media-kind--"]:focus-visible {
+  outline: var(--focus-outline-width) solid var(--media-accent);
+  outline-offset: var(--focus-outline-offset);
+}
+
+.navigation .navigation__item[class*="media-kind--"] .navigation__badge {
+  background: var(--media-accent);
+  color: var(--color-neutral-950);
+}
+
+.navigation .navigation__item[class*="media-kind--"]:hover .navigation__badge,
+.navigation .navigation__item[class*="media-kind--"][aria-current="page"] .navigation__badge {
+  background: var(--color-neutral-950);
+  color: var(--media-accent);
+}

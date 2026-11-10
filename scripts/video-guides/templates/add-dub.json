@@ -66,10 +66,10 @@
       "holdMs": 6000
     },
     {
-      "caption": "9. Open My Dubs to find and manage your upload.",
+      "caption": "9. Open Your Dubs to find and manage your upload.",
       "actions": [
         { "type": "navigate", "destination": "my-dubs" },
-        { "type": "waitFor", "target": { "role": "heading", "name": "My Dubs" } },
+        { "type": "waitFor", "target": { "role": "heading", "name": "Your Dubs" } },
         { "type": "waitFor", "target": { "role": "region", "name": "Audio player: {{trackTitle}}" } }
       ],
       "holdMs": 6500

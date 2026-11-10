@@ -1,0 +1,33 @@
+{
+  "id": "admin-review",
+  "title": "Review A-List artists",
+  "description": "Use the administration review queue, request information, approve an artist and confirm access revocation.",
+  "fixture": "admin",
+  "entryPath": "/admin/",
+  "assets": { "audio": { "env": "GUIDE_AUDIO_PATH" } },
+  "steps": [
+    { "caption": "1. Administration starts with community tasks and the number of pending artist reviews.", "actions": [
+      { "type": "waitFor", "target": { "role": "heading", "name": "Your community, in focus." } }
+    ] },
+    { "caption": "2. Review A-List applications opens the searchable queue, with pending submissions first.", "actions": [
+      { "type": "click", "target": { "role": "button", "name": "Review A-List applications" } },
+      { "type": "fill", "target": { "label": "Search applications" }, "value": "newartist" },
+      { "type": "click", "target": { "text": "@newartist" } }
+    ] },
+    { "caption": "3. Read the artist's identity, experience, scene and social profiles before deciding.", "actions": [
+      { "type": "waitFor", "target": { "role": "region", "name": "Application details" }, "reveal": true }
+    ] },
+    { "caption": "4. Add a clear message. Request information lets the artist update and resubmit.", "actions": [
+      { "type": "fill", "target": { "label": "Message to artist (required when requesting information)" }, "value": "Thanks for sharing your scene and radio experience." }
+    ] },
+    { "caption": "5. Approve grants A-List access and records your decision in the artist's history.", "actions": [
+      { "type": "click", "target": { "role": "button", "name": "Approve" } },
+      { "type": "waitFor", "target": { "role": "button", "name": "Revoke access for New Artist" }, "reveal": true }
+    ] },
+    { "caption": "6. Revocation requires confirmation. Cancel leaves the artist's access unchanged.", "actions": [
+      { "type": "click", "target": { "role": "button", "name": "Revoke access for New Artist" } },
+      { "type": "waitFor", "target": { "role": "dialog", "name": "Revoke A-List access?" } },
+      { "type": "click", "target": { "role": "button", "name": "Cancel" } }
+    ] }
+  ]
+}

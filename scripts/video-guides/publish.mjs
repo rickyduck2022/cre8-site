@@ -30,20 +30,26 @@ const sections = catalogue.map((category, categoryIndex) => {
     if (resolve(root, guide.outputDirectory) !== outputDirectory) throw new Error("Catalogue guides must share an output directory.");
     const videos = ["desktop", "mobile"].map((profile) => {
       const name = profile === "desktop" ? id : `${id}-mobile`;
-      const absent = ["mp4", "srt"].filter((extension) => !existsSync(join(outputDirectory, `${name}.${extension}`)));
+      const absent = ["mp4", "srt", "json"].filter((extension) => !existsSync(join(outputDirectory, `${name}.${extension}`)));
       if (absent.length) {
         missing.push(...absent.map((extension) => `${name}.${extension}`));
         return `<div><h4>${profile === "desktop" ? "Desktop" : "Mobile"}</h4>
 <p class="placeholder">This recording is not published yet. Check back soon.</p></div>`;
       }
+      const metadata = JSON.parse(readFileSync(join(outputDirectory, `${name}.json`), "utf8"));
+      const current = loadTemplate(id, profile);
+      if (metadata.title !== current.title || JSON.stringify(metadata.steps.map((step) => step.caption)) !== JSON.stringify(current.steps.map((step) => step.caption))) {
+        throw new Error(`Recording ${name} is stale. Re-record it before publishing.`);
+      }
       published += 1;
       return `<div><h4>${profile === "desktop" ? "Desktop" : "Mobile"}${videoDuration(name)}</h4>
 <video controls preload="none" aria-label="${escape(guide.title)} (${profile})" src="${name}.mp4"></video>
+<p class="recorded">Updated ${escape(new Date(metadata.recordedAt).toISOString().slice(0, 10))}</p>
 <p><a href="${name}.mp4">Open MP4</a> &middot; <a href="${name}.srt" download>Download captions</a></p></div>`;
     }).join("\n");
     const steps = guide.steps.map((step) =>
       `<li>${escape(step.caption.replace(/^\d+\.\s*/, ""))}</li>`).join("\n");
-    return `<article id="${id}" aria-labelledby="${id}-title">
+    return `<article id="${id}" aria-labelledby="${id}-title" data-guide>
 <p class="guide-number">Guide ${categoryIndex + 1}.${journeyIndex + 1}</p>
 <h3 id="${id}-title">${escape(guide.title)}</h3>
 <p>${escape(guide.description)}</p>
@@ -61,8 +67,8 @@ if (missing.length && !partial) {
   throw new Error(`Catalogue is incomplete (run with --partial to publish anyway):\n${missing.join("\n")}`);
 }
 
-const contents = catalogue.map((category, index) => `<li><a href="#category-${index}">${escape(category.title)}</a><ul>
-${category.journeys.map((id) => `<li><a href="#${id}">${escape(loadTemplate(id).title)}</a></li>`).join("\n")}
+const contents = catalogue.map((category, index) => `<li data-category-link><a href="#category-${index}">${escape(category.title)}</a><ul>
+${category.journeys.map((id) => `<li data-journey-link="${id}"><a href="#${id}">${escape(loadTemplate(id).title)}</a></li>`).join("\n")}
 </ul></li>`).join("\n");
 
 writeFileSync(join(outputDirectory, "index.html"), `<!doctype html>
@@ -82,6 +88,11 @@ details{margin-block:16px}summary{cursor:pointer;color:#ffa43a}details ol{margin
 video{width:100%;max-height:640px;background:#080b10}
 .placeholder{padding:24px;border:1px dashed #46515f;border-radius:8px;color:#9aa7b5}
 .top{margin-bottom:0;font-size:14px}
+.recorded{font-size:13px;color:#9aa7b5}
+.guide-search{display:grid;gap:8px;margin-block:24px;max-width:40rem}
+.guide-search input{box-sizing:border-box;min-width:0;width:100%;font:inherit;padding:12px;background:#232a33;color:#f5f5f5;border:1px solid #46515f;border-radius:8px}
+.guide-search input:focus-visible{outline:2px solid #ffa43a;outline-offset:3px}
+[hidden]{display:none!important}
 footer{margin-block:48px;color:#9aa7b5}
 </style></head><body>
 <header>
@@ -92,17 +103,32 @@ downloadable subtitles. Each guide is available as a desktop recording and a mob
 Looking for something specific? Jump straight to it from the contents below, or expand
 <strong>What this guide covers</strong> under any guide to preview its steps before watching.</p>
 </header>
+<label class="guide-search">Find a journey<input id="guide-search" type="search" placeholder="Search packs, playback, A-List or administration"></label>
+<p id="guide-results" role="status">${catalogue.reduce((count, category) => count + category.journeys.length, 0)} guides available</p>
 <nav id="contents" aria-label="Guide contents">
 <h2>Contents</h2>
 <ul>
 ${contents}
 </ul>
 </nav>
-${sections}
+<main>${sections}</main>
 <footer>
 <p>Mobile guides use browser touch emulation, not a physical phone recording. All recordings are made against
 a fresh demo account on an isolated database, so names and dubs you see are examples only.</p>
 </footer>
+<script>
+const search = document.getElementById("guide-search");
+const cards = [...document.querySelectorAll("[data-guide]")];
+search.addEventListener("input", () => {
+  const query = search.value.trim().toLowerCase();
+  for (const card of cards) card.hidden = !card.textContent.toLowerCase().includes(query);
+  for (const section of document.querySelectorAll("main section")) section.hidden = !section.querySelector("[data-guide]:not([hidden])");
+  for (const link of document.querySelectorAll("[data-journey-link]")) link.hidden = document.getElementById(link.dataset.journeyLink).hidden;
+  for (const category of document.querySelectorAll("[data-category-link]")) category.hidden = !category.querySelector("[data-journey-link]:not([hidden])");
+  const count = cards.filter(card => !card.hidden).length;
+  document.getElementById("guide-results").textContent = query ? (count ? count + " matching guides" : "No matching guides. Try another search.") : cards.length + " guides available";
+});
+</script>
 </body></html>`);
 if (missing.length) console.warn(`Published with ${missing.length} missing files:\n${missing.join("\n")}`);
 console.log(`Published ${published} of ${catalogue.reduce((count, category) => count + category.journeys.length * 2, 0)} videos: ${join(outputDirectory, "index.html")}`);

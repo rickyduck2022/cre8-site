@@ -55,7 +55,7 @@
       "holdMs": 5500
     },
     {
-      "caption": "7. Open My Dubs to find your upload. It is marked Private, not published worldwide.",
+      "caption": "7. Open Your Dubs to find your upload. It is marked Private, not published worldwide.",
       "actions": [
         { "type": "navigate", "destination": "my-dubs" },
         { "type": "waitFor", "target": { "role": "region", "name": "Audio player: {{trackTitle}}" } }
@@ -77,7 +77,7 @@
       "holdMs": 6500
     },
     {
-      "caption": "Unsend does not revoke access. Manage private access in My Dubs; downloaded files cannot be recalled.",
+      "caption": "Unsend does not revoke access. Manage access in Your Dubs; downloaded files cannot be recalled.",
       "actions": [{ "type": "waitFor", "target": { "role": "region", "name": "Messenger" } }],
       "holdMs": 7500
     }

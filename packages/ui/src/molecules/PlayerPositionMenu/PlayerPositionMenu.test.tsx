@@ -4,16 +4,27 @@ import { PlayerPositionMenu } from "./PlayerPositionMenu";
 
 afterEach(cleanup);
 
+it("keeps full-screen player options inside their modal top layer", () => {
+  const onSelect = vi.fn();
+  render(<dialog open><PlayerPositionMenu positions={["fullscreen", "minimized"]} current="fullscreen" onSelect={onSelect} /></dialog>);
+  fireEvent.click(screen.getByRole("button", { name: "Choose player position" }));
+  const menu = screen.getByRole("group", { name: "Player positions" });
+  expect(menu.closest("dialog")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Full screen" })).toHaveAttribute("aria-pressed", "true");
+  fireEvent.click(screen.getByRole("button", { name: "Minimized" }));
+  expect(onSelect).toHaveBeenCalledWith("minimized");
+});
+
 it("shows position diagrams, selects a position and closes", () => {
   const onSelect = vi.fn();
-  render(<PlayerPositionMenu positions={["header", "footer", "sidebar", "default", "floating", "left-edge", "right-edge"]} current="footer" onSelect={onSelect} />);
+  render(<PlayerPositionMenu positions={["header", "footer", "sidebar", "right-dock", "default", "floating", "left-edge", "right-edge"]} current="footer" onSelect={onSelect} />);
   const trigger = screen.getByRole("button", { name: "Choose player position" });
   expect(trigger).toHaveClass("player-tab");
   fireEvent.click(trigger);
   expect(trigger).toHaveAttribute("aria-expanded", "true");
   expect(screen.queryByRole("slider")).not.toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Footer" })).toHaveAttribute("aria-pressed", "true");
-  for (const [label, position] of [["Header", "header"], ["Footer", "footer"], ["Left sidebar", "sidebar"], ["Default mini position", "default"], ["Pop out", "floating"], ["Left edge", "left-edge"], ["Right edge", "right-edge"]]) {
+  for (const [label, position] of [["Header", "header"], ["Footer", "footer"], ["Left sidebar", "sidebar"], ["Right dock", "right-dock"], ["Default mini position", "default"], ["Pop out", "floating"], ["Left edge", "left-edge"], ["Right edge", "right-edge"]]) {
     const icon = screen.getByRole("button", { name: label }).querySelector("svg");
     expect(icon).toHaveAttribute("aria-hidden", "true");
     expect(icon?.querySelector(`[data-position="${position}"]`)).toBeInTheDocument();

@@ -1,0 +1,28 @@
+{
+  "id": "alist-application",
+  "title": "Apply and resubmit for A-List",
+  "description": "Read a reviewer request, update the structured artist submission and send it back for review.",
+  "fixture": "application",
+  "entryPath": "/#alist-application",
+  "assets": { "audio": { "env": "GUIDE_AUDIO_PATH" } },
+  "steps": [
+    { "caption": "1. Open A-List Submission. Your status and the reviewer's message appear above your artist story.", "actions": [
+      { "type": "waitFor", "target": { "role": "heading", "name": "A-List Submission" } },
+      { "type": "waitFor", "target": { "text": "Admin message: Please add your next radio date." } }
+    ] },
+    { "caption": "2. Check your artist identity, roles and experience. Previous answers stay filled in.", "actions": [
+      { "type": "waitFor", "target": { "label": "Artist name" }, "reveal": true }
+    ] },
+    { "caption": "3. Add a scene highlight requested by the reviewer.", "actions": [
+      { "type": "fill", "target": { "label": "Event or brand 2" }, "value": "Community Radio - Friday residency" }
+    ] },
+    { "caption": "4. Social profiles and follower counts are optional; follower counts are unverified.", "actions": [
+      { "type": "waitFor", "target": { "label": "Instagram profile URL" }, "reveal": true }
+    ] },
+    { "caption": "5. Add context and resubmit. The review team receives the updated version.", "actions": [
+      { "type": "fill", "target": { "role": "textbox", "name": "Additional information (optional)" }, "value": "My next radio show is Friday at 8pm, featuring emerging local producers." },
+      { "type": "click", "target": { "role": "button", "name": "Resubmit application" } },
+      { "type": "waitFor", "target": { "text": "Your application is awaiting review." }, "reveal": true }
+    ] }
+  ]
+}

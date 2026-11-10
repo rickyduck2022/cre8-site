@@ -35,7 +35,7 @@ export function SharedPackPage({ packId }: { packId: string }) {
         <Button onClick={() => setAttempt((value) => value + 1)}>Try again</Button>
         <Button variant="secondary" onClick={() => signInForPack(packId)}>Sign in</Button></> : result && <PackView
         pack={result.pack} authenticated={result.authenticated} owner={false} playback={playback.state} standalone
-        onActivateQueue={playback.activateQueue} onPrevious={playback.playPreviousDub} onNext={playback.playNextDub}
+        activePackId={playback.state.queuePackId} onActivateQueue={playback.activateQueue} onPrevious={playback.playPreviousDub} onNext={playback.playNextDub}
         shuffle={playback.state.shuffle} repeat={playback.state.repeat} onShuffleChange={playback.setShuffle} onRepeatChange={playback.setRepeat}
         onPlay={playback.togglePlayback} onPlayAll={playback.playQueue}
         onSeek={playback.seekPlaybackProgress} onVolume={playback.setVolume}

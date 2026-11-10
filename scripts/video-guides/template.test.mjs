@@ -213,14 +213,26 @@ test("responsive navigation opens More only for secondary mobile sections", asyn
     },
   };
   await runGuideActions(page, [
+    { type: "navigate", destination: "samples" },
     { type: "navigate", destination: "library" },
     { type: "navigate", destination: "my-dubs" },
   ], { hasTouch: true }, {}, {}, { paced: false });
   assert.deepEqual(calls, [
-    ["navigation", "Main sections"], 'a[href="#library"]', "tap",
+    ["navigation", "Main sections"], 'a[href="#samples"]', "tap",
+    ["navigation", "Main sections"], ["button", "More"], "tap",
+    ["dialog", "Navigation"], 'a[href="#library"]', "tap",
     ["navigation", "Main sections"], ["button", "More"], "tap",
     ["dialog", "Navigation"], 'a[href="#my-dubs"]', "tap",
   ]);
+});
+
+test("fixture and entry routes are restricted to supported local journeys", () => {
+  const guide = loadTemplate("admin-review");
+  assert.equal(guide.fixture, "admin");
+  assert.equal(guide.entryPath, "/admin/");
+  assert.throws(() => validateTemplate({ ...guide, fixture: "production" }), /Unknown guide fixture/);
+  assert.throws(() => validateTemplate({ ...guide, assets: {} }), /require an audio asset/);
+  assert.throws(() => validateTemplate({ ...guide, entryPath: "https://example.com" }), /local app/);
 });
 
 test("captured share links and subsequent visits never leave the isolated app", async () => {
@@ -243,6 +255,21 @@ test("captured share links and subsequent visits never leave the isolated app", 
   await assert.rejects(() => runGuideActions(page, [
     { type: "visit", value: "https://example.com/" },
   ], {}, {}, {}, { paced: false }), /isolated app origin/);
+  page.getByRole = () => ({
+    scrollIntoViewIfNeeded: async () => {},
+    inputValue: async () => "http://127.0.0.1:1234/#pack?id=demo",
+  });
+  await runGuideActions(page, [
+    { type: "captureLink", target: { role: "textbox", name: "Link" }, variable: "sharedUrl" },
+  ], { hasTouch: true }, variables, {}, { paced: false });
+  assert.equal(variables.sharedUrl, "http://127.0.0.1:1234/#pack?id=demo");
+  page.getByRole = () => ({
+    scrollIntoViewIfNeeded: async () => {},
+    inputValue: async () => "https://example.com/#pack?id=demo",
+  });
+  await assert.rejects(() => runGuideActions(page, [
+    { type: "captureLink", target: { role: "textbox", name: "Link" }, variable: "sharedUrl" },
+  ], { hasTouch: true }, variables, {}, { paced: false }), /isolated app origin/);
 });
 
 test("downloads must produce a nonempty local file before the guide can succeed", async () => {

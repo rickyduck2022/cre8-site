@@ -2,7 +2,7 @@ import { useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEve
 
 type Position = { x: number; y: number };
 export type FloatingPlayerPosition = Position | null | "initial" | "left-edge" | "right-edge";
-type SnapTarget = { kind: "dock" | "footer" | "header" | "left-edge" | "right-edge"; style: CSSProperties; active: boolean; previewStyle?: CSSProperties };
+type SnapTarget = { kind: "dock" | "footer" | "header" | "right-dock" | "left-edge" | "right-edge"; style: CSSProperties; active: boolean; previewStyle?: CSSProperties };
 type PlayerPositionStyle = CSSProperties & {
   "--floating-player-left"?: string;
   "--floating-player-top"?: string;
@@ -86,12 +86,21 @@ function snapTargets(player: HTMLElement, position: Position, x: number, y: numb
     }
     return targets;
   }
+  const content = dashboard?.querySelector<HTMLElement>(".dashboard-template__body")?.getBoundingClientRect();
+  if (window.innerWidth >= 1051 && content && content.height > 0) {
+    targets.push({
+      kind: "right-dock",
+      active: x >= window.innerWidth - snapDistance && x <= window.innerWidth && y >= content.top && y <= content.bottom,
+      style: { right: 0, top: content.top, width: snapDistance, height: content.height },
+      previewStyle: { right: 0, top: content.top, width: "var(--app-player-right-width)", height: content.height },
+    });
+  }
   const footer = dashboard?.querySelector<HTMLElement>(".app-player-footer-target");
   const bounds = footer?.getBoundingClientRect();
   if (bounds && bounds.width > 0 && bounds.height > 0) {
     targets.push({
       kind: "footer",
-      active: x >= bounds.left && x <= bounds.right && y >= bounds.top && y <= bounds.bottom,
+      active: !targets.some((target) => target.active) && x >= bounds.left && x <= bounds.right && y >= bounds.top && y <= bounds.bottom,
       style: { left: bounds.left, top: bounds.top, width: bounds.width, height: bounds.height },
     });
   }
@@ -112,7 +121,7 @@ function snapTargets(player: HTMLElement, position: Position, x: number, y: numb
   return targets;
 }
 
-export function useFloatingPlayerPosition(playerRef: RefObject<HTMLElement | null>, enabled: boolean, onSnapToExpanded: (target: "header" | "footer") => void, initialPosition: FloatingPlayerPosition = "initial") {
+export function useFloatingPlayerPosition(playerRef: RefObject<HTMLElement | null>, enabled: boolean, onSnapToExpanded: (target: "header" | "footer" | "right-dock") => void, initialPosition: FloatingPlayerPosition = "initial") {
   const [position, setPosition] = useState<FloatingPlayerPosition>(initialPosition);
   const [previews, setPreviews] = useState<SnapTarget[]>([]);
   const drag = useRef<{ pointerId: number; startX: number; startY: number; origin: Position; moved: boolean } | null>(null);
@@ -175,7 +184,7 @@ export function useFloatingPlayerPosition(playerRef: RefObject<HTMLElement | nul
     }, player);
     const target = snapTargets(player, position, event.clientX, event.clientY, { x: active.startX - active.origin.x, y: active.startY - active.origin.y }).find((candidate) => candidate.active);
     setPosition(target?.kind === "left-edge" || target?.kind === "right-edge" ? target.kind : target ? null : position);
-    if (target?.kind === "header" || target?.kind === "footer") onSnapToExpanded(target.kind);
+    if (target?.kind === "header" || target?.kind === "footer" || target?.kind === "right-dock") onSnapToExpanded(target.kind);
   }
 
   function stopDragging(event: PointerEvent<HTMLButtonElement>) {

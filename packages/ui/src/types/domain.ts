@@ -6,6 +6,7 @@
  */
 
 export type Presence = "online" | "away" | "offline";
+export type MediaKind = "dub" | "sample";
 
 export type AListRole = "DJ" | "Producer" | "DJ & Producer" | "MC / Vocalist" | "Other";
 
@@ -66,6 +67,7 @@ export interface MemberSearchResult {
 
 export interface Dub {
   id: string;
+  mediaKind?: MediaKind;
   title: string;
   artist: string;
   artistId?: string;
@@ -107,7 +109,7 @@ export interface DubPack {
   id: string;
   title: string;
   description: string;
-  kind: "dub" | "sample";
+  kind: MediaKind;
   status: "draft" | "published";
   distribution: "worldwide" | "private" | "alist";
   aListPublic: boolean;
