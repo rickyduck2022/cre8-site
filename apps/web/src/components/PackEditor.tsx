@@ -1,4 +1,4 @@
-import { useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Button, NowPlaying, ProgressBar, SearchField, TrackArtwork, type ArtistOption, type Dub } from "@craft/ui";
 import { uploadFile } from "../services/uploadFile";
 import { readAudioDurationSeconds } from "../services/readAudioDuration";
@@ -13,6 +13,7 @@ interface Props {
   onSaved: (pack: Pack) => void;
   onClose: () => void;
   onCommunityChange: () => Promise<void>;
+  creating?: boolean;
 }
 interface UploadRow extends PackTrackValues {
   id: number;
@@ -22,7 +23,7 @@ interface UploadRow extends PackTrackValues {
   error?: string;
 }
 
-export function PackEditor({ pack: initial, dubs, artists, approved, onSaved, onClose, onCommunityChange }: Props) {
+export function PackEditor({ pack: initial, dubs, artists, approved, onSaved, onClose, onCommunityChange, creating = false }: Props) {
   const [pack, setPack] = useState(initial);
   const [details, setDetails] = useState<PackDetails>({
     title: initial.title, description: initial.description, kind: initial.kind,
@@ -40,18 +41,29 @@ export function PackEditor({ pack: initial, dubs, artists, approved, onSaved, on
   const [editingItem, setEditingItem] = useState<string | null>(null);
   const [itemDirty, setItemDirty] = useState(false);
   const [draggedId, setDraggedId] = useState<string | null>(null);
-  const [dirty, setDirty] = useState(false);
+  const [refreshNeeded, setRefreshNeeded] = useState<Pack | null>(null);
   const busy = useRef(false);
+  const heading = useRef<HTMLHeadingElement>(null);
+  const artworkUpload = useRef<{ file: File; id: string } | null>(null);
   const nextRow = useRef(0);
   const uploadIds = useRef(new Map<number, string>());
   const allDubs = new Map([...dubs, ...pack.items.map(({ dub }) => dub)].map((dub) => [dub.id, dub]));
   const label = details.kind === "sample" ? "samples" : "tracks";
   const published = pack.status === "published";
-  const addedMembers = selectedIds.some((id) => !initial.items.some(({ dub }) => dub.id === id));
+  const addedMembers = selectedIds.some((id) => !pack.items.some(({ dub }) => dub.id === id));
   const needsConfirmation = published && pack.distribution === "private" && Boolean(pack.grants?.length) && addedMembers;
   const pendingRows = rows.filter((row) => row.state !== "done");
   const matchingDubs = dubs.filter((dub) => `${dub.title} ${dub.artist} ${dub.genre}`.toLowerCase().includes(query.trim().toLowerCase()));
-  const hasChanges = dirty || itemDirty || pendingRows.length > 0;
+  const detailsChanged = (Object.keys(details) as (keyof PackDetails)[]).some((key) => details[key] !== pack[key]);
+  const orderChanged = selectedIds.length !== pack.items.length || selectedIds.some((id, index) => id !== pack.items[index]?.dub.id);
+  const hasChanges = detailsChanged || orderChanged || Boolean(artwork) || itemDirty || pendingRows.length > 0;
+  useEffect(() => { heading.current?.focus(); }, []);
+  useEffect(() => {
+    if (!hasChanges && !pending) return;
+    const warn = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ""; };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [hasChanges, pending]);
   function goToStep(next: number) {
     if (busy.current) return;
     if (itemDirty && !window.confirm("Discard unsaved file details? Your saved pack files will remain.")) return;
@@ -62,7 +74,6 @@ export function PackEditor({ pack: initial, dubs, artists, approved, onSaved, on
 
   function change<K extends keyof PackDetails>(key: K, value: PackDetails[K]) {
     setDetails((current) => ({ ...current, [key]: value }));
-    setDirty(true);
     setSaved("");
   }
   async function run(action: () => Promise<void>) {
@@ -75,13 +86,34 @@ export function PackEditor({ pack: initial, dubs, artists, approved, onSaved, on
   }
   async function save(nextIds = selectedIds) {
     if (!details.title.trim()) throw new Error("Provide a pack title.");
+    if (published && !nextIds.length) throw new Error("A published pack must keep at least one file.");
+    if (published && details.kind === "sample" && !details.licence.trim()) throw new Error("Provide usage licence terms for this Sample Pack.");
+    if (needsConfirmation && !confirmed) throw new Error("Confirm access for existing recipients before adding files.");
     let artworkUploadId: string | undefined;
-    if (artwork) artworkUploadId = (await uploadFile(artwork, "artwork", () => {})).uploadId;
+    if (artwork) {
+      if (artworkUpload.current?.file !== artwork) {
+        artworkUpload.current = { file: artwork, id: (await uploadFile(artwork, "artwork", () => {})).uploadId };
+      }
+      artworkUploadId = artworkUpload.current.id;
+    }
     const { pack: updated } = await packRequest<{ pack: Pack }>(`/api/packs/${pack.id}`, "PATCH", {
       ...details, dubIds: nextIds, confirmNewAccess: confirmed, artworkUploadId,
     });
-    setPack(updated); setArtwork(null); setDirty(false); setSaved(published ? "Changes saved." : "Draft saved.");
+    setPack(updated); setSelectedIds(updated.items.map(({ dub }) => dub.id));
+    setDetails({ title: updated.title, description: updated.description, kind: updated.kind,
+      distribution: updated.distribution, aListPublic: updated.aListPublic, licence: updated.licence });
+    setArtwork(null); artworkUpload.current = null; setConfirmed(false);
+    setSaved(published ? "Changes saved." : "Draft saved.");
     return updated;
+  }
+  async function finish(updated: Pack) {
+    try { await onCommunityChange(); }
+    catch {
+      setRefreshNeeded(updated);
+      throw new Error("Your pack was saved, but the community could not be refreshed. Retry refresh without saving again.");
+    }
+    setRefreshNeeded(null);
+    onSaved(updated);
   }
   function addFiles(files: FileList | null) {
     if (!files) return;
@@ -103,11 +135,11 @@ export function PackEditor({ pack: initial, dubs, artists, approved, onSaved, on
       bpm: "", key: "", tags: "", artistId: artists[0]?.id ?? "",
       progress: 0, state: "waiting",
     }))]);
-    setDirty(true); setSaved("");
+    setSaved("");
   }
   function updateRow(id: number, patch: Partial<UploadRow>) {
     setRows((current) => current.map((row) => row.id === id ? { ...row, ...patch } : row));
-    setDirty(true);
+    setSaved("");
   }
   async function uploadRows() {
     await run(async () => {
@@ -144,20 +176,27 @@ export function PackEditor({ pack: initial, dubs, artists, approved, onSaved, on
       }
       await onCommunityChange();
       if (failures) throw new Error(`${failures} file upload${failures === 1 ? "" : "s"} failed. Successful files are saved; retry only failed files.`);
-      setDirty(false); setSaved("All files uploaded and saved.");
+      setSaved("All files uploaded and saved.");
     });
   }
   function close() {
+    if (busy.current) return;
     if (!hasChanges) { onClose(); return; }
     if (window.confirm("Leave the editor? Unsaved edits and files not yet uploaded will be lost. Saved files remain in the pack.")) onClose();
   }
   function move(index: number, direction: -1 | 1) {
     const next = [...selectedIds];
     [next[index], next[index + direction]] = [next[index + direction], next[index]];
-    setSelectedIds(next); setDirty(true);
+    setSelectedIds(next); setSaved("");
   }
   async function publish(event: FormEvent) {
     event.preventDefault();
+    if (refreshNeeded) return;
+    if (published) {
+      if (!hasChanges || itemDirty || pendingRows.length || !selectedIds.length || (needsConfirmation && !confirmed)) return;
+      await run(async () => { await finish(await save()); });
+      return;
+    }
     if (step < 2) { goToStep(step + 1); return; }
     await run(async () => {
       if (rows.some((row) => row.state !== "done")) throw new Error("Upload or remove all pending and failed files before publishing.");
@@ -166,22 +205,22 @@ export function PackEditor({ pack: initial, dubs, artists, approved, onSaved, on
       if (details.kind === "sample" && !details.licence.trim()) throw new Error("Provide usage licence terms before publishing a Sample Pack.");
       await save();
       const { pack: updated } = await packRequest<{ pack: Pack }>(`/api/packs/${pack.id}/publish`, "POST");
-      await onCommunityChange();
-      onSaved(updated);
+      await finish(updated);
     });
   }
   return (
     <section className="pack-editor" aria-label="Pack editor" aria-busy={pending}>
-      <header className="pack-toolbar"><div><span className="eyebrow">{packTypeLabel(details.kind)}</span><h1>{published ? "Edit pack" : "Create pack"}</h1>
+      <header className="pack-toolbar"><div><span className="eyebrow">{packTypeLabel(details.kind)}</span><h1 ref={heading} tabIndex={-1}>{creating ? "Create pack" : "Edit pack"}</h1>
         <p className="pack-muted">{hasChanges ? "Unsaved changes" : published ? "Published release" : "Private draft"} · {packFileCount(details.kind, selectedIds.length)}</p></div>
         <Button onClick={close} disabled={pending} variant="tertiary">Close editor</Button></header>
-      <nav className="pack-steps" aria-label="Pack creation steps">
+      {published && <p className="pack-notice">You are editing <strong>{pack.title}</strong>. Saved changes are immediately visible to members who can access this release. Its audience stays unchanged.</p>}
+      <nav className="pack-steps" aria-label={creating ? "Pack creation steps" : "Pack editing steps"}>
         {["Details", "Add files", "Arrange & review"].map((name, index) => <Button key={name}
           aria-current={step === index ? "step" : undefined} variant={step === index ? "primary" : "secondary"}
           disabled={pending} onClick={() => goToStep(index)}>{index + 1}. {name}</Button>)}
       </nav>
       <form onSubmit={(event) => void publish(event)}>
-        <fieldset disabled={pending} className="pack-fields">
+        <fieldset disabled={pending || Boolean(refreshNeeded)} className="pack-fields">
           {step === 0 && <>
             <div className="pack-field-grid">
             <label>Pack type<select value={details.kind} onChange={(event) => change("kind", event.currentTarget.value === "sample" ? "sample" : "dub")}>
@@ -189,7 +228,8 @@ export function PackEditor({ pack: initial, dubs, artists, approved, onSaved, on
             <label>Pack title<input required maxLength={100} value={details.title} onChange={(event) => change("title", event.currentTarget.value)} /></label>
             </div>
             <label>Description<textarea maxLength={2000} value={details.description} onChange={(event) => change("description", event.currentTarget.value)} /></label>
-            <label>Pack artwork (optional)<input type="file" accept=".jpg,.jpeg,.png,.webp" onChange={(event) => { setArtwork(event.currentTarget.files?.[0] ?? null); setDirty(true); }} /></label>
+            <label>Pack artwork (optional)<input type="file" accept=".jpg,.jpeg,.png,.webp" onChange={(event) => { setArtwork(event.currentTarget.files?.[0] ?? null); setSaved(""); }} /></label>
+            {pack.artworkUrl && !artwork && <p className="pack-muted">Current artwork will be kept unless you choose a replacement.</p>}
             <p className="pack-muted">Without custom artwork, the first file's artwork is used.</p>
             <label>Distribution<select disabled={published || pack.items.length > 0} value={details.distribution} onChange={(event) => {
               const value = event.currentTarget.value;
@@ -213,7 +253,7 @@ export function PackEditor({ pack: initial, dubs, artists, approved, onSaved, on
               {row.state === "uploading" && <ProgressBar label={`Uploading ${row.file.name}`} value={row.progress} />}
               {row.state !== "done" && <>
                 <PackTrackFields values={row} artists={artists} sample={details.kind === "sample"} onChange={(patch) => updateRow(row.id, patch)} />
-                <Button variant="tertiary" aria-label={`Remove ${row.file.name}`} onClick={() => { uploadIds.current.delete(row.id); setRows((current) => current.filter((item) => item.id !== row.id)); setDirty(true); }}>Remove file</Button>
+                <Button variant="tertiary" aria-label={`Remove ${row.file.name}`} onClick={() => { uploadIds.current.delete(row.id); setRows((current) => current.filter((item) => item.id !== row.id)); setSaved(""); }}>Remove file</Button>
               </>}
               {row.error && <p role="alert">{row.error}</p>}
             </article>)}
@@ -224,7 +264,7 @@ export function PackEditor({ pack: initial, dubs, artists, approved, onSaved, on
             <div className="pack-picker">{matchingDubs.map((dub) => {
               const compatible = canAddDubToPack(details, dub);
               return <label className="pack-check" key={dub.id}><input type="checkbox" disabled={!compatible || (selectedIds.length >= 50 && !selectedIds.includes(dub.id))}
-                checked={selectedIds.includes(dub.id)} onChange={(event) => { setSelectedIds(event.currentTarget.checked ? [...selectedIds, dub.id] : selectedIds.filter((id) => id !== dub.id)); setDirty(true); }} />
+                checked={selectedIds.includes(dub.id)} onChange={(event) => { setSelectedIds(event.currentTarget.checked ? [...selectedIds, dub.id] : selectedIds.filter((id) => id !== dub.id)); setSaved(""); }} />
                 <span>{dub.title}<small>{compatible ? dub.artist : "Different distribution: this dub cannot be added."}</small></span></label>;
             })}</div>
           </>}
@@ -242,7 +282,7 @@ export function PackEditor({ pack: initial, dubs, artists, approved, onSaved, on
                   if (!draggedId || draggedId === id) return;
                   const next = selectedIds.filter((item) => item !== draggedId);
                   next.splice(next.indexOf(id), 0, draggedId);
-                  setSelectedIds(next); setDraggedId(null); setDirty(true);
+                  setSelectedIds(next); setDraggedId(null); setSaved("");
                 }}>{dub ? <NowPlaying artist={dub.artist} title={dub.title} artworkContent={<TrackArtwork dub={dub} />} isPlaying={false} /> : <strong>Unavailable file</strong>}
                 <div className="pack-toolbar">
                   <Button size="small" variant="secondary" disabled={index === 0} aria-label={`Move ${dub?.title} up`} onClick={() => move(index, -1)}>Move up</Button>
@@ -252,7 +292,7 @@ export function PackEditor({ pack: initial, dubs, artists, approved, onSaved, on
                     setEditingItem(editingItem === id ? null : id); setItemDirty(false);
                   }}>{editingItem === id ? "Close details" : "Edit details"}</Button>
                   <Button size="small" variant="tertiary" aria-label={`Remove ${dub?.title ?? "unavailable file"} from pack`} onClick={() => {
-                    setSelectedIds(selectedIds.filter((item) => item !== id)); setDirty(true);
+                    setSelectedIds(selectedIds.filter((item) => item !== id)); setSaved("");
                     if (editingItem === id) { setEditingItem(null); setItemDirty(false); }
                   }}>Remove from pack</Button>
                 </div>
@@ -263,18 +303,21 @@ export function PackEditor({ pack: initial, dubs, artists, approved, onSaved, on
             })}</ol>
             {details.kind === "sample" && <section><h3>Usage licence</h3><p className="pack-licence">{details.licence || "Add licence terms in Details before publishing."}</p></section>}
             {needsConfirmation && <label className="pack-check"><input type="checkbox" checked={confirmed} onChange={(event) => setConfirmed(event.currentTarget.checked)} />Grant existing pack recipients access to newly added files. Separate dub grants are unaffected.</label>}
-            <p>Removing a pack keeps its dubs. Removing private access cannot recall files already downloaded.</p>
+            <p>Removing a file from this pack does not delete the original upload. Removing private access cannot recall files already downloaded.</p>
           </>}
         </fieldset>
         {error && <p role="alert" className="pack-error">{error}</p>}
         {saved && <p role="status">{saved}</p>}
+        {refreshNeeded && <Button variant="secondary" disabled={pending} onClick={() => void run(() => finish(refreshNeeded))}>Retry refresh</Button>}
         <footer className="pack-editor__footer">
           {itemDirty && <p className="pack-muted">Save or close the file details before saving this pack.</p>}
-          <Button variant="secondary" disabled={pending || itemDirty || rows.some((row) => row.state !== "done") || (needsConfirmation && !confirmed)}
-            onClick={() => void run(async () => { const updated = await save(); await onCommunityChange(); onSaved(updated); })}>Save {published ? "changes" : "draft"}</Button>
+          <Button variant={published ? "primary" : "secondary"} loading={pending}
+            disabled={pending || Boolean(refreshNeeded) || (published && !hasChanges) || itemDirty || pendingRows.length > 0 || (published && !selectedIds.length) || (needsConfirmation && !confirmed)}
+            onClick={() => void run(async () => { await finish(await save()); })}>Save {published ? "changes" : "draft"}</Button>
+          {published && <Button variant="tertiary" disabled={pending} onClick={close}>Cancel</Button>}
           {step > 0 && <Button variant="tertiary" disabled={pending} onClick={() => goToStep(step - 1)}>Previous</Button>}
           {step < 2 ? <Button disabled={pending} onClick={() => goToStep(step + 1)}>Next</Button>
-            : <Button type="submit" disabled={pending || (needsConfirmation && !confirmed)} loading={pending}>{published ? "Save & publish" : "Publish pack"}</Button>}
+            : !published && <Button type="submit" disabled={pending || Boolean(refreshNeeded) || (needsConfirmation && !confirmed)} loading={pending}>Publish pack</Button>}
         </footer>
       </form>
     </section>

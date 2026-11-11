@@ -31,7 +31,7 @@ export function packSize(bytes: number) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-export function DubPackIdentity({ pack, compact = false }: { pack: DubPack; compact?: boolean }) {
+export function DubPackIdentity({ pack, compact = false, onEdit }: { pack: DubPack; compact?: boolean; onEdit?: () => void }) {
   const seconds = pack.items.reduce((total, { dub }) => {
     const [minutes, seconds] = dub.duration.split(":").map(Number);
     return total + (Number.isFinite(minutes + seconds) ? minutes * 60 + seconds : 0);
@@ -53,6 +53,7 @@ export function DubPackIdentity({ pack, compact = false }: { pack: DubPack; comp
       <p className="pack-muted">{pack.ownerDisplayName}</p>
       <p className="pack-muted">{packFileCount(pack.kind, pack.items.length)} · {Math.floor(seconds / 60)}:{String(seconds % 60).padStart(2, "0")} · {packSize(pack.totalBytes)}</p>
       {!compact && pack.description && <p className="pack-description">{pack.description}</p>}
+      {onEdit && <div className="pack-identity__edit"><Button size="small" variant="secondary" onClick={onEdit}>Edit pack</Button></div>}
     </div>
   </header>;
 }
@@ -90,7 +91,7 @@ export function DubPackCard({
   }
   return <DubCard variant="collection" mediaKind={pack.kind} distribution={pack.distribution} className={`dub-pack-card${playing ? " dub-pack-card--current" : ""}`}
     label={`${packTypeLabel(pack.kind)}: ${pack.title}`} isCurrentTrack={playing}
-    header={<DubPackIdentity pack={pack} compact />}
+    header={<DubPackIdentity pack={pack} compact onEdit={onEditPack && currentUsername === pack.ownerUsername ? () => onEditPack(pack) : undefined} />}
     playbackLabel={`${pack.title} playback controls`} playbackDisabled={disabled}
     player={track ? {
       track: {
@@ -126,8 +127,6 @@ export function DubPackCard({
       {onSharePack && <Button size="small" variant="secondary" disabled={disabled} leadingIcon={<MessageCircle aria-hidden="true" />}
         onClick={() => onSharePack(pack)}>Share pack</Button>}
       <Button size="small" variant="primary" onClick={() => onOpenPack(pack)}>Open pack</Button>
-      {onEditPack && currentUsername === pack.ownerUsername && <Button size="small" variant="secondary"
-        onClick={() => onEditPack(pack)}>Edit pack</Button>}
     </CardActions>}>
     {track && <p className="pack-muted dub-pack-card__queue-hint">This pack only · Loop repeats the playlist</p>}
     {playing && <p className="dub-pack-card__status" role="status">{isPlaying ? "Now playing from this pack" : "Pack playback paused"}</p>}

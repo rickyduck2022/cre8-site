@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Button, CardActions, DubPackIdentity, SearchField, type PackQueueControls, type ArtistOption, type Buddy, type Dub, type MediaKind } from "@craft/ui";
+import { Button, CardActions, DubPackIdentity, SearchField, VaultLabel, type PackQueueControls, type ArtistOption, type Buddy, type Dub, type MediaKind } from "@craft/ui";
 import { PackEditor } from "./PackEditor";
 import { PackView, type PackPlayback } from "./PackView";
 import { canAddDubToPack, packRequest, type Pack } from "../services/packs";
@@ -30,12 +30,17 @@ export function PackWorkspace(props: Props) {
   const [packs, setPacks] = useState<Pack[]>([]);
   const [selected, setSelected] = useState<Pack | null>(null);
   const [editing, setEditing] = useState(false);
+  const [creatingPack, setCreatingPack] = useState(false);
+  const [editorLoading, setEditorLoading] = useState(false);
+  const [editorError, setEditorError] = useState("");
+  const [notice, setNotice] = useState("");
   const [query, setQuery] = useState("");
   const [kind, setKind] = useState("all");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [pending, setPending] = useState(false);
   const creating = useRef(false);
+  const editorRequest = useRef<AbortController | null>(null);
   const [attempt, setAttempt] = useState(0);
   async function refresh() {
     const result = await packRequest<{ packs: Pack[] }>("/api/packs");
@@ -52,6 +57,22 @@ export function PackWorkspace(props: Props) {
     }).finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
   }, [attempt]);
+  useEffect(() => () => editorRequest.current?.abort(), []);
+  async function edit(pack: Pack) {
+    editorRequest.current?.abort();
+    const controller = new AbortController();
+    editorRequest.current = controller;
+    setSelected(pack); setEditing(true); setCreatingPack(false);
+    setEditorLoading(true); setEditorError(""); setNotice("");
+    try {
+      const { pack: latest } = await packRequest<{ pack: Pack }>(`/api/packs/${encodeURIComponent(pack.id)}`, "GET", undefined, controller.signal);
+      if (controller.signal.aborted) return;
+      if (latest.ownerUsername !== props.username) throw new Error("Only the pack owner can edit this release.");
+      setSelected(latest);
+    } catch (failure) {
+      if (!controller.signal.aborted) setEditorError(failure instanceof Error ? failure.message : "The pack could not be loaded for editing.");
+    } finally { if (!controller.signal.aborted) setEditorLoading(false); }
+  }
   async function create() {
     if (creating.current) return;
     creating.current = true; setPending(true); setError("");
@@ -60,6 +81,8 @@ export function PackWorkspace(props: Props) {
       if (props.pendingDub) {
         ({ pack } = await packRequest<{ pack: Pack }>(`/api/packs/${pack.id}`, "PATCH", { dubIds: [props.pendingDub.id] }));
       }
+      editorRequest.current?.abort();
+      setEditorLoading(false); setEditorError(""); setCreatingPack(true); setNotice("");
       setPacks((current) => [pack, ...current]); setSelected(pack); setEditing(true); props.onOpened?.();
     } catch (failure) { setError(failure instanceof Error ? failure.message : "The pack could not be created."); }
     finally { creating.current = false; setPending(false); }
@@ -69,8 +92,7 @@ export function PackWorkspace(props: Props) {
   }, [props.create]);
   useEffect(() => {
     if (!props.editPack || props.editPack.ownerUsername !== props.username) return;
-    setSelected(props.editPack);
-    setEditing(true);
+    void edit(props.editPack);
     props.onOpened?.();
   }, [props.editPack, props.username]);
   const scopedPacks = packs.filter((pack) => !props.mediaKind || (pack.kind === props.mediaKind && pack.ownerUsername === props.username));
@@ -81,22 +103,28 @@ export function PackWorkspace(props: Props) {
   if (selected) return <>
     {error && <p role="alert">{error}</p>}
     {!editing && <Button variant="tertiary" onClick={() => setSelected(null)}>All packs</Button>}
-    {editing ? <PackEditor key={selected.id} pack={selected} dubs={props.dubs.filter((dub) => dub.uploader === props.username)} artists={props.artists} approved={props.approved}
+    {notice && <p role="status" className="pack-notice">{notice}</p>}
+    {editing && editorLoading ? <section aria-label="Loading pack editor"><p role="status">Loading the latest pack details...</p>
+      <Button variant="tertiary" onClick={() => { editorRequest.current?.abort(); setEditorLoading(false); setEditing(false); }}>Cancel</Button></section>
+      : editing && editorError ? <section aria-label="Pack editor unavailable"><p role="alert">{editorError}</p>
+        <Button onClick={() => void edit(selected)}>Retry loading pack</Button>
+        <Button variant="tertiary" onClick={() => setEditing(false)}>Back to pack</Button></section>
+      : editing ? <PackEditor key={selected.id} pack={selected} creating={creatingPack} dubs={props.dubs.filter((dub) => dub.uploader === props.username)} artists={props.artists} approved={props.approved}
       onCommunityChange={props.onCommunityChange} onClose={() => {
         setEditing(false);
         void refresh().catch((failure: unknown) => setError(failure instanceof Error ? failure.message : "The pack could not be refreshed."));
       }}
-      onSaved={(pack) => { setPacks((current) => [pack, ...current.filter((item) => item.id !== pack.id)]); setSelected(pack); setEditing(false); }} />
+      onSaved={(pack) => { setPacks((current) => [pack, ...current.filter((item) => item.id !== pack.id)]); setSelected(pack); setEditing(false); setNotice(`${pack.title}: ${pack.status === "published" ? "changes saved." : "draft saved."}`); }} />
       : <PackView key={selected.id} pack={selected} authenticated owner={selected.ownerUsername === props.username} buddies={props.buddies}
         activePackId={props.activePackId} onActivateQueue={props.onActivateQueue} onPrevious={props.onPrevious} onNext={props.onNext}
         shuffle={props.shuffle} repeat={props.repeat} onShuffleChange={props.onShuffleChange} onRepeatChange={props.onRepeatChange}
         playback={props.playback} onPlay={props.onPlay} onPlayAll={props.onPlayAll} onSeek={props.onSeek} onVolume={props.onVolume}
-        onDownloadDub={props.onDownloadDub} onEdit={() => setEditing(true)} onDelete={() => setSelected(null)}
+        onDownloadDub={props.onDownloadDub} onEdit={() => void edit(selected)} onDelete={() => setSelected(null)}
         onRefresh={async () => { await refresh(); await props.onCommunityChange(); }} />}
   </>;
   const packTitle = props.mediaKind === "sample" ? "Your Sample Packs" : props.mediaKind === "dub" ? "Your Dub Packs" : "Packs";
   return <section className="pack-workspace" aria-label={packTitle}>
-    <header className="pack-toolbar"><div><h1>{packTitle}</h1><p className="pack-muted">{props.mediaKind ? "Manage your published releases and private drafts." : "Your releases and packs shared with you."}</p></div>
+    <header className="pack-toolbar"><div><VaultLabel>Release archive</VaultLabel><h1>{packTitle}</h1><p className="pack-muted">{props.mediaKind ? "Manage your published releases and private drafts." : "Your releases and packs shared with you."}</p></div>
       <Button disabled={pending} loading={pending} onClick={() => void create()}>Create pack</Button></header>
     {props.pendingDub && <p className="pack-notice">Choose a compatible pack for <strong>{props.pendingDub.title}</strong>, or create a new pack.</p>}
     <div className="pack-filters">
@@ -115,14 +143,12 @@ export function PackWorkspace(props: Props) {
     <ul className="pack-grid">{filtered.map((pack) => {
       const alreadyAdded = Boolean(props.pendingDub && pack.items.some(({ dub }) => dub.id === props.pendingDub?.id));
       const compatible = !props.pendingDub || canAddDubToPack(pack, props.pendingDub);
-      return <li key={pack.id}><article className="pack-card">
-        <DubPackIdentity pack={pack} compact />
+      return <li key={pack.id}><article className="pack-card vault-panel">
+        <DubPackIdentity pack={pack} compact onEdit={pack.ownerUsername === props.username ? () => void edit(pack) : undefined} />
         <CardActions title={pack.title} className="pack-toolbar"><Button onClick={() => {
           if (props.onOpenPack) props.onOpenPack(pack);
           else { setSelected(pack); setEditing(false); }
         }}>Open pack</Button>
-          {pack.ownerUsername === props.username && <Button variant="secondary" disabled={pending}
-            onClick={() => { setSelected(pack); setEditing(true); }}>Edit pack</Button>}
           {props.pendingDub && pack.ownerUsername === props.username && <Button variant="secondary" disabled={pending || alreadyAdded || !compatible} onClick={async () => {
             if (creating.current) return;
             creating.current = true; setPending(true); setError("");

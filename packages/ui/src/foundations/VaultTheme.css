@@ -1,0 +1,36 @@
+.vault-theme .vault-panel {
+  box-shadow: var(--vault-panel-shadow);
+}
+.vault-theme .vault-rack {
+  background-image: linear-gradient(var(--vault-panel-highlight), transparent 0.25rem);
+  border-block-color: var(--vault-rail-edge);
+  position: relative;
+}
+.vault-theme .vault-rack::before,
+.vault-theme .vault-rack::after {
+  background: var(--vault-hardware);
+  border: 1px solid var(--vault-rail-surface);
+  border-radius: 50%;
+  content: "";
+  height: 0.25rem;
+  pointer-events: none;
+  position: absolute;
+  top: 0.375rem;
+  width: 0.25rem;
+}
+.vault-theme .vault-rack::before { left: 0.375rem; }
+.vault-theme .vault-rack::after { right: 0.375rem; }
+.vault-collection-heading {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  justify-content: space-between;
+  min-width: 0;
+}
+.vault-collection-heading h1 { font-size: var(--type-size-section); margin: 0.25rem 0 0; }
+.vault-collection-heading__detail {
+  color: var(--vault-label);
+  font-size: var(--type-size-caption);
+  letter-spacing: 0.04em;
+}

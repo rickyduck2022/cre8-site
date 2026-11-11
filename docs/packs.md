@@ -40,9 +40,18 @@ files and pack workspace cards. Expanding a pack highlights its playlist
 toggle in the release's media colour (orange for A-List) until it is collapsed.
 
 Owners can choose **Edit pack** directly from their pack workspace cards or
-owned release cards in the vault, Your Dubs/Samples and their profile. On narrow
-screens it moves into **More actions** when needed. It opens the existing editor
-with the pack's saved details and file order; other members do not see this action.
+owned release cards in the vault, Your Dubs/Samples and their profile. The button
+stays directly on the card header, including on mobile, rather than moving into
+**More actions**. Other members do not see it. Opening the editor fetches the
+latest saved details and file order, with retry/cancel controls if loading fails.
+Existing drafts use **Edit pack**; newly created packs use **Create pack**.
+Published edits use **Save changes**, without republishing or changing the
+audience. Saved changes update connected members' views. Cancel/close warns
+before discarding unsaved edits, and reload/closing the browser warns while
+edits or saves are pending. A failed save keeps the form; a successful save
+followed by a failed community refresh offers **Retry refresh** without writing
+the pack again. File ordering, title/description, type/licence and replacement
+artwork remain editable; private additions still require access confirmation.
 
 Search includes accessible published pack titles and descriptions. Filters
 retain matching files inside the playlist, with a matching count and an
@@ -74,6 +83,17 @@ Use **Ungroup this pack** (or the position selector) to detach the selected pack
 Minimizing or closing affects only that pack; other members keep their state.
 Tabs use a raised, top-accented selected shape that connects to the content
 surface, with darker inactive tabs, through shared `--window-tab-*` tokens.
+The community app adds a restrained record-archive/studio-rack treatment, not a
+literal safe theme. The cre8 mark, navigation names, media/audience colours and
+playback behavior stay unchanged. `VaultLabel` supplies small catalogue labels;
+the opt-in `vault-theme` uses shared `vault-panel` and `vault-rack` utilities for
+fine inset edges and decorative hardware. All colours and shadows are owned by
+the synchronized `--vault-*` tokens. Pack windows opt in on their portal layer
+so the treatment survives grouping and docking without changing window focus cues.
+Vault pages have a compact visible collection heading; pack workspaces keep their
+existing create, search, draft and edit workflows beneath a release-archive label.
+On small screens the described app header puts search on its own full-width row
+to preserve readable input and access to messages, notifications and upload.
 Minimized packs form a compact vertical stack at the bottom right; short screens
 use additional columns. Restore via the title or restore button; closing a pack
 compacts the stack. The stack stays above restored windows, within the window

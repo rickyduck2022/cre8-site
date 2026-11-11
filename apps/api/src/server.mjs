@@ -9,6 +9,7 @@ import { WebSocket, WebSocketServer } from "ws";
 import { createPushService, validPushSubscription } from "./push.mjs";
 import { createAudioPreviewService, dubPreviewSeconds, previewDurations } from "./audioPreview.mjs";
 import { storedZip } from "./zipStore.mjs";
+import { afterCommit, afterRollback, commitContext, respondAfterCommit } from "./commitEffects.mjs";
 
 const apiDirectory = fileURLToPath(new URL(".", import.meta.url));
 const defaultDataPath = resolve(process.env.COMMUNITY_DATA_PATH ?? resolve(apiDirectory, "../data/community.json"));
@@ -131,7 +132,12 @@ export function initializeData(dataPath = defaultDataPath, mediaDirectory = defa
     writeFileSync(dataPath, `${JSON.stringify(data, null, 2)}\n`);
     return data;
   }
-  const data = JSON.parse(readFileSync(dataPath, "utf8"));
+  const data = normalizeCommunityData(JSON.parse(readFileSync(dataPath, "utf8")), mediaDirectory);
+  writeFileSync(dataPath, `${JSON.stringify(data, null, 2)}\n`);
+  return data;
+}
+
+export function normalizeCommunityData(data, mediaDirectory = defaultMediaDirectory) {
   if (data.schemaVersion === undefined) {
     throw new Error("Unversioned community data requires manual migration; existing data and media have not been changed.");
   }
@@ -192,7 +198,6 @@ export function initializeData(dataPath = defaultDataPath, mediaDirectory = defa
     data[key] ??= [];
   }
   backfillBidirectionalFriendships(data);
-  writeFileSync(dataPath, `${JSON.stringify(data, null, 2)}\n`);
   return data;
 }
 
@@ -213,7 +218,7 @@ function validateAdminSeed({ username, password }) {
   return { username, password };
 }
 
-function seedAdministrator(data, dataPath, seed) {
+function seedAdministrator(data, dataPath, seed, persist = () => saveData(dataPath, data)) {
   if (!seed) return;
   const existing = data.users.find((user) => user.username.toLowerCase() === seed.username);
   if (existing) {
@@ -239,15 +244,19 @@ function seedAdministrator(data, dataPath, seed) {
   };
   data.users.push(user);
   data.artists.push({ id: randomUUID(), userId: user.id, name: user.displayName, genres: [], role: user.role });
-  saveData(dataPath, data);
+  persist();
 }
 
 function json(response, status, value, headers = {}) {
-  response.writeHead(status, { "content-type": "application/json; charset=utf-8", ...headers });
-  response.end(JSON.stringify(value));
+  const encoded = JSON.stringify(value);
+  return respondAfterCommit(status, () => {
+    response.writeHead(status, { "content-type": "application/json; charset=utf-8", ...headers });
+    response.end(encoded);
+  });
 }
 
 function readJson(request, maxBytes = 1024 * 1024) {
+  if (request.destroyed) return Promise.reject(Object.assign(new Error("Request was interrupted."), { status: 400 }));
   return new Promise((resolveBody, reject) => {
     const chunks = [];
     let bytes = 0;
@@ -268,6 +277,7 @@ function readJson(request, maxBytes = 1024 * 1024) {
       }
     });
     request.on("error", reject);
+    request.on("aborted", () => reject(Object.assign(new Error("Request was interrupted."), { status: 400 })));
   });
 }
 
@@ -316,6 +326,9 @@ function audioRange(request, response, size) {
 }
 
 function streamPreview(request, response, audio) {
+  if (commitContext.getStore() && !commitContext.getStore().finished) {
+    return respondAfterCommit(200, () => streamPreview(request, response, audio));
+  }
   const range = audioRange(request, response, audio.length);
   if (!range) return;
   const { start, end, status } = range;
@@ -332,6 +345,9 @@ function streamPreview(request, response, audio) {
 }
 
 function streamAudio(request, response, filePath, downloadName) {
+  if (commitContext.getStore() && !commitContext.getStore().finished) {
+    return respondAfterCommit(200, () => streamAudio(request, response, filePath, downloadName));
+  }
   const file = statSync(filePath);
   const range = audioRange(request, response, file.size);
   if (!range) return;
@@ -1056,6 +1072,7 @@ export function createApiServer({
   webDirectory = defaultWebDirectory,
   adminDirectory = defaultAdminDirectory,
   guidesDirectory = defaultGuidesDirectory,
+  storage,
   adminSeed = { username: process.env.ADMIN_SEED_USERNAME, password: process.env.ADMIN_SEED_PASSWORD },
   pushService = createPushService({
     publicKey: process.env.VAPID_PUBLIC_KEY,
@@ -1064,25 +1081,25 @@ export function createApiServer({
   }),
 } = {}) {
   const validatedAdminSeed = validateAdminSeed(adminSeed);
-  const data = initializeData(dataPath, mediaDirectory);
-  seedAdministrator(data, dataPath, validatedAdminSeed);
+  const data = storage?.data ?? initializeData(dataPath, mediaDirectory);
+  if (!storage) seedAdministrator(data, dataPath, validatedAdminSeed);
   mkdirSync(mediaDirectory, { recursive: true });
-  const sessions = new Map();
+  const sessions = storage?.sessions ?? new Map();
   const socketsByUser = new Map();
   const socketSessions = new WeakMap();
   const socketExpiryTimers = new WeakMap();
   const webSocketServer = new WebSocketServer({ noServer: true, maxPayload: 16 * 1024 });
-  const persist = () => saveData(dataPath, data);
+  const persist = () => storage ? storage.markDirty() : saveData(dataPath, data);
   const audioPreview = createAudioPreviewService();
 
-  const server = createServer(async (request, response) => {
+  const handleRequest = async (request, response) => {
     const url = new URL(request.url ?? "/", "http://localhost");
     const cookies = parseCookies(request);
-    const session = sessions.get(cookies.cre8_session);
+    const route = url.pathname;
+    const session = route.startsWith("/api/") ? sessions.get(cookies.cre8_session) : undefined;
     const user = session && session.expiresAt > Date.now()
       ? data.users.find((item) => item.id === session.userId)
       : undefined;
-    const route = url.pathname;
     const match = route.match(/^\/api\/(dubs|buddies|crates|conversations)\/([^/]+)(?:\/([^/]+))?(?:\/([^/]+))?$/);
     const packRouteMatch = route.match(/^\/api\/packs\/([^/]+)(?:\/(.*))?$/);
     const publicPackMatch = route.match(/^\/api\/public\/packs\/([^/]+)$/);
@@ -1212,7 +1229,7 @@ export function createApiServer({
       if (request.method === "POST" && route === "/api/logout") {
         sessions.delete(cookies.cre8_session);
         for (const socket of socketsByUser.get(session?.userId) ?? []) {
-          if (socketSessions.get(socket) === cookies.cre8_session) socket.close(1000, "Signed out");
+          if (socketSessions.get(socket) === cookies.cre8_session) afterCommit(() => socket.close(1000, "Signed out"));
         }
         const secure = process.env.NODE_ENV === "production" ? "; Secure" : "";
         json(response, 200, { status: "ok" }, {
@@ -1441,13 +1458,15 @@ export function createApiServer({
           }
           const entries = validatePackFiles();
           const safeTitle = String(pack.title || "pack").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 60) || "pack";
-          response.writeHead(200, {
-            "cache-control": "private, no-store",
-            "content-type": "application/zip",
-            "content-disposition": `attachment; filename="${safeTitle}.zip"; filename*=UTF-8''${encodeURIComponent(`${safeTitle}.zip`)}`,
-            "x-content-type-options": "nosniff",
+          await respondAfterCommit(200, async () => {
+            response.writeHead(200, {
+              "cache-control": "private, no-store",
+              "content-type": "application/zip",
+              "content-disposition": `attachment; filename="${safeTitle}.zip"; filename*=UTF-8''${encodeURIComponent(`${safeTitle}.zip`)}`,
+              "x-content-type-options": "nosniff",
+            });
+            await pipeline(Readable.from(storedZip(entries)), response);
           });
-          await pipeline(Readable.from(storedZip(entries)), response);
           return;
         }
         if (request.method === "POST" && action === "download") {
@@ -1594,6 +1613,7 @@ export function createApiServer({
           }
           pack.updatedAt = new Date().toISOString();
           persist();
+          for (const connectedUserId of socketsByUser.keys()) broadcastCommunity(connectedUserId);
           json(response, 200, { pack: currentPack() });
           return;
         }
@@ -2269,6 +2289,9 @@ export function createApiServer({
           isImage ? maxArtworkUploadBytes : maxAudioUploadBytes,
           isImage ? "Image" : "Audio",
         );
+        afterRollback(() => {
+          if (existsSync(targetPath)) unlinkSync(targetPath);
+        });
         const upload = { id: uploadId, type, storedName, audioFileName, contentType: request.headers["content-type"] ?? "application/octet-stream", bytes, userId: user.id };
         data.uploads.push(upload);
         persist();
@@ -2285,7 +2308,7 @@ export function createApiServer({
         if (uploadIndex !== -1) {
           const [upload] = data.uploads.splice(uploadIndex, 1);
           const uploadedPath = resolve(mediaDirectory, basename(upload.storedName));
-          if (existsSync(uploadedPath)) unlinkSync(uploadedPath);
+          afterCommit(() => { if (existsSync(uploadedPath)) unlinkSync(uploadedPath); });
           persist();
         }
         json(response, 200, { status: "ok" });
@@ -2435,7 +2458,7 @@ export function createApiServer({
         persist();
         for (const storedName of replacedMedia) {
           const oldMediaPath = resolve(mediaDirectory, basename(storedName));
-          if (existsSync(oldMediaPath)) unlinkSync(oldMediaPath);
+          afterCommit(() => { if (existsSync(oldMediaPath)) unlinkSync(oldMediaPath); });
         }
         for (const connectedUserId of socketsByUser.keys()) broadcastCommunity(connectedUserId);
         json(response, 200, publicDub(data, dub, user.id));
@@ -2480,7 +2503,7 @@ export function createApiServer({
         for (const storedName of [dub.storedAudioName, dub.storedArtworkName]) {
           if (!storedName) continue;
           const mediaPath = resolve(mediaDirectory, basename(storedName));
-          if (existsSync(mediaPath)) unlinkSync(mediaPath);
+          afterCommit(() => { if (existsSync(mediaPath)) unlinkSync(mediaPath); });
         }
         for (const connectedUserId of socketsByUser.keys()) affectedUserIds.add(connectedUserId);
         for (const affectedUserId of affectedUserIds) broadcastCommunity(affectedUserId);
@@ -2699,7 +2722,7 @@ export function createApiServer({
         persist();
         for (const storedName of replacedMedia) {
           const oldImagePath = resolve(mediaDirectory, basename(storedName));
-          if (existsSync(oldImagePath)) unlinkSync(oldImagePath);
+          afterCommit(() => { if (existsSync(oldImagePath)) unlinkSync(oldImagePath); });
         }
         for (const connectedUserId of socketsByUser.keys()) broadcastCommunity(connectedUserId);
         json(response, 200, communitySnapshot(data, user));
@@ -2810,11 +2833,53 @@ export function createApiServer({
         json(response, 404, { error: "Audio file not found." });
         return;
       }
+      if (storage && !error.status) {
+        console.error("Community command failed.", { code: error.code ?? error.name });
+        json(response, 503, { error: "The server could not complete the request. Please retry." });
+        return;
+      }
       json(response, error.status ?? 500, { error: error.message || "The server could not complete the request." });
     }
+  };
+
+  const server = createServer((request, response) => {
+    const fail = (error) => {
+      console.error("Community request failed.", { code: error.code ?? error.name });
+      if (response.headersSent) response.destroy();
+      else {
+        response.removeHeader("set-cookie");
+        response.writeHead(error instanceof URIError ? 400 : 503, {
+          "content-type": "application/json; charset=utf-8", "cache-control": "private, no-store",
+        });
+        response.end(JSON.stringify({ error: error instanceof URIError ? "Malformed request." : "Community storage is unavailable. Please retry." }));
+      }
+    };
+    void Promise.resolve().then(() => {
+      if (!storage || !new URL(request.url ?? "/", "http://localhost").pathname.startsWith("/api/")) {
+        return handleRequest(request, response);
+      }
+      if (!["GET", "HEAD"].includes(request.method) && !isAllowedWebSocketOrigin(request)) {
+        json(response, 403, { error: "Invalid request origin." });
+        return;
+      }
+      response.setHeader("cache-control", "private, no-store");
+      response.setHeader("x-content-type-options", "nosniff");
+      return storage.run(parseCookies(request).cre8_session, () => {
+        if (request.destroyed || response.destroyed) throw Object.assign(new Error("Request was interrupted."), { code: "REQUEST_ABORTED" });
+        return handleRequest(request, response);
+      });
+    }).catch(fail);
   });
+  if (storage) {
+    server.requestTimeout = 120000;
+    server.headersTimeout = 10000;
+    server.keepAliveTimeout = 5000;
+  }
 
   function sendMessagePush(sender, result) {
+    if (commitContext.getStore() && !commitContext.getStore().finished) {
+      return afterCommit(() => sendMessagePush(sender, result));
+    }
     if (!pushService) return;
     const dub = result.message.dubId && data.dubs.find((item) => item.id === result.message.dubId);
     const title = dub ? `${sender.displayName} shared a dub` : `Message from ${sender.displayName}`;
@@ -2823,12 +2888,14 @@ export function createApiServer({
     for (const item of data.pushSubscriptions.filter((entry) => entry.userId === result.recipientId)) {
       void Promise.resolve().then(() => pushService.send(item.subscription, payload)).catch((error) => {
         if (error.statusCode === 404 || error.statusCode === 410) {
-          data.pushSubscriptions = data.pushSubscriptions.filter((entry) => entry !== item);
-          try {
+          const remove = () => {
+            data.pushSubscriptions = data.pushSubscriptions.filter((entry) =>
+              entry.userId !== item.userId || entry.subscription.endpoint !== item.subscription.endpoint);
             persist();
-          } catch (persistError) {
-            console.error("Failed to remove expired push subscription:", persistError.message);
-          }
+          };
+          return Promise.resolve().then(() => storage ? storage.run(undefined, remove) : remove()).catch((persistError) => {
+            console.error("Failed to remove expired push subscription.", { code: persistError.code ?? persistError.name });
+          });
         } else {
           console.error("Push notification delivery failed:", error.message);
         }
@@ -2837,6 +2904,9 @@ export function createApiServer({
   }
 
   function broadcastCommunity(userId) {
+    if (commitContext.getStore() && !commitContext.getStore().finished) {
+      return afterCommit(() => broadcastCommunity(userId));
+    }
     const user = data.users.find((item) => item.id === userId);
     if (!user) return;
     const payload = JSON.stringify({
@@ -2854,7 +2924,7 @@ export function createApiServer({
     }
   }
 
-  server.on("upgrade", (request, socket, head) => {
+  const handleUpgrade = (request, socket, head) => {
     const url = new URL(request.url ?? "/", "http://localhost");
     const cookies = parseCookies(request);
     const sessionToken = cookies.cre8_session;
@@ -2873,7 +2943,7 @@ export function createApiServer({
       return;
     }
 
-    webSocketServer.handleUpgrade(request, socket, head, (webSocket) => {
+    afterCommit(() => webSocketServer.handleUpgrade(request, socket, head, (webSocket) => {
       const userSockets = socketsByUser.get(user.id) ?? new Set();
       userSockets.add(webSocket);
       socketsByUser.set(user.id, userSockets);
@@ -2898,23 +2968,90 @@ export function createApiServer({
         userSockets.delete(webSocket);
         if (userSockets.size === 0) socketsByUser.delete(user.id);
       });
+    }));
+  };
+  server.on("upgrade", (request, socket, head) => {
+    void Promise.resolve().then(() => storage
+      ? storage.run(parseCookies(request).cre8_session, () => handleUpgrade(request, socket, head))
+      : handleUpgrade(request, socket, head)).catch((error) => {
+      console.error("Community WebSocket authorization failed.", { code: error.code ?? error.name });
+      socket.destroy();
     });
   });
 
-  server.on("close", () => {
+  const closeSockets = () => {
     for (const sockets of socketsByUser.values()) {
       for (const socket of sockets) socket.terminate();
     }
+  };
+  server.on("shutdown", closeSockets);
+  server.on("close", () => {
+    closeSockets();
     webSocketServer.close();
   });
 
   return server;
 }
 
+export async function createPostgresApiServer(options = {}) {
+  const { createCommunityPostgres, readCommunityDatabaseConfig } = await import("./communityPostgres.mjs");
+  const storage = options.storage ?? createCommunityPostgres(readCommunityDatabaseConfig());
+  try {
+    await storage.run(undefined, () => {
+      seedAdministrator(storage.data, undefined,
+        validateAdminSeed(options.adminSeed ?? { username: process.env.ADMIN_SEED_USERNAME, password: process.env.ADMIN_SEED_PASSWORD }),
+        () => storage.markDirty());
+    });
+    const server = createApiServer({ ...options, storage });
+    return { server, storage };
+  } catch (error) {
+    if (!options.storage) await storage.close();
+    throw error;
+  }
+}
+
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const port = Number(process.env.PORT ?? process.env.API_PORT ?? 3001);
   const host = process.env.API_HOST ?? (process.env.NODE_ENV === "production" ? "0.0.0.0" : "127.0.0.1");
-  createApiServer().listen(port, host, () => {
-    console.log(`cre8 server listening on http://${host}:${port}`);
-  });
+  const mode = process.env.COMMUNITY_STORAGE ?? "json";
+  if (!["json", "postgres"].includes(mode)) throw new Error("COMMUNITY_STORAGE must be json or postgres.");
+  let server;
+  let storage;
+  try {
+    ({ server, storage } = mode === "postgres" ? await createPostgresApiServer() : { server: createApiServer() });
+  } catch (error) {
+    console.error("Community startup failed.", {
+      code: error.code ?? error.name,
+      message: mode === "postgres" ? "Verify explicit PostgreSQL configuration, migrations, initialization and media paths." : error.message,
+    });
+    process.exitCode = 1;
+  }
+  if (server) {
+    server.listen(port, host, () => {
+      console.log(`cre8 server listening on http://${host}:${port}`);
+    });
+    if (storage) {
+      let stopping = false;
+      const stop = () => {
+        if (stopping) return;
+        stopping = true;
+        const deadline = setTimeout(() => {
+          console.error("Community shutdown deadline exceeded.");
+          process.exit(1);
+        }, 15000);
+        server.emit("shutdown");
+        server.close(async () => {
+          try { await storage.close(); }
+          catch (error) {
+            console.error("Community database shutdown failed.", { code: error.code ?? error.name });
+            process.exitCode = 1;
+          } finally { clearTimeout(deadline); }
+        });
+        server.closeIdleConnections();
+        setTimeout(() => server.closeAllConnections(), 10000).unref();
+      };
+      process.once("SIGTERM", stop);
+      process.once("SIGINT", stop);
+    }
+  }
 }

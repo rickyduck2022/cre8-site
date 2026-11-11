@@ -1,0 +1,30 @@
+# Opt-in template only. Do not sync until the separate database, region and cost
+# are approved and its migrations/fixtures are initialized (see staging README).
+services:
+  - type: web
+    name: cre8-backend-staging
+    runtime: docker
+    plan: 0.5c-512mb
+    dockerfilePath: ./Dockerfile.staging
+    dockerContext: .
+    healthCheckPath: /api/health
+    autoDeployTrigger: "off"
+    numInstances: 1
+    maxShutdownDelaySeconds: 90
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: SPIKE_STAGING_ACK
+        value: isolated-synthetic-only
+      - key: SPIKE_RUN_ID
+        value: render_stage
+      - key: SPIKE_DATABASE_URL
+        sync: false
+      - key: SPIKE_MEDIA_DIRECTORY
+        value: /var/data/cre8_spike_render_stage
+      - key: SPIKE_STAGING_PAUSED
+        value: "true"
+    disk:
+      name: cre8-staging-synthetic-media
+      mountPath: /var/data/cre8_spike_render_stage
+      sizeGB: 1

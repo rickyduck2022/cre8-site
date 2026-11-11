@@ -5,6 +5,14 @@ import { AppHeader } from "./AppHeader";
 afterEach(cleanup);
 
 describe("AppHeader", () => {
+  it("keeps the original controls when showing the Dub Vault descriptor", () => {
+    render(<AppHeader brandDescriptor="Dub Vault" onMessages={vi.fn()} />);
+    expect(screen.getByText("Dub Vault")).toBeVisible();
+    expect(screen.getByRole("link", { name: "cre8 home" })).toHaveAttribute("href", "#dubs");
+    expect(screen.getByRole("button", { name: "Messages" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Share a dub" })).toBeVisible();
+    expect(screen.getByRole("searchbox")).toBeVisible();
+  });
   it("passes the member's profile picture to the account menu", () => {
     render(<AppHeader userName="Amber" userAvatarUrl="/amber.png" onEditProfile={vi.fn()} onLogout={vi.fn()} />);
     expect(screen.getByRole("img", { name: "Amber" }).querySelector("img")).toHaveAttribute("src", "/amber.png");

@@ -72,7 +72,7 @@ it.each(["dub", "sample"] as const)("opens the existing %s pack editor from an o
   data.state.dubs = owned.items.map(({ dub: item }) => item);
   data.state.packs = [owned];
   mocks.community.mockReturnValue(data);
-  mocks.request.mockResolvedValue({ packs: [owned] });
+  mocks.request.mockImplementation(async (path: string) => path === "/api/packs/pack" ? { pack: owned } : { packs: [owned] });
   window.history.replaceState(null, "", kind === "sample" ? "/#samples" : "/#dubs");
   render(<App />);
   fireEvent.click(screen.getByRole("button", { name: "Edit pack" }));

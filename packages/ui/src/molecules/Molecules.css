@@ -419,6 +419,14 @@
   font-size: var(--type-size-title);
   gap: 0.45rem;
 }
+.brand--described { align-items: flex-start; flex-direction: column; flex-shrink: 0; gap: 0.25rem; }
+.brand__visual { align-items: center; display: flex; gap: 0.3rem; }
+.brand__descriptor { letter-spacing: 0.08em; white-space: nowrap; }
+.brand__descriptor > svg { flex-basis: 0.875rem; height: 0.875rem; width: 0.875rem; }
+@media (max-width: 520px) {
+  .brand__descriptor { letter-spacing: 0.04em; }
+  .brand__descriptor > svg { display: none; }
+}
 
 .brand__mark {
   color: var(--action-primary);

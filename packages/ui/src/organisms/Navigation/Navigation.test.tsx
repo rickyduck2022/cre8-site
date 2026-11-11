@@ -5,6 +5,13 @@ import { Navigation } from "./Navigation";
 afterEach(cleanup);
 
 describe("Navigation", () => {
+  it("keeps the brand and navigation labels when opting into a vault descriptor", () => {
+    render(<Navigation brandDescriptor="Dub Vault" activeItem="Sample Vault" sections={[{ items: [
+      { label: "Sample Vault", href: "#samples", icon: <span />, mediaKind: "sample" },
+    ] }]} />);
+    expect(screen.getByText("Dub Vault")).toBeVisible();
+    expect(screen.getByRole("link", { name: "Sample Vault", current: "page" })).toHaveAttribute("href", "#samples");
+  });
   it("shows every navigation link without a pagination control", () => {
     const items = ["Dub Vault", "Friend List", "Messenger", "My Profile", "My Library", "My Dubs"]
       .map((label) => ({ label, icon: <span aria-hidden="true" />, href: `#${label}` }));

@@ -165,13 +165,16 @@ describe("LatestDubsTemplate ownership controls", () => {
     expect(screen.getByRole("tablist", { name: "Sort dubs" })).toBeInTheDocument();
   });
 
-  it("offers a visually compact Dub Vault while retaining its heading and sorting explanation for assistive technology", () => {
+  it("offers a compact archive heading while retaining the sorting explanation for assistive technology", () => {
     render(<LatestDubsTemplate
       dubs={[{ ...dub, distribution: "alist" }]} prioritizeAList compactHeader
       likedDubIds={new Set()} nowPlayingId={null} isPlaying={false}
       onDownload={vi.fn()} onOpenProfile={vi.fn()} onPlay={vi.fn()}
     />);
-    expect(screen.getByRole("heading", { name: "Dub Vault" })).toHaveClass("sr-only");
+    expect(screen.getByRole("heading", { name: "Dub Vault" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Dub Vault" })).not.toHaveClass("sr-only");
+    expect(screen.getByText("Community archive")).toBeVisible();
+    expect(screen.getByText("Browse · Play · Collect")).toBeVisible();
     expect(screen.queryByText("YOUR COMMUNITY, IN ROTATION")).not.toBeInTheDocument();
     expect(screen.getByText(/A-List dubs appear first/)).toHaveClass("sr-only");
     expect(screen.getByRole("tablist", { name: "Sort dubs" })).toHaveAccessibleDescription(/A-List dubs appear first/);

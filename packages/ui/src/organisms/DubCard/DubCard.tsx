@@ -109,7 +109,7 @@ export function CompactDubCard({ dub, action, onOpenProfile, shared = false }: C
 export function DubCard(props: DubCardProps | DubCardCollectionProps) {
   if (props.variant === "collection") {
     const { label, className, mediaKind = "dub", distribution = props.player?.distribution, header, actions, player, playbackLabel, playbackDisabled, isCurrentTrack, children } = props;
-    return <article aria-label={label} className={["dub-card", "dub-card--collection", `media-kind--${mediaKind}`, distribution === "alist" && "dub-card--alist", isCurrentTrack && "dub-card--current", className].filter(Boolean).join(" ")}>
+    return <article aria-label={label} className={["dub-card", "vault-panel", "dub-card--collection", `media-kind--${mediaKind}`, distribution === "alist" && "dub-card--alist", isCurrentTrack && "dub-card--current", className].filter(Boolean).join(" ")}>
       {header}
       {actions}
       {player && <fieldset className="dub-card__collection-player" disabled={playbackDisabled} aria-label={playbackLabel}>
@@ -260,7 +260,7 @@ function TrackDubCard({
   }
 
   return (
-    <article className={`dub-card media-kind--${mediaKind}${dub.distribution === "alist" ? " dub-card--alist" : dub.distribution === "private" ? " dub-card--private" : ""}`}>
+    <article className={`dub-card vault-panel media-kind--${mediaKind}${dub.distribution === "alist" ? " dub-card--alist" : dub.distribution === "private" ? " dub-card--private" : ""}`}>
       <div className="dub-card__topline">
         {onOpenProfile ? (
           <button aria-label={`View ${dub.uploaderDisplayName}'s profile`} className="dub-card__avatar" onClick={() => onOpenProfile(dub.uploader)} type="button">

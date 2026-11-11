@@ -546,7 +546,7 @@ export function App({ appStatus }: { appStatus?: ReactNode } = {}) {
   }
   return (
     <DashboardTemplate
-      className={`community-dashboard-template ${playerLayout.dashboardClassName}${activeSection === "messenger" ? " community-dashboard-template--messenger" : ""}`}
+      className={`community-dashboard-template vault-theme ${playerLayout.dashboardClassName}${activeSection === "messenger" ? " community-dashboard-template--messenger" : ""}`}
       scrollContent
       scrollResetKey={activeSection}
       header={
@@ -555,6 +555,7 @@ export function App({ appStatus }: { appStatus?: ReactNode } = {}) {
           className="app-topbar"
           leading={<HistoryNavigation canGoBack={history.canGoBack} onBack={history.goBack} />}
           logoSrc={cre8LogoSrc}
+          brandDescriptor="Dub Vault"
           onCreate={() => setIsUploadOpen(true)}
           onEditProfile={() => setIsProfileEditOpen(true)}
           onLogout={() => {
@@ -597,6 +598,7 @@ export function App({ appStatus }: { appStatus?: ReactNode } = {}) {
           className="app-sidebar"
           hideOnMobile
           logoSrc={cre8LogoSrc}
+          brandDescriptor="Dub Vault"
           sections={interactiveNavigationSections}
           userDetail={state.member.role}
           userName={state.member.displayName}

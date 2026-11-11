@@ -14,6 +14,7 @@
 .pack-artwork .track-artwork { width: 100%; height: 100%; border-radius: 0; }
 .pack-identity { display: flex; align-items: center; gap: 1.25rem; min-width: 0; }
 .pack-identity__details { min-width: 0; }
+.pack-identity__edit { margin-top: 0.5rem; }
 .pack-identity--alist { border-inline-start: 3px solid var(--release-alist-accent); padding-inline-start: 0.75rem; }
 .pack-identity h1, .pack-identity h2 { overflow-wrap: anywhere; margin-block: 0.5rem; }
 .pack-identity p { margin-block: 0.25rem; }

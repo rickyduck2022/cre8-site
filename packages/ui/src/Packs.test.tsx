@@ -39,6 +39,8 @@ it.each(["sample", "dub"] as const)("scopes the owned %s workspace and creates t
     onPlay={vi.fn()} onPlayAll={vi.fn()} onSeek={vi.fn()} onVolume={vi.fn()}
     onDownloadDub={vi.fn()} onCommunityChange={vi.fn()} />);
   expect(await screen.findByText("Owned release", { exact: true })).toBeVisible();
+  expect(screen.getByText("Release archive")).toBeVisible();
+  expect(screen.getByRole("heading", { name: mediaKind === "sample" ? "Your Sample Packs" : "Your Dub Packs" })).toBeVisible();
   expect(screen.queryByText("Other kind")).not.toBeInTheDocument();
   expect(screen.queryByText("Other owner")).not.toBeInTheDocument();
   expect(screen.queryByRole("combobox", { name: "Pack type filter" })).not.toBeInTheDocument();
@@ -64,15 +66,16 @@ describe("Pack editor", () => {
     const published: Pack = { ...pack, kind, status: "published", licence: "Original productions." };
     const updated = { ...published, title: "Updated release" };
     const onCommunityChange = vi.fn().mockResolvedValue(undefined);
-    mocks.request.mockImplementation(async (_path: string, method: string) => method === "PATCH"
-      ? { pack: updated } : { packs: [published, { ...published, id: "shared", title: "Someone else's pack", ownerUsername: "someone" }] });
+    mocks.request.mockImplementation(async (path: string, method: string) => method === "PATCH"
+      ? { pack: updated } : path === "/api/packs/pack" ? { pack: published }
+        : { packs: [published, { ...published, id: "shared", title: "Someone else's pack", ownerUsername: "someone" }] });
     render(<PackWorkspace username="amber" approved dubs={[dub]} artists={artists} buddies={[]} playback={playback}
       onPlay={vi.fn()} onPlayAll={vi.fn()} onSeek={vi.fn()} onVolume={vi.fn()}
       onDownloadDub={vi.fn()} onCommunityChange={onCommunityChange} />);
     const card = await screen.findByRole("heading", { name: pack.title });
     expect(screen.getAllByRole("button", { name: "Edit pack" })).toHaveLength(1);
     fireEvent.click(within(card.closest("article")!).getByRole("button", { name: "Edit pack" }));
-    expect(screen.getByLabelText("Pack title")).toHaveValue(pack.title);
+    expect(await screen.findByLabelText("Pack title")).toHaveValue(pack.title);
     expect(screen.getByLabelText("Pack type")).toHaveValue(kind);
     fireEvent.change(screen.getByLabelText("Pack title"), { target: { value: updated.title } });
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
@@ -185,9 +188,79 @@ describe("Pack editor", () => {
     fireEvent.click(screen.getByRole("button", { name: "2. Add files" }));
     fireEvent.click(screen.getByRole("checkbox", { name: /New private dub/ }));
     fireEvent.click(screen.getByRole("button", { name: "3. Arrange & review" }));
-    expect(screen.getByRole("button", { name: "Save & publish" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Save changes" })).toBeDisabled();
     fireEvent.click(screen.getByRole("checkbox", { name: /Grant existing pack recipients/ }));
-    expect(screen.getByRole("button", { name: "Save & publish" })).not.toBeDisabled();
+    expect(screen.getByRole("button", { name: "Save changes" })).not.toBeDisabled();
+  });
+
+  it("loads the current saved pack before editing and lets failed loads be retried", async () => {
+    const latest = { ...pack, title: "Latest saved title", description: "Latest saved description" };
+    mocks.request.mockImplementation(async (path: string) => path === "/api/packs" ? { packs: [pack] } : Promise.reject(new Error("Connection interrupted")));
+    render(<PackWorkspace username="amber" approved dubs={[dub]} artists={artists} buddies={[]} playback={playback}
+      onPlay={vi.fn()} onPlayAll={vi.fn()} onSeek={vi.fn()} onVolume={vi.fn()}
+      onDownloadDub={vi.fn()} onCommunityChange={vi.fn()} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Edit pack" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Connection interrupted");
+    expect(screen.queryByLabelText("Pack title")).not.toBeInTheDocument();
+    mocks.request.mockResolvedValue({ pack: latest });
+    fireEvent.click(screen.getByRole("button", { name: "Retry loading pack" }));
+    expect(await screen.findByLabelText("Pack title")).toHaveValue(latest.title);
+    expect(screen.getByLabelText("Description")).toHaveValue(latest.description);
+    expect(screen.getByRole("heading", { name: "Edit pack" })).toHaveFocus();
+  });
+
+  it("saves published edits with PATCH only, including form submission, without republishing", async () => {
+    const published = { ...pack, status: "published" as const };
+    const updated = { ...published, title: "Saved title" };
+    mocks.request.mockResolvedValue({ pack: updated });
+    const onSaved = vi.fn();
+    const { container } = render(<PackEditor {...editorProps} pack={published} onSaved={onSaved} />);
+    expect(screen.getByRole("button", { name: "Save changes" })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "Save & publish" })).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Pack title"), { target: { value: updated.title } });
+    fireEvent.submit(container.querySelector("form")!);
+    await waitFor(() => expect(onSaved).toHaveBeenCalledWith(updated));
+    expect(mocks.request).toHaveBeenCalledTimes(1);
+    expect(mocks.request).toHaveBeenCalledWith("/api/packs/pack", "PATCH", expect.objectContaining({ title: updated.title }));
+  });
+
+  it("retains edits after a failed save and confirms cancel only while there are unsaved changes", async () => {
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
+    const onClose = vi.fn();
+    const onSaved = vi.fn();
+    mocks.request.mockRejectedValue(new Error("Save interrupted"));
+    render(<PackEditor {...editorProps} pack={{ ...pack, status: "published" }} onClose={onClose} onSaved={onSaved} />);
+    fireEvent.change(screen.getByLabelText("Pack title"), { target: { value: "Keep my changes" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Save interrupted");
+    expect(screen.getByLabelText("Pack title")).toHaveValue("Keep my changes");
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(confirm).toHaveBeenCalledOnce();
+    expect(onClose).not.toHaveBeenCalled();
+    fireEvent.change(screen.getByLabelText("Pack title"), { target: { value: pack.title } });
+    expect(screen.getByRole("button", { name: "Save changes" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(onClose).toHaveBeenCalledOnce();
+    expect(onSaved).not.toHaveBeenCalled();
+    confirm.mockRestore();
+  });
+
+  it("retries community refresh after a successful save without saving the pack a second time", async () => {
+    const published = { ...pack, status: "published" as const };
+    const updated = { ...published, title: "Committed title" };
+    const onSaved = vi.fn();
+    const onCommunityChange = vi.fn().mockRejectedValueOnce(new Error("Offline")).mockResolvedValue(undefined);
+    mocks.request.mockResolvedValue({ pack: updated });
+    render(<PackEditor {...editorProps} pack={published} onSaved={onSaved} onCommunityChange={onCommunityChange} />);
+    fireEvent.change(screen.getByLabelText("Pack title"), { target: { value: updated.title } });
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Your pack was saved");
+    expect(onSaved).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "Save changes" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Retry refresh" }));
+    await waitFor(() => expect(onSaved).toHaveBeenCalledWith(updated));
+    expect(mocks.request).toHaveBeenCalledTimes(1);
+    expect(onCommunityChange).toHaveBeenCalledTimes(2);
   });
 });
 
@@ -298,7 +371,8 @@ describe("Pack viewing and discovery", () => {
   });
 
   it("loads saved drafts and filters Dub versus Sample Packs", async () => {
-    mocks.request.mockResolvedValue({ packs: [pack, { ...pack, id: "sample", kind: "sample", title: "Drums" }] });
+    const sample = { ...pack, id: "sample", kind: "sample", title: "Drums" };
+    mocks.request.mockImplementation(async (path: string) => path === "/api/packs/sample" ? { pack: sample } : { packs: [pack, sample] });
     render(<PackWorkspace username="amber" approved dubs={[dub]} artists={artists} buddies={[]} playback={playback}
       onPlay={vi.fn()} onPlayAll={vi.fn()} onSeek={vi.fn()} onVolume={vi.fn()} onDownloadDub={vi.fn()} onCommunityChange={vi.fn()} />);
     await screen.findByRole("heading", { name: "Drums" });
@@ -307,7 +381,7 @@ describe("Pack viewing and discovery", () => {
     fireEvent.click(screen.getByRole("button", { name: "Open pack" }));
     expect(screen.getByRole("article", { name: "Sample Pack: Drums" })).toBeVisible();
     fireEvent.click(screen.getByRole("button", { name: "Continue editing" }));
-    expect(screen.getByLabelText("Pack type")).toHaveValue("sample");
+    expect(await screen.findByLabelText("Pack type")).toHaveValue("sample");
   });
 
   it("explains empty filtered pack results and clears the filters", async () => {

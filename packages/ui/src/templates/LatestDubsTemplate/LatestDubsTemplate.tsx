@@ -2,6 +2,8 @@ import { useContext, useId, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { ChevronDown, Search } from "@craft/icons";
 import { Badge } from "../../atoms/Badge/Badge";
+import { VaultLabel } from "../../atoms/VaultLabel/VaultLabel";
+import "../../foundations/VaultTheme.css";
 import { FilterTab } from "../../atoms/FilterTab/FilterTab";
 import { Pagination, usePagination } from "../../molecules/Pagination/Pagination";
 import type { Dub } from "../communityTypes";
@@ -184,7 +186,10 @@ export function LatestDubsTemplate({
   const collectionHeader = (
     <>
       {compactHeader ? (
-        <h1 className="sr-only">{crateName ?? feedName}</h1>
+        <div className="vault-collection-heading">
+          <div><VaultLabel>Community archive</VaultLabel><h1>{crateName ?? feedName}</h1></div>
+          <span className="vault-collection-heading__detail">Browse &middot; Play &middot; Collect</span>
+        </div>
       ) : showIntro ? (
         <section className={brandingImageSrc ? "page-intro latest-dubs-template__intro" : "page-intro"}>
           {brandingImageSrc && (
@@ -195,7 +200,7 @@ export function LatestDubsTemplate({
             />
           )}
           <div className={brandingImageSrc ? "latest-dubs-template__intro-copy" : undefined}>
-            <span className="eyebrow">YOUR COMMUNITY, IN ROTATION</span>
+            <VaultLabel>Your community, in rotation</VaultLabel>
             <h1>{crateName ?? feedName}</h1>
             <p>
               {crateName

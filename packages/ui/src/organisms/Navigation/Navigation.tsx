@@ -32,6 +32,7 @@ export interface NavigationProps {
   hideOnMobile?: boolean;
   className?: string;
   logoSrc?: string;
+  brandDescriptor?: string;
   onUserProfile?: () => void;
 }
 
@@ -40,6 +41,7 @@ export function Navigation({
   className,
   sections,
   logoSrc,
+  brandDescriptor,
   userDetail = "Member",
   userName,
   userAvatarUrl,
@@ -60,8 +62,8 @@ export function Navigation({
         .filter(Boolean)
         .join(" ")}
     >
-      <div className="navigation__brand">
-        <Brand logoSrc={logoSrc} />
+      <div className="navigation__brand vault-rack">
+        <Brand logoSrc={logoSrc} descriptor={brandDescriptor} />
       </div>
       <div className="navigation__sections">
         {sections.map((section, sectionIndex) => (

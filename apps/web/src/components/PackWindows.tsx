@@ -20,7 +20,7 @@ interface Props extends Omit<ComponentProps<typeof PackView>, "pack" | "owner" |
 export function PackWindows({ windows, username, onActivate, onClose, onEdit, onCommunityChange, ...playback }: Props) {
   // Raising a window must not move its DOM node during a pointer gesture.
   const ranked = windows.map((entry, order) => ({ ...entry, order })).sort((a, b) => a.pack.id.localeCompare(b.pack.id));
-  return <WindowLayer>{ranked.map(({ pack, openRequest, order }) => <FloatingWindow key={pack.id} title={`${packTypeLabel(pack.kind)}: ${pack.title}`}
+  return <WindowLayer className="vault-theme">{ranked.map(({ pack, openRequest, order }) => <FloatingWindow key={pack.id} title={`${packTypeLabel(pack.kind)}: ${pack.title}`}
     active={order === windows.length - 1} order={order} openRequest={openRequest} onActivate={() => onActivate(pack.id)} onClose={() => onClose(pack.id)}
     className={`pack-window media-kind--${pack.kind}${pack.distribution === "alist" ? " pack-view--alist" : ""}`}>
     <PackView {...playback} pack={pack} owner={pack.ownerUsername === username}

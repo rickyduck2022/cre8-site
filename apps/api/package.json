@@ -5,12 +5,29 @@
   "type": "module",
   "scripts": {
     "dev": "node --watch src/server.mjs",
+    "db:migrate": "node scripts/community-postgres.mjs migrate",
+    "db:seed:synthetic": "node scripts/community-postgres.mjs seed-synthetic",
+    "db:inspect-import": "node scripts/community-postgres.mjs inspect-import",
+    "db:import": "node scripts/community-postgres.mjs import",
+    "db:test": "node --test integration/community-postgres.integration.mjs",
+    "spike:migrate": "node spikes/stage-a/cli.mjs migrate",
+    "spike:seed": "node spikes/stage-a/cli.mjs seed",
+    "spike:serve": "node spikes/stage-a/cli.mjs serve",
+    "spike:test": "node --test spikes/stage-a/config.test.mjs spikes/stage-a/stage-a.integration.mjs",
+    "spike:media": "node spikes/stage-b/cli.mjs serve",
+    "spike:seed:media": "node spikes/stage-b/cli.mjs seed",
+    "spike:work": "node spikes/stage-b/cli.mjs work",
+    "spike:reconcile": "node spikes/stage-b/cli.mjs reconcile",
+    "spike:test:media": "node --test spikes/stage-b/disk.test.mjs spikes/stage-b/stage-b.integration.mjs",
+    "spike:staging": "node spikes/staging/cli.mjs",
+    "spike:test:staging": "node --test spikes/staging/staging.test.mjs",
     "build": "node --check src/server.mjs",
     "test": "node --test",
     "typecheck": "node --check src/server.mjs"
   },
   "dependencies": {
     "ffmpeg-static": "^5.3.0",
+    "pg": "^8.16.3",
     "web-push": "^3.6.7",
     "ws": "^8.22.1"
   }

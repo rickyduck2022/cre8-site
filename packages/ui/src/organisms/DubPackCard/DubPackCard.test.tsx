@@ -33,7 +33,7 @@ it.each(["dub", "sample"] as const)("offers editing an owned %s pack without sta
   expect(screen.queryByRole("button", { name: "Edit pack" })).not.toBeInTheDocument();
 });
 
-it("keeps Edit pack reachable through the mobile overflow menu", () => {
+it("keeps Edit pack directly on the card header even when mobile actions overflow", () => {
   vi.stubGlobal("matchMedia", vi.fn().mockReturnValue({
     matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn(),
   }));
@@ -45,11 +45,15 @@ it("keeps Edit pack reachable through the mobile overflow menu", () => {
   const onEditPack = vi.fn();
   try {
     render(<DubPackCard {...props} currentUsername="amber" onEditPack={onEditPack} />);
-    expect(screen.queryByRole("button", { name: "Edit pack" })).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "More actions for Night Sessions" }));
-    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Edit pack" }));
+    const edit = screen.getByRole("button", { name: "Edit pack" });
+    expect(edit.closest(".pack-identity")).not.toBeNull();
+    expect(edit.closest(".card-actions")).toBeNull();
+    fireEvent.click(edit);
     expect(onEditPack).toHaveBeenCalledWith(pack);
-    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    onEditPack.mockClear();
+    fireEvent.click(screen.getByRole("button", { name: "More actions for Night Sessions" }));
+    expect(within(screen.getByRole("dialog")).queryByRole("button", { name: "Edit pack" })).not.toBeInTheDocument();
+    expect(onEditPack).not.toHaveBeenCalled();
   } finally {
     bounds.mockRestore();
     vi.unstubAllGlobals();

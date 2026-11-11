@@ -1,0 +1,31 @@
+FROM node:22-bookworm-slim
+
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends ffmpeg ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
+
+ENV PNPM_HOME="/pnpm"
+ENV PATH="$PNPM_HOME:$PATH"
+ENV NODE_ENV="production"
+ENV FFMPEG_PATH="/usr/bin/ffmpeg"
+
+RUN corepack enable && corepack prepare pnpm@9.15.4 --activate
+WORKDIR /app
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY apps/api/package.json ./apps/api/package.json
+COPY apps/web/package.json ./apps/web/package.json
+COPY apps/admin/package.json ./apps/admin/package.json
+COPY packages/icons/package.json ./packages/icons/package.json
+COPY packages/tokens/package.json ./packages/tokens/package.json
+COPY packages/ui/package.json ./packages/ui/package.json
+RUN pnpm install --prod --frozen-lockfile --ignore-scripts --filter @craft/api
+ENV NODE_OPTIONS="--max-old-space-size=96"
+
+COPY apps/api/spikes ./apps/api/spikes
+COPY apps/api/src/zipStore.mjs ./apps/api/src/zipStore.mjs
+RUN mkdir -p /var/data/cre8_spike_render_stage \
+  && chown node:node /var/data/cre8_spike_render_stage
+USER node
+
+EXPOSE 10000
+CMD ["node", "apps/api/spikes/staging/cli.mjs"]

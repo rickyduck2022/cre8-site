@@ -29,6 +29,7 @@ export interface AppHeaderProps {
   searchValue?: string;
   className?: string;
   logoSrc?: string;
+  brandDescriptor?: string;
   leading?: ReactNode;
 }
 
@@ -36,6 +37,7 @@ export function AppHeader({
   className,
   leading,
   logoSrc,
+  brandDescriptor,
   onCreate,
   onEditProfile,
   onLogout,
@@ -60,6 +62,8 @@ export function AppHeader({
       className={[
         "organism-card",
         "app-header",
+        "vault-rack",
+        brandDescriptor && "app-header--described",
         `app-header--${variant}`,
         className,
       ]
@@ -67,7 +71,7 @@ export function AppHeader({
         .join(" ")}
     >
       {leading}
-      <Brand logoSrc={logoSrc} />
+      <Brand logoSrc={logoSrc} descriptor={brandDescriptor} />
       <SearchField
         aria-label={searchPlaceholder}
         className="app-header__search"

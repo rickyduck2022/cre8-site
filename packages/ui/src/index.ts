@@ -1,5 +1,6 @@
 import "./foundations/Global.css";
 import "./foundations/Scrollbar.css";
+import "./foundations/VaultTheme.css";
 
 export * from "./atoms/Button";
 export * from "./atoms/EdgeTab/EdgeTab";
@@ -14,6 +15,7 @@ export * from "./atoms/ScrollViewport/ScrollViewport";
 export * from "./atoms/ScrollTrigger/ScrollTrigger";
 export * from "./atoms/SnapPreview/SnapPreview";
 export * from "./atoms/TrackTag/TrackTag";
+export * from "./atoms/VaultLabel/VaultLabel";
 export * from "./molecules";
 export * from "./molecules/HistoryNavigation/HistoryNavigation";
 export * from "./molecules/PlayerPositionMenu/PlayerPositionMenu";

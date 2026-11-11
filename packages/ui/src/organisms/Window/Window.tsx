@@ -8,6 +8,7 @@ import { useMobileLayout } from "../../utils/useMobileLayout";
 import { useWindowPosition, type WindowPoint, type WindowPosition, type WindowSnapTarget } from "../../utils/useWindowPosition";
 import { useWindowResize, type WindowSize } from "../../utils/useWindowResize";
 import "./Window.css";
+import "../../foundations/VaultTheme.css";
 
 type Placement = "floating" | "left" | "right" | "fullscreen";
 interface WindowFrame {
@@ -54,7 +55,7 @@ export interface FloatingWindowProps {
   className?: string;
 }
 
-export function WindowLayer({ children }: { children: ReactNode }) {
+export function WindowLayer({ children, className = "" }: { children: ReactNode; className?: string }) {
   const [windows, setWindows] = useState<WindowEntry[]>([]);
   const [groups, setGroups] = useState<Record<string, string>>({});
   const groupSequence = useRef(0);
@@ -104,7 +105,7 @@ export function WindowLayer({ children }: { children: ReactNode }) {
     windows.filter((entry) => entry.id !== source && !entry.minimized && groups[entry.id] === groups[source])
       .forEach((entry) => entry.setFrame(frame));
   }
-  return createPortal(<WindowContext.Provider value={{ windows, register, unregister, dockWidths, setDockWidth, groups, join, detach, syncFrame }}><div className="window-layer">{children}</div></WindowContext.Provider>, document.body);
+  return createPortal(<WindowContext.Provider value={{ windows, register, unregister, dockWidths, setDockWidth, groups, join, detach, syncFrame }}><div className={`window-layer ${className}`}>{children}</div></WindowContext.Provider>, document.body);
 }
 
 export function FloatingWindow({ title, children, active, order, openRequest = 0, onActivate, onClose, className = "" }: FloatingWindowProps) {
@@ -261,7 +262,7 @@ export function FloatingWindow({ title, children, active, order, openRequest = 0
           event.preventDefault(); event.stopPropagation(); onClose();
         }
       }}>
-      <header className="floating-window__header">
+      <header className="floating-window__header vault-rack">
         <h2 id={titleId} title={title}>{minimized && !mobile ? <button type="button" className="floating-window__restore" title={`Restore ${title}`}
           onClick={() => setMinimized(false)}>{title}</button> : title}</h2>
         {(!minimized || mobile) && <span className="floating-window__state" aria-hidden="true">{active ? "Active" : "Inactive"}</span>}

@@ -42,6 +42,7 @@ COPY packages/ui/package.json ./packages/ui/package.json
 RUN pnpm install --prod --frozen-lockfile --filter @craft/api
 
 COPY apps/api/src ./apps/api/src
+COPY apps/api/scripts/community-postgres.mjs ./apps/api/scripts/community-postgres.mjs
 COPY docs/guides ./docs/guides
 COPY --from=build /app/apps/web/dist ./apps/web/dist
 COPY --from=build /app/apps/admin/dist ./apps/admin/dist
