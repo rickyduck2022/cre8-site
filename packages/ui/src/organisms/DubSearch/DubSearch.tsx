@@ -1,4 +1,7 @@
-import { useId, useLayoutEffect, useRef, useState } from "react";
+import { useContext, useId, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { FilterHostContext } from "../../foundations/FilterHostContext";
+import { BrowseChromeContext } from "../../foundations/BrowseChromeContext";
 import { ChevronDown, LockKeyhole, Radio, Settings2, Users, X } from "@craft/icons";
 import { Badge } from "../../atoms/Badge/Badge";
 import { Button } from "../../atoms/Button/Button";
@@ -6,23 +9,17 @@ import { ModalFooter } from "../../molecules/ModalFooter/ModalFooter";
 import { SearchField } from "../../molecules/SearchField/SearchField";
 import { TagSelector } from "../../molecules/TagSelector/TagSelector";
 import type { Dub, MediaKind } from "../../types/domain";
+import type { DubSearchFilters } from "../../utils/collectionFilters";
+export type { DubSearchFilters } from "../../utils/collectionFilters";
 import { useMobileLayout } from "../../utils/useMobileLayout";
 import { Modal } from "../Modal/Modal";
 import "../../foundations/MediaPalette.css";
 import "../../foundations/AudiencePalette.css";
 import "./DubSearch.css";
+import { useTutorialNavigation } from "../../foundations/TutorialNavigationContext";
+import { useReportTutorialActivity } from "../../foundations/TutorialActivityContext";
 
 type Distribution = NonNullable<Dub["distribution"]>;
-
-export interface DubSearchFilters {
-  tags: string[];
-  distributions: Distribution[];
-  minBpm: string;
-  maxBpm: string;
-  fileType: string;
-  minBitrate: string;
-  maxBitrate: string;
-}
 
 export const DUB_SEARCH_TAGS = [
   "Jump Up",
@@ -60,7 +57,8 @@ export function getDubSearchFilterCount(filters: DubSearchFilters, defaultDistri
     ) +
     Number(Boolean(filters.minBpm || filters.maxBpm)) +
     Number(Boolean(filters.fileType)) +
-    Number(Boolean(filters.minBitrate || filters.maxBitrate))
+    Number(Boolean(filters.minBitrate || filters.maxBitrate)) +
+    Number(Boolean(filters.mediaKind && filters.mediaKind !== "all"))
   );
 }
 
@@ -69,7 +67,8 @@ function filterSelectionKey(filters: DubSearchFilters) {
 }
 
 export interface DubSearchProps {
-  mediaKind?: MediaKind;
+  mediaKind?: MediaKind | "all";
+  showMediaKindFilter?: boolean;
   query: string;
   onQueryChange: (query: string) => void;
   filters: DubSearchFilters;
@@ -77,6 +76,7 @@ export interface DubSearchProps {
   onSearch?: () => void;
   fileTypes?: string[];
   resultCount: number;
+  resultLabel?: "packs";
   isSearching?: boolean;
   error?: string | null;
   showDistributionFilter?: boolean;
@@ -150,22 +150,65 @@ export function DubSearch({
   onSearch,
   fileTypes = [],
   resultCount,
+  resultLabel,
   isSearching = false,
   error,
   showDistributionFilter = true,
   defaultDistributions = ["worldwide", "alist"],
   mediaKind = "dub",
   distributionHint,
+  showMediaKindFilter = false,
 }: DubSearchProps) {
-  const noun = mediaKind === "sample" ? "samples" : "dubs";
-  const searchLabel = mediaKind === "sample" ? "Search samples, artists, tags, or genres" : "Search tracks, artists, tags, or genres";
+  const reportActivity = useReportTutorialActivity();
+  const noun = mediaKind === "all" ? "files" : mediaKind === "vocal" ? "vocals" : mediaKind === "sample" ? "samples" : "dubs";
+  const resultNoun = resultLabel ? resultCount === 1 ? "pack" : resultLabel : resultCount === 1 ? mediaKind === "all" ? "file" : mediaKind : noun;
+  const searchLabel = mediaKind === "all" ? "Search your uploads" : mediaKind === "vocal" ? "Search vocals, artists, tags, or genres" : mediaKind === "sample" ? "Search samples, artists, tags, or genres" : "Search tracks, artists, tags, or genres";
   const panelId = useId();
   const [expanded, setExpanded] = useState(false);
+  const [tutorialFilters, setTutorialFilters] = useState(false);
   const [draft, setDraft] = useState(filters);
   const toggleRef = useRef<HTMLButtonElement>(null);
   const queryRef = useRef<HTMLDivElement>(null);
   const wasExpanded = useRef(false);
   const mobile = useMobileLayout();
+  const host = useContext(FilterHostContext);
+  const browse = useContext(BrowseChromeContext);
+  const applied = useRef(false);
+  const savedScroll = useRef<number | null>(null);
+  useTutorialNavigation((surface) => {
+    if (surface === "filters" && !expanded) savedScroll.current = host?.viewport?.scrollTop ?? null;
+    setExpanded(surface === "filters");
+    setTutorialFilters(surface === "filters");
+    browse?.setCompact(false);
+  });
+  const takeover = expanded && !mobile && host?.host && host.viewport;
+  useLayoutEffect(() => {
+    if (!expanded) return;
+    browse?.setCompact(false);
+    if (!host?.viewport) return;
+    const viewport = host.viewport;
+    const top = savedScroll.current ?? viewport.scrollTop;
+    const overflow = viewport.style.overflow;
+    const inert = viewport.inert;
+    viewport.style.overflow = "hidden";
+    viewport.inert = true;
+    return () => {
+      viewport.style.overflow = overflow;
+      viewport.inert = inert;
+      viewport.scrollTop = applied.current ? 0 : top;
+      applied.current = false;
+      savedScroll.current = null;
+    };
+  }, [Boolean(takeover), host?.viewport, expanded, browse?.setCompact]);
+  function closeFilters() {
+    setDraft(filters);
+    setExpanded(false);
+    setTutorialFilters(false);
+    reportActivity({ type: "filters-cancelled" });
+  }
+  useLayoutEffect(() => {
+    if (takeover) toggleRef.current?.focus();
+  }, [Boolean(takeover)]);
   useLayoutEffect(() => {
     if (wasExpanded.current && !expanded) toggleRef.current?.focus();
     wasExpanded.current = expanded;
@@ -185,13 +228,17 @@ export function DubSearch({
   const updateFilter = <K extends keyof DubSearchFilters>(
     key: K,
     value: DubSearchFilters[K],
-  ) => setDraft((current) => ({ ...current, [key]: value }));
+  ) => {
+    setDraft((current) => ({ ...current, [key]: value }));
+    if (key === "distributions") reportActivity({ type: "audience-changed" });
+  };
   function applyFilters(next: DubSearchFilters) {
     setDraft(next);
     onFiltersChange(next);
     onSearch?.();
   }
   function resetFilters() {
+    applied.current = true;
     applyFilters(emptyFilters());
     setExpanded(false);
   }
@@ -199,6 +246,10 @@ export function DubSearch({
     label: tag,
     remove: () => applyFilters({ ...filters, tags: filters.tags.filter((item) => item !== tag) }),
   }));
+  if (filters.mediaKind && filters.mediaKind !== "all") chips.unshift({
+    label: `Media: ${filters.mediaKind}`,
+    remove: () => applyFilters({ ...filters, mediaKind: "all" }),
+  });
   if (filters.distributions.length !== defaultDistributions.length || defaultDistributions.some((item) => !filters.distributions.includes(item))) {
     const labels = { worldwide: "Worldwide", private: "Private", alist: "A-List" };
     chips.push({
@@ -223,11 +274,12 @@ export function DubSearch({
         <span aria-live="polite">
           {isSearching
             ? "Searching…"
-            : `${resultCount} ${resultCount === 1 ? mediaKind : noun} found`}
+            : `${resultCount} ${resultNoun} found`}
         </span>
         <span className="dub-search__draft-hint">{draftChanged ? "Unapplied changes" : "Choose filters, then apply"}</span>
       </div>
       <div className="dub-search__actions">
+        <Button variant="secondary" onClick={closeFilters}>Cancel</Button>
         {(filterCount > 0 || getDubSearchFilterCount(draft, defaultDistributions) > 0 || query) && (
           <Button
             onClick={() => {
@@ -248,14 +300,26 @@ export function DubSearch({
     <form className="dub-search__panel" id={panelId} onSubmit={(event) => {
       event.preventDefault();
       if (invalidRange) return;
+      applied.current = true;
       applyFilters(draft);
       setExpanded(false);
+      reportActivity({ type: "filters-applied" });
     }}>
+      <div className="dub-search__body">
       <div className="dub-search__panel-heading">
         <div><h3>Refine your collection</h3><p>Combine sections to narrow your search. Changes apply when you are ready.</p></div>
         <Button size="small" variant="tertiary" onClick={() => setDraft(emptyFilters())}>Reset choices</Button>
       </div>
       <div className="dub-search__sections">
+        {showMediaKindFilter && <label className="dub-search__select">
+          <span>Media type</span>
+          <select aria-label="Media type" value={draft.mediaKind ?? "all"} onChange={(event) => {
+            const value = event.currentTarget.value;
+            if (value === "all" || value === "dub" || value === "sample" || value === "vocal") updateFilter("mediaKind", value);
+          }}>
+            <option value="all">All media types</option><option value="dub">Dubs</option><option value="sample">Samples</option><option value="vocal">Vocals</option>
+          </select>
+        </label>}
         {showDistributionFilter && (
           <fieldset className="dub-search__distributions">
             <legend>Release audience</legend>
@@ -339,14 +403,16 @@ export function DubSearch({
           </div>
         </div>
       </div>
+      </div>
       {mobile
         ? <ModalFooter className="dub-search__footer">{footer}</ModalFooter>
         : <div className="dub-search__footer">{footer}</div>}
     </form>
   );
 
-  return (
-    <section aria-label={`Search ${noun}`} className={`dub-search media-kind--${mediaKind}`}>
+  const content = (
+    <section aria-label={`Search ${noun}`} className={`dub-search${mediaKind === "all" ? "" : ` media-kind--${mediaKind}`}${takeover ? " dub-search--takeover" : ""}`}
+      onKeyDown={(event) => { if (expanded && event.key === "Escape") { event.preventDefault(); closeFilters(); } }}>
       <div className="dub-search__row">
         <div className="dub-search__query" ref={queryRef}>
           <SearchField
@@ -354,6 +420,8 @@ export function DubSearch({
             onChange={(event) => {
               onQueryChange(event.target.value);
               onSearch?.();
+              if (event.target.value.trim()) reportActivity({ type: "search" });
+              else reportActivity({ type: "search-cleared" });
             }}
             placeholder={searchLabel}
             value={query}
@@ -363,6 +431,7 @@ export function DubSearch({
               onQueryChange("");
               queryRef.current?.querySelector("input")?.focus();
               onSearch?.();
+              reportActivity({ type: "search-cleared" });
             }} />}
         </div>
         <Button
@@ -374,8 +443,13 @@ export function DubSearch({
           className="dub-search__toggle"
           leadingIcon={<Settings2 />}
           onClick={() => {
-            if (!expanded) setDraft(filters);
-            setExpanded(!expanded);
+            if (expanded) closeFilters();
+            else {
+              savedScroll.current = host?.viewport?.scrollTop ?? null;
+              applied.current = false;
+              setDraft(filters);
+              setExpanded(true);
+            }
           }}
           variant={filterCount || expanded ? "audio" : "secondary"}
         >
@@ -384,10 +458,10 @@ export function DubSearch({
         </Button>
       </div>
       {!expanded && <div className="dub-search__results" role="status">
-        {isSearching ? "Searching…" : `${resultCount} ${resultCount === 1 ? mediaKind : noun} found`}
+        {isSearching ? "Searching…" : `${resultCount} ${resultNoun} found`}
         {(query || filterCount > 0) && <span>Filtered collection</span>}
       </div>}
-      {filterCount > 0 && (
+      {filterCount > 0 && !takeover && (
         <div className="dub-search__active" role="group" aria-label="Active filters">
           {chips.map((chip) => <Button key={chip.label} size="small" variant="tertiary"
             aria-label={`Remove ${chip.label} filter`} leadingIcon={<X aria-hidden="true" />} onClick={chip.remove}>
@@ -397,7 +471,8 @@ export function DubSearch({
         </div>
       )}
       {expanded && (mobile ? (
-        <Modal className="dub-search__dialog" isOpen onClose={() => setExpanded(false)} title={`Filter ${noun}`}>
+        <Modal className={`dub-search__dialog${mediaKind === "all" ? "" : ` media-kind--${mediaKind}`}`} presentation="modal"
+          nonModal={tutorialFilters} isOpen onClose={closeFilters} title={`Filter ${noun}`}>
           {panel}
         </Modal>
       ) : panel)}
@@ -408,4 +483,5 @@ export function DubSearch({
       )}
     </section>
   );
+  return takeover && host?.host ? createPortal(content, host.host) : content;
 }

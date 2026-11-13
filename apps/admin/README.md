@@ -1,5 +1,8 @@
 # cre8 Admin
 
+Whole-app context: [developer handbook](../../docs/developer/README.md).
+Deployment/storage boundaries: [operations](../../docs/developer/operations.md).
+
 The admin console is an independently built React app at `/admin`, sharing the workspace tokens and `@craft/ui` atomic component library with the community app. It uses the existing API session cookie and stores no separate credentials.
 
 ## Local development

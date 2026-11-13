@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type RefCallback } from "react";
 import { Button } from "../../atoms/Button/Button";
 import "../Molecules.css";
 
@@ -11,6 +11,7 @@ export interface PaginationState<T> {
   totalPages: number;
   setPage: (page: number) => void;
   setPageSize: (pageSize: PageSize) => void;
+  listRef: RefCallback<HTMLElement>;
 }
 
 export function usePagination<T>(
@@ -21,6 +22,26 @@ export function usePagination<T>(
   const [pageSize, setPageSize] = useState<PageSize>(5);
   const totalPages = Math.max(1, Math.ceil(items.length / pageSize));
   const currentPage = Math.min(page, totalPages);
+  const list = useRef<HTMLElement | null>(null);
+  const listRef = useCallback((element: HTMLElement | null) => { list.current = element; }, []);
+  const previous = useRef({ page: currentPage, pageSize });
+
+  useLayoutEffect(() => {
+    const changed = previous.current.page !== currentPage || previous.current.pageSize !== pageSize;
+    previous.current = { page: currentPage, pageSize };
+    const element = list.current;
+    if (!changed || !element) return;
+    for (let parent = element.parentElement; parent; parent = parent.parentElement) {
+      const style = getComputedStyle(parent);
+      if (!/auto|scroll/.test(style.overflowY || style.overflow)) continue;
+      parent.scrollTop = Math.max(0, parent.scrollTop + element.getBoundingClientRect().top
+        - parent.getBoundingClientRect().top - parent.clientTop);
+      return;
+    }
+    if (document.scrollingElement) {
+      document.scrollingElement.scrollTop = Math.max(0, document.scrollingElement.scrollTop + element.getBoundingClientRect().top);
+    }
+  }, [currentPage, pageSize]);
 
   useEffect(() => {
     setPage(1);
@@ -37,6 +58,7 @@ export function usePagination<T>(
     totalPages,
     setPage,
     setPageSize,
+    listRef,
   };
 }
 

@@ -2,9 +2,27 @@ import { act, cleanup, fireEvent, render, screen, within } from "@testing-librar
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { Button } from "../../atoms/Button/Button";
 import { CardActions } from "./CardActions";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 
 let width = 290;
 let resize: () => void;
+
+it("supports a labelled separate action row with a token-based divider", () => {
+  render(<CardActions title="Pack" label="Pack controls" layout="grid" separated>
+    <Button>Open pack</Button><Button>Edit pack</Button>
+  </CardActions>);
+  expect(screen.getByRole("group", { name: "Pack controls" })).toHaveClass("card-actions--separated");
+  const style = document.createElement("style");
+  style.textContent = readFileSync(resolve("src", "molecules", "CardActions", "CardActions.css"), "utf8");
+  document.head.append(style);
+  try {
+    const rule = Array.from(style.sheet!.cssRules).find((rule): rule is CSSStyleRule =>
+      rule instanceof CSSStyleRule && rule.selectorText === ".card-actions--separated");
+    expect(rule?.style.getPropertyValue("border-top")).toBe("1px solid var(--border-default)");
+    expect(rule?.style.getPropertyValue("padding-top")).toBe("var(--spacing-3)");
+  } finally { style.remove(); }
+});
 
 beforeEach(() => {
   vi.stubGlobal("matchMedia", vi.fn().mockReturnValue({
@@ -49,6 +67,19 @@ it("moves only actions that do not fit into the mobile dialog and restores them 
   act(() => resize());
   expect(screen.getByRole("button", { name: "Share pack" })).toBeVisible();
   expect(screen.queryByRole("button", { name: "More actions for Night Sessions" })).not.toBeInTheDocument();
+});
+
+it("keeps all grid actions visible on mobile rather than moving them into overflow", () => {
+  width = 80;
+  const edit = vi.fn();
+  render(<CardActions title="Grid release" layout="grid">
+    <Button>Open pack</Button><Button onClick={edit}>Edit pack</Button><Button>Download ZIP</Button>
+  </CardActions>);
+  expect(screen.getByRole("button", { name: "Open pack" }).closest(".card-actions")).toHaveClass("card-actions--grid");
+  expect(screen.getByRole("button", { name: "Download ZIP" })).toBeVisible();
+  expect(screen.queryByRole("button", { name: "More actions for Grid release" })).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Edit pack" }));
+  expect(edit).toHaveBeenCalledOnce();
 });
 
 it("keeps every action reachable at narrow widths, including disabled actions and Escape dismissal", () => {

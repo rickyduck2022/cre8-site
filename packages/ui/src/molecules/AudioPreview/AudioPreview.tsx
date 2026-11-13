@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { AudioLines, Download, Pause } from "@craft/icons";
+import { AudioLines, DownloadSolid as Download, PauseSolid as Pause } from "@craft/icons";
 import { Button } from "../../atoms/Button/Button";
 import { MemberIdentity } from "../MemberIdentity/MemberIdentity";
 import { TrackMetadata } from "../TrackMetadata/TrackMetadata";

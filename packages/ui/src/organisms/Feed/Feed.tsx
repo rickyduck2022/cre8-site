@@ -56,7 +56,7 @@ export function Feed({
         variant={variant === "mobile" ? "mobile" : "default"}
       />
       <FeedControls />
-      <div className="feed__posts">
+      <div className="feed__posts" ref={pagination.listRef}>
         {pagination.items.map((post, index) => (
           <DubPost key={`${post.author}-${post.track.title}-${index}`} {...post} />
         ))}

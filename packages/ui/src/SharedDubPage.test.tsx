@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "../../../apps/web/src/App";
 import { SharedDubPage } from "../../../apps/web/src/components/SharedDubPage";
@@ -56,6 +56,30 @@ afterEach(() => {
 });
 
 describe("external dub sharing", () => {
+  it.each([30, 60, 90])("distinguishes a short file's playable duration from its %i-second preview cap", async (previewSeconds) => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      dub: { ...dub, duration: "00:08", previewSeconds }, authenticated: false,
+    }))));
+    render(<SharedDubPage dubId={dub.id} />);
+    const player = await screen.findByRole("region", { name: `Audio player: ${dub.title}` });
+    expect(within(player).getByText("00:08")).toBeVisible();
+    expect(screen.getByRole("region", { name: "Preview limitations" })).toHaveTextContent(`First ${previewSeconds} seconds maximum`);
+    expect(screen.queryByText(`${previewSeconds}-second preview`)).not.toBeInTheDocument();
+  });
+
+  it("identifies shared vocals, keeps the vocal player and explains reuse rights", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      dub: { ...dub, mediaKind: "vocal", previewSeconds: 60 }, authenticated: true,
+    }))));
+    render(<SharedDubPage dubId={dub.id} />);
+    expect(await screen.findByRole("heading", { name: dub.title })).toBeVisible();
+    expect(screen.getByRole("region", { name: "Shared vocal", exact: true })).toBeVisible();
+    expect(screen.getByText("Shared from the Vocal Vault")).toBeVisible();
+    expect(screen.getByRole("button", { name: "Download vocal", exact: true })).toBeVisible();
+    expect(screen.getByRole("region", { name: "Audio player: Shared track" })).toHaveClass("media-kind--vocal");
+    expect(screen.getByText(/Download access does not grant reuse rights/)).toBeVisible();
+  });
+
   it("loads the public route without the community and reuses play, seek, volume and cleanup", async () => {
     const fetchMock = vi.fn().mockResolvedValue(metadata());
     vi.stubGlobal("fetch", fetchMock);
@@ -63,7 +87,10 @@ describe("external dub sharing", () => {
     const { unmount } = render(<App />);
     expect(await screen.findByRole("heading", { name: dub.title })).toBeVisible();
     expect(mocks.community).not.toHaveBeenCalled();
-    expect(screen.getByText("60-second preview. Sign in to hear the full dub.")).toBeVisible();
+    expect(screen.getByRole("region", { name: "Preview limitations" })).toHaveTextContent("First 60 seconds maximum");
+    expect(screen.getByText("256 kbps WAV")).toBeVisible();
+    expect(screen.getByText(/16 kHz/)).toBeVisible();
+    expect(screen.getByText("Sign in for full-length, original-quality playback and downloads.")).toBeVisible();
     expect(screen.getByRole("button", { name: "Sign in to listen in full" })).toBeEnabled();
     expect(screen.queryByRole("button", { name: "Previous track" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Next track" })).not.toBeInTheDocument();
@@ -107,7 +134,7 @@ describe("external dub sharing", () => {
     render(<SharedDubPage dubId={dub.id} />);
     await screen.findByRole("heading", { name: dub.title });
     expect(screen.queryByRole("button", { name: "Sign in to listen in full" })).not.toBeInTheDocument();
-    expect(screen.queryByText(/second preview/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Preview limitations" })).not.toBeInTheDocument();
     await act(async () => fireEvent.click(screen.getByRole("button", { name: "Play" })));
     expect(FakeAudio.latest.src).toBe("/api/dubs/shared-one/audio");
   });

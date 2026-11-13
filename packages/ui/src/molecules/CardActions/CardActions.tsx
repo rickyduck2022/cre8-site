@@ -5,12 +5,16 @@ import { Modal } from "../../organisms/Modal/Modal";
 import { useMobileLayout } from "../../utils/useMobileLayout";
 import "./CardActions.css";
 
-export function CardActions({ title, children, className = "" }: {
+export function CardActions({ title, children, className = "", layout = "row", separated = false, label }: {
   title: string;
   children: ReactNode;
   className?: string;
+  layout?: "row" | "grid";
+  separated?: boolean;
+  label?: string;
 }) {
-  const mobile = useMobileLayout();
+  const mobileLayout = useMobileLayout();
+  const mobile = mobileLayout && layout === "row";
   const actions = Children.toArray(children);
   const row = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
@@ -64,7 +68,8 @@ export function CardActions({ title, children, className = "" }: {
     return () => observer.disconnect();
   }, [mobile, actions.length]);
 
-  return <div className={`card-actions ${className}`} ref={row}>
+  return <div className={`card-actions${layout === "grid" ? " card-actions--grid" : ""}${separated ? " card-actions--separated" : ""} ${className}`}
+    role={label ? "group" : undefined} aria-label={label} ref={row}>
     {actions.map((action, index) => <span key={index}
       className={`card-actions__item${index === actions.length - 1 ? " card-actions__item--last" : ""}${index >= count ? " card-actions__item--overflow" : ""}`}
       aria-hidden={index >= count || undefined} inert={index >= count || undefined}>

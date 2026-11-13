@@ -34,8 +34,20 @@
 }
 .dub-pack-card--current { border-color: var(--audio-active); }
 .dub-pack-card__queue-hint { margin: 0; }
+.dub-pack-card__action-groups { display: grid; gap: var(--spacing-3); min-width: 0; }
+.pack-editor-actions { display: grid; gap: var(--spacing-3); min-width: 0; }
 .dub-pack-card__actions { align-items: center; display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.dub-pack-card__actions .button { min-height: 2.75rem; }
 .dub-pack-card__actions > .card-actions__item--last { margin-left: auto; }
+.dub-pack-card--grid { align-content: start; grid-template-columns: minmax(0, 1fr); }
+.dub-pack-card--grid > .pack-identity { grid-row: 1; }
+.dub-pack-card--grid > .dub-card__collection-player { grid-row: 2; }
+.dub-pack-card--grid .audio-player__volume { display: flex; }
+.dub-pack-card--grid > .dub-pack-card__action-groups { grid-row: 3; }
+.dub-pack-card--grid .dub-pack-card__actions > .card-actions__item--last { margin-left: 0; }
+@container (max-width: 400px) {
+  .dub-pack-card--grid .audio-player__volume input { display: none; }
+}
 .dub-pack-card__toggle[aria-expanded="true"] .button__icon { transform: rotate(180deg); }
 .dub-pack-card__playlist { display: grid; gap: 0.5rem; list-style: none; margin: 0; padding: 0; max-height: 28rem; overflow: auto; }
 .dub-pack-card__playlist > li { min-width: 0; }

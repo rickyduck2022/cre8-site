@@ -9,6 +9,7 @@ import { WebSocket, WebSocketServer } from "ws";
 import { createPushService, validPushSubscription } from "./push.mjs";
 import { createAudioPreviewService, dubPreviewSeconds, previewDurations } from "./audioPreview.mjs";
 import { storedZip } from "./zipStore.mjs";
+import { parseWindowWorkspace } from "./windowWorkspace.mjs";
 import { afterCommit, afterRollback, commitContext, respondAfterCommit } from "./commitEffects.mjs";
 
 const apiDirectory = fileURLToPath(new URL(".", import.meta.url));
@@ -22,6 +23,15 @@ const maxAudioUploadBytes = 100 * 1024 * 1024;
 const maxArtworkUploadBytes = 10 * 1024 * 1024;
 const maxPackItems = 50;
 const maxPackBytes = 500 * 1024 * 1024;
+const onboardingLessonIds = ["media", "browse", "workspace", "upload", "sharing", "community"];
+function onboardingProgress(user) {
+  const saved = user.onboarding?.version === 1 ? user.onboarding : {};
+  const platform = (key) => ({
+    dismissed: saved[key]?.dismissed === true,
+    completed: onboardingLessonIds.filter((id) => saved[key]?.completed?.includes(id)),
+  });
+  return { version: 1, desktop: platform("desktop"), mobile: platform("mobile") };
+}
 const sessionLifetimeSeconds = 60 * 60 * 24 * 7;
 const dataSchemaVersion = 7;
 const conversationPageSize = 30;
@@ -573,8 +583,17 @@ function canAccessPack(pack, user) {
 }
 
 function dubMediaKind(data, dub) {
+  if (dub.mediaKind === "vocal" || data.packs.some((pack) => pack.status === "published" && pack.kind === "vocal" && pack.dubIds.includes(dub.id))) return "vocal";
   return data.packs.some((pack) => pack.status === "published" && pack.kind === "sample" && pack.dubIds.includes(dub.id))
     ? "sample" : "dub";
+}
+
+function canIncludePackKind(kind, mediaKind) {
+  return kind === "sample" ? mediaKind === "sample" || mediaKind === "vocal" : kind === mediaKind;
+}
+
+function packMemberKind(data, pack, dub) {
+  return dub.draftPackId === pack.id ? dub.mediaKind === "vocal" ? "vocal" : pack.kind : dubMediaKind(data, dub);
 }
 
 function packResponse(data, pack, user, { includeOwnerGrants = false } = {}) {
@@ -594,6 +613,7 @@ function packResponse(data, pack, user, { includeOwnerGrants = false } = {}) {
     ownerUsername: owner?.username ?? "unknown",
     ownerDisplayName: owner?.displayName ?? "Unknown",
     canManage: Boolean(user && pack.ownerId === user.id),
+    ...(user?.id === pack.ownerId ? { zipDownloads: pack.zipDownloads ?? 0 } : {}),
     createdAt: pack.createdAt,
     updatedAt: pack.updatedAt,
     totalBytes: pack.dubIds.reduce((total, dubId) => {
@@ -766,6 +786,39 @@ function publicCrates(data, userId) {
   return [...grouped.values()];
 }
 
+function visibleWindowWorkspace(data, user) {
+  if (!user.windowWorkspace) return null;
+  const workspace = user.windowWorkspace;
+  const filterLayout = (layout) => ({
+    ...layout,
+    windows: layout.windows.filter((entry) => {
+      if (entry.id === "player") return true;
+      if (entry.id.startsWith("workspace:")) return (workspace.workspaces ?? []).some((context) => context.id === entry.id.slice(10));
+      if (entry.id.startsWith("profile:")) return data.users.some((profile) => profile.username === entry.id.slice(8));
+      if (entry.id.startsWith("track:")) return canAccessDub(data, data.dubs.find((dub) => dub.id === entry.id.slice(6)), user);
+      if (entry.id.startsWith("pack:")) {
+        const pack = data.packs.find((item) => item.id === entry.id.slice(5));
+        return pack && (pack.ownerId === user.id || canAccessPack(pack, user));
+      }
+      return data.friendships.some((friendship) => friendship.ownerId === user.id && friendship.id === entry.id.slice(13));
+    }),
+    playerTrackId: canAccessDub(data, data.dubs.find((dub) => dub.id === layout.playerTrackId), user) ? layout.playerTrackId : null,
+  });
+  const root = filterLayout(workspace);
+  const visibleLayout = (source) => {
+    const layout = filterLayout(source);
+    return { ...layout, ...(layout.openedDependencies ? { openedDependencies: layout.openedDependencies.filter((id) => layout.windows.some((entry) => entry.id === id)) } : {}) };
+  };
+  return {
+    ...root,
+    ...(root.openedDependencies ? { openedDependencies: root.openedDependencies.filter((id) => root.windows.some((entry) => entry.id === id)) } : {}),
+    ...(workspace.workspaces ? { workspaces: workspace.workspaces.map((context) => {
+      return { ...context, layout: visibleLayout(context.layout),
+        ...(context.savedLayout ? { savedLayout: visibleLayout(context.savedLayout) } : {}) };
+    }) } : {}),
+  };
+}
+
 function communitySnapshot(data, user) {
   const artists = data.artists.filter((artist) => artist.userId === user.id);
   const friendships = data.friendships.filter((friendship) => friendship.ownerId === user.id);
@@ -816,6 +869,7 @@ function communitySnapshot(data, user) {
     };
   });
   return {
+    windowWorkspace: visibleWindowWorkspace(data, user),
     lastPlayback: user.lastPlayback && canAccessDub(data, data.dubs.find((dub) => dub.id === user.lastPlayback.dubId), user)
       ? user.lastPlayback : null,
     aListApplication: data.aListApplications.filter((application) => application.userId === user.id).at(-1) ?? null,
@@ -837,6 +891,9 @@ function communitySnapshot(data, user) {
     },
     artists,
     dubs: accessibleDubs.map((dub) => publicDub(data, dub, user.id)),
+    draftDubs: data.dubs.filter((dub) => dub.draftPackId && dub.uploaderId === user.id
+      && data.packs.some((pack) => pack.id === dub.draftPackId && pack.ownerId === user.id && pack.status === "draft"))
+      .map((dub) => publicDub(data, dub, user.id)),
     packs: data.packs.filter((pack) => pack.status === "published" && canAccessPack(pack, user))
       .map((pack) => packResponse(data, pack, user)),
     sharedDubIds: accessibleDubs.filter((dub) => receivedDubIds.has(dub.id)).map((dub) => dub.id),
@@ -1342,7 +1399,7 @@ export function createApiServer({
         const kind = input?.kind ?? "dub";
         const distribution = input?.distribution ?? "private";
         const aListPublic = input?.aListPublic ?? false;
-        if (!["dub", "sample"].includes(kind) || !["worldwide", "private", "alist"].includes(distribution)
+        if (!["dub", "sample", "vocal"].includes(kind) || !["worldwide", "private", "alist"].includes(distribution)
           || typeof aListPublic !== "boolean" || (distribution !== "alist" && aListPublic)) {
           json(response, 400, { error: "Provide a valid pack kind and audience." });
           return;
@@ -1358,6 +1415,7 @@ export function createApiServer({
           description,
           kind,
           status: "draft",
+          zipDownloads: 0,
           distribution,
           aListPublic,
           licence: validatePackText(input?.licence, "licence text", 5000),
@@ -1407,7 +1465,7 @@ export function createApiServer({
           if (total > maxPackBytes) {
             throw Object.assign(new Error("Pack exceeds the 500 MB download limit."), { status: 413 });
           }
-          if (pack.kind === "sample" && pack.licence) entries.push({ name: "LICENCE.txt", content: `${pack.licence}\n` });
+          if (pack.kind !== "dub" && pack.licence) entries.push({ name: "LICENCE.txt", content: `${pack.licence}\n` });
           const artwork = pack.artworkUploadId
             ? data.uploads.find((item) => item.id === pack.artworkUploadId && item.userId === pack.ownerId && item.type === "artwork")
             : undefined;
@@ -1476,6 +1534,7 @@ export function createApiServer({
           }
           validatePackFiles();
           const downloadedAt = new Date().toISOString();
+          pack.zipDownloads = (pack.zipDownloads ?? 0) + 1;
           for (const dubId of pack.dubIds) {
             data.downloads.push({ id: randomUUID(), userId: user.id, dubId, downloadedAt });
             if (!data.likes.some((like) => like.userId === user.id && like.dubId === dubId)) {
@@ -1484,6 +1543,7 @@ export function createApiServer({
           }
           persist();
           broadcastCommunity(user.id);
+          if (pack.ownerId !== user.id) broadcastCommunity(pack.ownerId);
           json(response, 200, {
             downloadUrl: `/api/packs/${encodeURIComponent(pack.id)}/archive`,
             fileName: `${String(pack.title || "pack").replace(/[^a-z0-9._ -]/gi, "").trim() || "pack"}.zip`,
@@ -1506,7 +1566,7 @@ export function createApiServer({
             json(response, 400, { error: "A-List public access must be true or false." });
             return;
           }
-          if (!title || !["dub", "sample"].includes(kind) || !["worldwide", "private", "alist"].includes(distribution)) {
+          if (!title || !["dub", "sample", "vocal"].includes(kind) || !["worldwide", "private", "alist"].includes(distribution)) {
             json(response, 400, { error: "Provide a title, pack kind, and valid distribution." });
             return;
           }
@@ -1536,8 +1596,8 @@ export function createApiServer({
             json(response, 400, { error: "A published pack must contain at least one track." });
             return;
           }
-          if (pack.status === "published" && kind === "sample" && !licence?.trim()) {
-            json(response, 400, { error: "Sample packs require user-written usage terms before publishing." });
+          if (pack.status === "published" && kind !== "dub" && !licence?.trim()) {
+            json(response, 400, { error: "Sample and Vocal packs require user-written usage terms before publishing." });
             return;
           }
           let dubIds = pack.dubIds;
@@ -1556,6 +1616,10 @@ export function createApiServer({
               return;
             }
             const audience = packAudience(dub);
+            if (!canIncludePackKind(kind, packMemberKind(data, pack, dub))) {
+              json(response, 409, { error: `Track "${dub.title}" has an incompatible media type. Dub Packs accept dubs; Sample Packs accept samples and vocals; Vocal Packs accept only vocals.` });
+              return;
+            }
             if (dub.draftPackId && dub.draftPackId !== pack.id) {
               json(response, 409, { error: "A track created inside another draft cannot be moved between packs." });
               return;
@@ -1653,6 +1717,7 @@ export function createApiServer({
           const trackKey = validatePackText(input.key, "track key", 20);
           const dub = {
             id: randomUUID(),
+            ...(pack.kind === "vocal" ? { mediaKind: "vocal" } : {}),
             distribution: "private",
             ...(pack.distribution === "alist" ? { aListPublic: false } : {}),
             title,
@@ -1758,17 +1823,21 @@ export function createApiServer({
             json(response, 403, { error: "A-List approval is required to publish this pack." });
             return;
           }
-          if (!["dub", "sample"].includes(pack.kind) || pack.dubIds.length === 0 || pack.dubIds.length > maxPackItems) {
+          if (!["dub", "sample", "vocal"].includes(pack.kind) || pack.dubIds.length === 0 || pack.dubIds.length > maxPackItems) {
             json(response, 400, { error: "A pack must contain between 1 and 50 tracks before publishing." });
             return;
           }
-          if (pack.kind === "sample" && !pack.licence?.trim()) {
-            json(response, 400, { error: "Sample packs require user-written usage terms before publishing." });
+          if (pack.kind !== "dub" && !pack.licence?.trim()) {
+            json(response, 400, { error: "Sample and Vocal packs require user-written usage terms before publishing." });
             return;
           }
           for (const dubId of pack.dubIds) {
             const dub = data.dubs.find((item) => item.id === dubId && item.uploaderId === user.id);
             const audience = dub && packAudience(dub);
+            if (dub && !canIncludePackKind(pack.kind, packMemberKind(data, pack, dub))) {
+              json(response, 409, { error: `Track "${dub.title}" has an incompatible media type for this pack.` });
+              return;
+            }
             if (!dub || audience.distribution !== pack.distribution || audience.aListPublic !== (pack.aListPublic === true)) {
               json(response, 409, { error: `Track "${dub?.title ?? dubId}" has an incompatible audience and cannot be published in this pack.` });
               return;
@@ -2137,6 +2206,53 @@ export function createApiServer({
         json(response, 200, communitySnapshot(data, user));
         return;
       }
+      if (request.method === "GET" && route === "/api/workspace") {
+        json(response, 200, visibleWindowWorkspace(data, user), { "cache-control": "private, no-store" });
+        return;
+      }
+      if (request.method === "GET" && route === "/api/onboarding") {
+        json(response, 200, onboardingProgress(user), { "cache-control": "private, no-store" });
+        return;
+      }
+      if (request.method === "PATCH" && route === "/api/onboarding") {
+        const input = await readJson(request);
+        if (input?.ownerId !== user.id) {
+          json(response, 409, { error: "Tutorial progress belongs to a different account. Reload before saving." });
+          return;
+        }
+        if (!["desktop", "mobile"].includes(input.platform)
+          || !["dismiss", "complete"].includes(input.action)
+          || (input.action === "complete" && !onboardingLessonIds.includes(input.lessonId))) {
+          json(response, 400, { error: "Provide a valid tutorial platform, action and lesson." });
+          return;
+        }
+        const progress = onboardingProgress(user);
+        progress[input.platform].dismissed = true;
+        if (input.action === "complete" && !progress[input.platform].completed.includes(input.lessonId)) {
+          progress[input.platform].completed.push(input.lessonId);
+        }
+        user.onboarding = progress;
+        persist();
+        json(response, 200, onboardingProgress(user), { "cache-control": "private, no-store" });
+        return;
+      }
+      if (request.method === "PUT" && route === "/api/workspace") {
+        const input = await readJson(request);
+        if (input?.ownerId !== user.id) {
+          json(response, 409, { error: "This window workspace belongs to a different account. Reload before saving." });
+          return;
+        }
+        const parsed = parseWindowWorkspace(input.workspace);
+        if (parsed.error) {
+          json(response, 400, { error: parsed.error });
+          return;
+        }
+        user.windowWorkspace = parsed.workspace;
+        user.windowWorkspace = visibleWindowWorkspace(data, user);
+        persist();
+        json(response, 200, user.windowWorkspace, { "cache-control": "private, no-store" });
+        return;
+      }
       if (request.method === "PUT" && route === "/api/playback") {
         const input = await readJson(request);
         if (!input || typeof input !== "object" || typeof input.dubId !== "string") {
@@ -2158,7 +2274,7 @@ export function createApiServer({
       }
       if (request.method === "GET" && route === "/api/dubs/search") {
         const mediaKind = url.searchParams.get("mediaKind");
-        if (mediaKind !== null && !["dub", "sample"].includes(mediaKind)) {
+        if (mediaKind !== null && !["dub", "sample", "vocal"].includes(mediaKind)) {
           json(response, 400, { error: "Choose a valid media kind." });
           return;
         }
@@ -2196,7 +2312,7 @@ export function createApiServer({
         const matchingPackDubIds = new Set(query ? data.packs
           .filter((pack) => pack.status === "published" && canAccessPack(pack, user)
             && (!mediaKind || pack.kind === mediaKind)
-            && `${pack.title} ${pack.description} ${pack.kind === "sample" ? "Sample Pack" : "Dub Pack"}`.toLocaleLowerCase().includes(query))
+            && `${pack.title} ${pack.description} ${pack.kind === "vocal" ? "Vocal Pack" : pack.kind === "sample" ? "Sample Pack" : "Dub Pack"}`.toLocaleLowerCase().includes(query))
           .flatMap((pack) => pack.dubIds) : []);
         const filtered = data.dubs.filter((dub) => {
           if (dub.draftPackId) return false;
@@ -2316,6 +2432,9 @@ export function createApiServer({
       }
       if (request.method === "POST" && route === "/api/dubs") {
         const input = await readJson(request);
+        if (input.mediaKind !== undefined && !["dub", "vocal"].includes(input.mediaKind)) {
+          json(response, 400, { error: "Choose Dub or Vocal for an individual upload." }); return;
+        }
         const distribution = input.distribution ?? "worldwide";
         if (!["private", "worldwide", "alist"].includes(distribution)) {
           json(response, 400, { error: "Choose a valid distribution option." });
@@ -2343,6 +2462,7 @@ export function createApiServer({
         const durationSeconds = audioDurationSeconds(Number(input.durationSeconds));
         const dub = {
           id: randomUUID(),
+          ...(input.mediaKind === "vocal" ? { mediaKind: "vocal" } : {}),
           distribution,
           ...(distribution === "alist" ? { aListPublic: input.aListPublic === true } : {}),
           title,
@@ -2387,6 +2507,14 @@ export function createApiServer({
           return;
         }
         const input = await readJson(request);
+        if (input.mediaKind !== undefined && !["dub", "vocal"].includes(input.mediaKind)) {
+          json(response, 400, { error: "Choose Dub or Vocal for an individual upload." }); return;
+        }
+        if (input.mediaKind !== undefined && data.packs.some((pack) => pack.status === "published" && pack.dubIds.includes(dub.id)
+          && !canIncludePackKind(pack.kind, dubMediaKind(data, { ...dub, mediaKind: input.mediaKind })))) {
+          json(response, 409, { error: "Remove this file from incompatible published packs before changing its media type." });
+          return;
+        }
         if (input.distribution !== undefined && input.distribution !== dub.distribution) {
           json(response, 400, { error: "A dub's distribution cannot be changed after upload." });
           return;
@@ -2419,12 +2547,14 @@ export function createApiServer({
         const nextMessage = String(input.message ?? "").trim().slice(0, 400);
         const nextAListPublic = input.aListPublic ?? (dub.aListPublic === true);
         const changed = dub.title !== title || dub.artistId !== artist.id
+          || (input.mediaKind !== undefined && (dub.mediaKind ?? "dub") !== input.mediaKind)
           || (dub.distribution === "alist" && (dub.aListPublic === true) !== nextAListPublic)
           || JSON.stringify(dub.tags ?? []) !== JSON.stringify(nextTags)
           || dub.genre !== nextGenre || dub.bpm !== nextBpm || dub.message !== nextMessage
           || Boolean(audioUpload || artworkUpload);
         const replacedMedia = [];
         if (changed) dub.version += 1;
+        if (input.mediaKind !== undefined) dub.mediaKind = input.mediaKind;
         if (dub.distribution === "alist") dub.aListPublic = nextAListPublic;
         dub.title = title;
         dub.artist = artist.name;

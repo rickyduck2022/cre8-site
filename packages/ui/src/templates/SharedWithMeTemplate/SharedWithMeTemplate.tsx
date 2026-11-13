@@ -23,13 +23,14 @@ export interface SharedWithMeTemplateProps extends Omit<DubCardListProps, "entri
   onOpenPack?: DubPackCardProps["onOpenPack"];
   onDownloadPack?: DubPackCardProps["onDownloadPack"];
   onSharePack?: DubPackCardProps["onSharePack"];
+  onPlaySingle?: (dub: Dub) => void;
 }
 
 export function SharedWithMeTemplate({
-  dubs, mediaKind, packs = [], activePackId, onActivateQueue, onPlayPack, onOpenPack, onDownloadPack, onSharePack, ...cardProps
+  dubs, mediaKind, packs = [], activePackId, onActivateQueue, onPlayPack, onOpenPack, onDownloadPack, onSharePack, onPlaySingle, ...cardProps
 }: SharedWithMeTemplateProps) {
-  const noun = mediaKind === "sample" ? "sample" : "dub";
-  const nounTitle = mediaKind === "sample" ? "Samples" : "Dubs";
+  const noun = mediaKind === "vocal" ? "vocal" : mediaKind === "sample" ? "sample" : "dub";
+  const nounTitle = mediaKind === "vocal" ? "Vocals" : mediaKind === "sample" ? "Samples" : "Dubs";
   const [query, setQuery] = useState("");
   const headerTarget = useContext(CollectionHeaderContext);
   const [filters, setFilters] = useState(() => ({ ...createEmptyDubSearchFilters(), distributions: [...allDistributions] }));
@@ -75,7 +76,7 @@ export function SharedWithMeTemplate({
       {headerTarget ? createPortal(<div className="library-template collection-header">{collectionHeader}</div>, headerTarget) : collectionHeader}
       {entries.length ? (
         <>
-          <ul className="dub-card-list feed-list" aria-label={`${nounTitle} shared with me`}>
+          <ul className="dub-card-list feed-list" aria-label={`${nounTitle} shared with me`} ref={pagination.listRef}>
             {pagination.items.map((entry) => <li key={`${entry.type}-${entry.type === "pack" ? entry.pack.id : entry.dub.id}`}>
               {entry.type === "pack" && onPlayPack && onOpenPack ? <DubPackCard
                 {...cardProps} pack={entry.pack} activePackId={activePackId} onActivateQueue={onActivateQueue}
@@ -83,7 +84,7 @@ export function SharedWithMeTemplate({
                 likedDubIds={cardProps.likedDubIds ?? new Set<string>()}
                 onPlayAll={onPlayPack} onOpenPack={onOpenPack} onDownloadPack={onDownloadPack}
                 onSharePack={entry.pack.distribution !== "private" || entry.pack.ownerUsername === cardProps.currentUsername ? onSharePack : undefined}
-              /> : entry.type === "dub" ? <DubCardList {...cardProps} entries={[{ dub: entry.dub }]} label={entry.dub.title} /> : null}
+              /> : entry.type === "dub" ? <DubCardList {...cardProps} onPlay={onPlaySingle ?? cardProps.onPlay} entries={[{ dub: entry.dub }]} label={entry.dub.title} /> : null}
             </li>)}
           </ul>
           <Pagination itemCount={entries.length} page={pagination.page} pageSize={pagination.pageSize} totalPages={pagination.totalPages} onPageChange={pagination.setPage} onPageSizeChange={pagination.setPageSize} label={`Shared ${noun}s`} />

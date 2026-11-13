@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 import { join, resolve } from "node:path";
 import { test } from "node:test";
@@ -90,7 +90,36 @@ async function uploadArtwork(baseUrl, cookie) {
   return (await response.json()).uploadId;
 }
 
-test("Messenger shares both pack types without replacing private grants and enforces recipient access", async () => {
+test("owned draft files are available for playback without leaking into discovery or other accounts", async () => {
+  const context = await startServer();
+  try {
+    const owner = await login(context.baseUrl, "meladee", "meladee");
+    const other = await login(context.baseUrl, "holik", "holik");
+    const snapshot = async (cookie) => (await (await api(context.baseUrl, cookie, "/api/community")).json());
+    const artistId = (await snapshot(owner)).artists[0].id;
+    const created = await api(context.baseUrl, owner, "/api/packs", "POST", { title: "Work in progress", kind: "dub", distribution: "worldwide" });
+    const { pack } = await created.json();
+    const added = await api(context.baseUrl, owner, `/api/packs/${pack.id}/tracks`, "POST", {
+      title: "Draft sound", artistId, uploadId: await uploadAudio(context.baseUrl, owner), durationSeconds: 12, requestId: randomUUID(),
+    });
+    assert.equal(added.status, 201);
+    const owned = await snapshot(owner);
+    const draft = owned.draftDubs.find((dub) => dub.title === "Draft sound");
+    assert.ok(draft?.audioUrl);
+    assert.equal(owned.dubs.some((dub) => dub.id === draft.id), false);
+    assert.equal((await snapshot(other)).draftDubs.some((dub) => dub.id === draft.id), false);
+    assert.equal((await api(context.baseUrl, owner, draft.audioUrl)).status, 200);
+    assert.equal((await api(context.baseUrl, other, draft.audioUrl)).status, 404);
+    const search = await api(context.baseUrl, other, "/api/dubs/search?q=Draft");
+    assert.equal(search.status, 200);
+    assert.equal(JSON.stringify(await search.json()).includes(draft.id), false);
+  } finally {
+    await context.close();
+    rmSync(context.directory, { recursive: true, force: true });
+  }
+});
+
+test("Messenger shares all three pack types without replacing private grants and enforces recipient access", async () => {
   const context = await startServer({ approveOwner: true });
   try {
     const owner = await login(context.baseUrl, "meladee", "meladee");
@@ -108,7 +137,7 @@ test("Messenger shares both pack types without replacing private grants and enfo
     const thirdBuddyId = await addFriend(owner, thirdUser.username);
     const forwardBuddyId = await addFriend(recipient, thirdUser.username);
     const artistId = (await snapshot(owner)).artists[0].id;
-    for (const kind of ["dub", "sample"]) {
+    for (const kind of ["dub", "sample", "vocal"]) {
       for (const distribution of ["private", "worldwide", "alist"]) {
         const created = await api(context.baseUrl, owner, "/api/packs", "POST", {
           title: `${kind} Messenger ${distribution}`, kind, distribution, licence: "Original productions only.",
@@ -203,7 +232,72 @@ test("Messenger shares both pack types without replacing private grants and enfo
   }
 });
 
-test("vault media kinds follow published sample membership independently of audience and dub pack overlap", async () => {
+test("vocal uploads and pack classification persist independently of audience with Vocal priority", async () => {
+  const context = await startServer();
+  try {
+    const owner = await login(context.baseUrl, "meladee", "meladee");
+    const recipient = await register(context.baseUrl, `vocal-vault-${randomUUID().slice(0, 8)}`);
+    const snapshot = async (cookie) => (await (await api(context.baseUrl, cookie, "/api/community")).json());
+    const artistId = (await snapshot(owner)).artists[0].id;
+    const metadata = { title: "Vocal take", artistId, mediaKind: "vocal", tags: ["Vocal"], durationSeconds: 12, message: "Original vocal" };
+    const created = await api(context.baseUrl, owner, "/api/dubs", "POST", {
+      ...metadata, uploadId: await uploadAudio(context.baseUrl, owner, "vocal.mp3"),
+    });
+    assert.equal(created.status, 201);
+    const vocal = await created.json();
+    assert.equal(vocal.mediaKind, "vocal");
+    assert.equal((await snapshot(recipient)).dubs.find((item) => item.id === vocal.id).mediaKind, "vocal");
+    assert.equal((await api(context.baseUrl, owner, "/api/dubs", "POST", { mediaKind: "invalid" })).status, 400);
+    assert.equal((await api(context.baseUrl, owner, `/api/dubs/${vocal.id}`, "PATCH", { ...metadata, mediaKind: "invalid" })).status, 400);
+    const makePack = async (kind) => {
+      const response = await api(context.baseUrl, owner, "/api/packs", "POST", { title: `${kind} release`, kind, distribution: "worldwide" });
+      assert.equal(response.status, 201);
+      return (await response.json()).pack.id;
+    };
+    const samplePack = await makePack("sample");
+    const vocalPack = await makePack("vocal");
+    for (const id of [samplePack, vocalPack]) {
+      assert.equal((await api(context.baseUrl, owner, `/api/packs/${id}`, "PATCH", { dubIds: [vocal.id] })).status, 200);
+      assert.equal((await api(context.baseUrl, owner, `/api/packs/${id}/publish`, "POST", {})).status, 400);
+      assert.equal((await api(context.baseUrl, owner, `/api/packs/${id}`, "PATCH", { licence: "Original productions; no resale." })).status, 200);
+    }
+    assert.equal((await api(context.baseUrl, owner, `/api/packs/${samplePack}/publish`, "POST", {})).status, 200);
+    assert.equal((await snapshot(owner)).dubs.find((item) => item.id === vocal.id).mediaKind, "vocal");
+    const edit = await api(context.baseUrl, owner, `/api/dubs/${vocal.id}`, "PATCH", { ...metadata, mediaKind: "dub" });
+    assert.equal(edit.status, 200);
+    assert.equal((await edit.json()).mediaKind, "sample", "Unpublished Vocal Pack does not classify");
+    assert.equal((await api(context.baseUrl, owner, `/api/packs/${vocalPack}/publish`, "POST", {})).status, 409);
+    assert.equal((await api(context.baseUrl, owner, `/api/dubs/${vocal.id}`, "PATCH", metadata)).status, 200);
+    assert.equal((await api(context.baseUrl, owner, `/api/packs/${vocalPack}/publish`, "POST", {})).status, 200);
+    assert.equal((await snapshot(owner)).dubs.find((item) => item.id === vocal.id).mediaKind, "vocal");
+    const search = await api(context.baseUrl, recipient, "/api/dubs/search?mediaKind=vocal&q=vocal%20release");
+    assert.equal(search.status, 200);
+    assert.deepEqual((await search.json()).dubs.map((item) => item.id), [vocal.id]);
+    const guest = await (await api(context.baseUrl, null, `/api/public/dubs/${vocal.id}`)).json();
+    assert.equal(guest.dub.mediaKind, "vocal");
+    assert.equal((await api(context.baseUrl, owner, `/api/packs/${vocalPack}`, "PATCH", { licence: "" })).status, 400);
+    const download = await (await api(context.baseUrl, owner, `/api/packs/${vocalPack}/download`, "POST", {})).json();
+    const zip = await api(context.baseUrl, owner, download.downloadUrl);
+    assert.equal(zip.status, 200);
+    assert.ok(Buffer.from(await zip.arrayBuffer()).includes(Buffer.from("LICENCE.txt")));
+    assert.equal((await api(context.baseUrl, owner, `/api/dubs/${vocal.id}`, "PATCH", { ...metadata, mediaKind: undefined })).status, 200);
+    assert.equal(initializeData(join(context.directory, "community.json"), join(context.directory, "audio"))
+      .dubs.find((item) => item.id === vocal.id).mediaKind, "vocal", "Metadata edits preserve the stored explicit type");
+    assert.equal((await api(context.baseUrl, owner, `/api/packs/${vocalPack}`, "DELETE")).status, 200);
+    assert.equal((await snapshot(owner)).dubs.find((item) => item.id === vocal.id).mediaKind, "vocal");
+    assert.equal((await api(context.baseUrl, owner, `/api/packs/${samplePack}`, "DELETE")).status, 200);
+    assert.equal((await snapshot(owner)).dubs.find((item) => item.id === vocal.id).mediaKind, "vocal");
+    assert.equal((await api(context.baseUrl, owner, `/api/dubs/${vocal.id}`, "PATCH", metadata)).status, 200);
+    assert.equal((await snapshot(owner)).dubs.find((item) => item.id === vocal.id).mediaKind, "vocal");
+    assert.equal(initializeData(join(context.directory, "community.json"), join(context.directory, "audio"))
+      .dubs.find((item) => item.id === vocal.id).mediaKind, "vocal", "Explicit Vocal type survives persisted data initialization");
+  } finally {
+    await context.close();
+    rmSync(context.directory, { recursive: true, force: true });
+  }
+});
+
+test("sample membership remains pack-derived and typed packs reject incompatible files", async () => {
   const context = await startServer();
   try {
     const owner = await login(context.baseUrl, "meladee", "meladee");
@@ -226,11 +320,11 @@ test("vault media kinds follow published sample membership independently of audi
     }
     const dubPack = await createPack("dub");
     const dubId = await addTrack(dubPack, "Full release");
-    const overlappingId = await addTrack(dubPack, "Shared file");
     assert.equal((await api(context.baseUrl, owner, `/api/packs/${dubPack}/publish`, "POST", {})).status, 200);
     const samplePack = await createPack("sample");
-    assert.equal((await api(context.baseUrl, owner, `/api/packs/${samplePack}`, "PATCH", { dubIds: [overlappingId] })).status, 200);
-    assert.equal((await snapshot(owner)).dubs.find((dub) => dub.id === overlappingId).mediaKind, "dub", "Draft membership does not move a released file");
+    assert.equal((await api(context.baseUrl, owner, `/api/packs/${samplePack}`, "PATCH", { dubIds: [dubId] })).status, 409);
+    const overlappingId = await addTrack(samplePack, "Sample texture");
+    assert.equal((await snapshot(recipient)).dubs.some((dub) => dub.id === overlappingId), false, "Draft files remain private");
     assert.equal((await api(context.baseUrl, owner, `/api/packs/${samplePack}/publish`, "POST", {})).status, 200);
     const search = async (cookie, kind, query = "") => {
       const response = await api(context.baseUrl, cookie, `/api/dubs/search?distribution=feed&mediaKind=${kind}&q=${encodeURIComponent(query)}`);
@@ -251,10 +345,21 @@ test("vault media kinds follow published sample membership independently of audi
     assert.equal((await search(recipient, "sample")).some((dub) => dub.id === privateId), false);
     const privateSearch = await api(context.baseUrl, owner, "/api/dubs/search?distribution=feed&distributionType=private&mediaKind=sample");
     assert.deepEqual((await privateSearch.json()).dubs.map((dub) => dub.id), [privateId]);
-    assert.equal((await api(context.baseUrl, owner, `/api/packs/${samplePack}`, "PATCH", { kind: "dub" })).status, 200);
-    assert.equal((await search(owner, "sample")).length, 0);
-    assert.equal((await snapshot(owner)).dubs.find((dub) => dub.id === overlappingId).mediaKind, "dub");
-    assert.equal((await api(context.baseUrl, owner, `/api/packs/${samplePack}`, "PATCH", { kind: "sample", licence: "Original works only." })).status, 200);
+    assert.equal((await api(context.baseUrl, owner, `/api/packs/${samplePack}`, "PATCH", { kind: "dub" })).status, 409);
+    const vocalPack = await createPack("vocal");
+    assert.equal((await api(context.baseUrl, owner, `/api/packs/${vocalPack}`, "PATCH", { dubIds: [overlappingId] })).status, 409);
+    assert.equal((await api(context.baseUrl, owner, `/api/packs/${vocalPack}`, "PATCH", { dubIds: [dubId] })).status, 409);
+    assert.deepEqual((await (await api(context.baseUrl, owner, `/api/packs/${vocalPack}`)).json()).pack.items, [], "Rejected membership leaves the draft unchanged");
+    assert.equal((await api(context.baseUrl, owner, `/api/packs/${dubPack}`, "PATCH", { dubIds: [dubId, overlappingId] })).status, 409);
+    const vocalId = await addTrack(vocalPack, "Voice");
+    assert.equal((await api(context.baseUrl, owner, `/api/packs/${vocalPack}/publish`, "POST", {})).status, 200);
+    assert.equal((await api(context.baseUrl, owner, `/api/packs/${dubPack}`, "PATCH", { dubIds: [dubId, vocalId] })).status, 409);
+    assert.equal((await api(context.baseUrl, owner, `/api/packs/${samplePack}`, "PATCH", { dubIds: [overlappingId, vocalId] })).status, 200);
+    const changeDubType = await api(context.baseUrl, owner, `/api/dubs/${dubId}`, "PATCH", {
+      title: "Full release", artistId, mediaKind: "vocal", tags: ["Garage"], durationSeconds: 12,
+    });
+    assert.equal(changeDubType.status, 409, "Individual type edits cannot invalidate a published Dub Pack");
+    assert.equal((await snapshot(owner)).dubs.find((item) => item.id === dubId).mediaKind, "dub");
     assert.equal((await api(context.baseUrl, owner, `/api/packs/${samplePack}`, "DELETE")).status, 200);
     assert.equal((await snapshot(owner)).dubs.find((dub) => dub.id === overlappingId).mediaKind, "dub", "Deleting the final sample membership retains a standalone dub");
   } finally {
@@ -284,6 +389,7 @@ test("packs publish, authorize members, retain independent dub grants and stream
     assert.equal(createdResponse.status, 201);
     const created = await createdResponse.json();
     assert.ok(created.pack.canManage);
+    assert.equal(created.pack.zipDownloads, 0);
     const packId = created.pack.id;
     const uploadId = await uploadAudio(context.baseUrl, ownerCookie);
     const trackInput = {
@@ -382,10 +488,22 @@ test("packs publish, authorize members, retain independent dub grants and stream
     const accountedDub = (await (await api(context.baseUrl, ownerCookie, "/api/community")).json()).dubs.find((dub) => dub.id === dubId);
     assert.equal(accountedDub.downloads, 1);
     assert.equal(accountedDub.likes, 1);
+    const ownerPack = async () => (await (await api(context.baseUrl, ownerCookie, `/api/packs/${packId}`)).json()).pack;
+    assert.equal((await ownerPack()).zipDownloads, 1);
+    assert.equal("zipDownloads" in (await (await api(context.baseUrl, recipientCookie, `/api/packs/${packId}`)).json()).pack, false);
+    assert.equal((await api(context.baseUrl, recipientCookie, `/api/dubs/${dubId}/download`, "POST", {})).status, 200);
+    assert.equal((await ownerPack()).zipDownloads, 1);
+    assert.equal((await ownerPack()).items[0].dub.downloads, 2);
+    assert.equal((await api(context.baseUrl, recipientCookie, `/api/packs/${packId}/download`, "POST", {})).status, 200);
+    assert.equal((await ownerPack()).zipDownloads, 2);
+    assert.equal((await ownerPack()).items[0].dub.downloads, 3);
+    assert.equal(JSON.parse(readFileSync(join(context.directory, "community.json"), "utf8")).packs.find((pack) => pack.id === packId).zipDownloads, 2);
 
     const revokePack = await api(context.baseUrl, ownerCookie, `/api/packs/${packId}/grants/${(await (await api(context.baseUrl, recipientCookie, "/api/community")).json()).member.id}`, "DELETE");
     assert.equal(revokePack.status, 200);
     assert.equal((await api(context.baseUrl, recipientCookie, `/api/public/packs/${packId}`)).status, 404);
+    assert.equal((await api(context.baseUrl, recipientCookie, `/api/packs/${packId}/download`, "POST", {})).status, 404);
+    assert.equal((await ownerPack()).zipDownloads, 2);
     assert.equal((await (await api(context.baseUrl, recipientCookie, "/api/community")).json()).packs.some((pack) => pack.id === packId), false);
     assert.equal((await (await api(context.baseUrl, recipientCookie, packSearchPath)).json()).dubs.length, 0);
     assert.equal((await api(context.baseUrl, recipientCookie, `/api/dubs/${dubId}/audio`)).status, 200);
@@ -395,6 +513,39 @@ test("packs publish, authorize members, retain independent dub grants and stream
 
     const anonymousPublic = await api(context.baseUrl, null, `/api/public/packs/${packId}`);
     assert.equal(anonymousPublic.status, 404);
+  } finally {
+    await context.close();
+    rmSync(context.directory, { recursive: true, force: true });
+  }
+});
+
+test("ZIP downloads count once per request independently of member count for all three pack types", async () => {
+  const context = await startServer();
+  try {
+    const owner = await login(context.baseUrl, "meladee", "meladee");
+    const recipient = await register(context.baseUrl, `zip-count-${randomUUID().slice(0, 8)}`);
+    const snapshot = await (await api(context.baseUrl, owner, "/api/community")).json();
+    for (const kind of ["dub", "sample", "vocal"]) {
+      const { pack } = await (await api(context.baseUrl, owner, "/api/packs", "POST", {
+        title: `ZIP ${kind}`, kind, distribution: "worldwide", licence: "Original productions.",
+      })).json();
+      assert.equal((await api(context.baseUrl, owner, `/api/packs/${pack.id}/download`, "POST", {})).status, 404);
+      for (const title of ["First", "Second"]) {
+        assert.equal((await api(context.baseUrl, owner, `/api/packs/${pack.id}/tracks`, "POST", {
+          title, artistId: snapshot.artists[0].id, uploadId: await uploadAudio(context.baseUrl, owner), durationSeconds: 12,
+        })).status, 201);
+      }
+      assert.equal((await api(context.baseUrl, owner, `/api/packs/${pack.id}/publish`, "POST", {})).status, 200);
+      for (let count = 1; count <= 2; count++) {
+        assert.equal((await api(context.baseUrl, recipient, `/api/packs/${pack.id}/download`, "POST", {})).status, 200);
+        const counted = (await (await api(context.baseUrl, owner, `/api/packs/${pack.id}`)).json()).pack;
+        assert.equal(counted.zipDownloads, count);
+        assert.deepEqual(counted.items.map(({ dub }) => dub.downloads), [count, count]);
+        assert.equal("zipDownloads" in (await (await api(context.baseUrl, null, `/api/public/packs/${pack.id}`)).json()).pack, false);
+      }
+      assert.equal(initializeData(join(context.directory, "community.json"), join(context.directory, "audio"))
+        .packs.find((item) => item.id === pack.id).zipDownloads, 2);
+    }
   } finally {
     await context.close();
     rmSync(context.directory, { recursive: true, force: true });

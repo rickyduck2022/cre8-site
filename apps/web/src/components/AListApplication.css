@@ -1,4 +1,5 @@
-.alist-application {
+.alist-application,
+.pack-editor {
   display: grid;
   gap: var(--spacing-4);
   max-width: 68rem;
@@ -47,13 +48,15 @@
   margin-top: var(--spacing-1);
 }
 
-.alist-application__form {
+.alist-application__form,
+.pack-editor__form {
   display: grid;
   gap: var(--spacing-4);
   min-width: 0;
 }
 
 .alist-application__section,
+.pack-editor__section,
 .alist-application__status {
   background: var(--surface-raised);
   border: 1px solid var(--border-default);
@@ -62,7 +65,8 @@
   overflow: hidden;
 }
 
-.alist-application__section-heading {
+.alist-application__section-heading,
+.pack-editor__section-heading {
   align-items: start;
   background: color-mix(in srgb, var(--surface-canvas) 45%, var(--surface-raised));
   border-bottom: 1px solid var(--border-default);
@@ -72,7 +76,8 @@
   padding: var(--spacing-4);
 }
 
-.alist-application__section-number {
+.alist-application__section-number,
+.pack-editor__section-number {
   align-items: center;
   background: color-mix(in srgb, var(--action-primary) 12%, var(--surface-canvas));
   border: 1px solid color-mix(in srgb, var(--action-primary) 25%, var(--border-default));
@@ -86,7 +91,8 @@
   width: 2rem;
 }
 
-.alist-application__section-heading h2 {
+.alist-application__section-heading h2,
+.pack-editor__section-heading h2 {
   font-size: var(--type-size-body);
   margin: 0 0 var(--spacing-1);
 }
@@ -99,13 +105,15 @@
   padding: var(--spacing-1) var(--spacing-2);
 }
 
-.alist-application__section-body {
+.alist-application__section-body,
+.pack-editor__section > .pack-fields {
   display: grid;
   gap: var(--spacing-4);
   padding: clamp(1rem, 3vw, 1.5rem);
 }
 
-.alist-application__form label {
+.alist-application__form label,
+.pack-editor .pack-editor__form label {
   color: var(--text-primary);
   display: grid;
   font-size: var(--type-size-compact);
@@ -116,7 +124,10 @@
 }
 
 .alist-application__form input:not([type="checkbox"]),
-.alist-application__form textarea {
+.alist-application__form textarea,
+.pack-editor .pack-editor__form input:not([type="checkbox"]):not([type="search"]),
+.pack-editor .pack-editor__form textarea,
+.pack-editor .pack-editor__form select {
   background: var(--surface-canvas);
   border: 1px solid var(--border-default);
   border-radius: var(--radius-sm);
@@ -133,6 +144,12 @@
   width: 100%;
 }
 
+.pack-editor .pack-editor__form input:not([type="checkbox"]):not([type="search"]),
+.pack-editor .pack-editor__form textarea,
+.pack-editor .pack-editor__form select {
+  font-size: max(16px, var(--type-size-input));
+}
+
 .alist-application__form input::placeholder,
 .alist-application__form textarea::placeholder {
   color: var(--text-secondary);
@@ -144,7 +161,10 @@
 }
 
 .alist-application__form input:focus-visible,
-.alist-application__form textarea:focus-visible {
+.alist-application__form textarea:focus-visible,
+.pack-editor__form input:focus-visible,
+.pack-editor__form textarea:focus-visible,
+.pack-editor__form select:focus-visible {
   border-color: var(--focus-ring);
   outline: 2px solid var(--focus-ring);
   outline-offset: 2px;

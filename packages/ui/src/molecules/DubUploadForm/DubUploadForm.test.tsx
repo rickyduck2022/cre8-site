@@ -14,6 +14,33 @@ afterEach(() => {
 });
 
 describe("DubUploadForm", () => {
+  it("creates and edits individual vocals with explicit type and unchanged audience controls", async () => {
+    const file = new File(["audio"], "vocal.wav", { type: "audio/wav" });
+    vi.stubGlobal("FormData", class {
+      get(name: string) { return ({ title: "Vocal take", artistId: "artist-1", audioFile: file } as Record<string, unknown>)[name] ?? ""; }
+    });
+    const onSubmit = vi.fn().mockResolvedValue(false);
+    const { container, unmount } = render(<DubUploadForm initialMediaKind="vocal" artists={[{ id: "artist-1", name: "Artist" }]}
+      buddies={buddies} onSubmit={onSubmit} onCancel={vi.fn()} />);
+    expect(screen.getByRole("combobox", { name: "Media type" })).toHaveValue("vocal");
+    fireEvent.change(screen.getByRole("combobox", { name: "Distribution" }), { target: { value: "private" } });
+    fireEvent.submit(container.querySelector("form")!);
+    await act(async () => {});
+    expect(onSubmit).toHaveBeenLastCalledWith(expect.objectContaining({ mediaKind: "vocal", distribution: "private", audioFile: file }));
+    unmount();
+    const dub: Dub = { id: "vocal", title: "Vocal", artist: "Artist", artistId: "artist-1", mediaKind: "vocal", uploader: "artist",
+      uploaderDisplayName: "Artist", uploadedAt: "", bpm: 0, genre: "Vocal", duration: "1:00", likes: 0, downloads: 0, artwork: "", message: "" };
+    const edit = render(<DubUploadForm initialDub={dub} artists={[{ id: "artist-1", name: "Artist" }]} onSubmit={onSubmit} onCancel={vi.fn()} />);
+    expect(screen.getByRole("combobox", { name: "Media type" })).toHaveValue("vocal");
+    fireEvent.submit(edit.container.querySelector("form")!);
+    await act(async () => {});
+    expect(onSubmit.mock.lastCall?.[0]).not.toHaveProperty("mediaKind");
+    fireEvent.change(screen.getByRole("combobox", { name: "Media type" }), { target: { value: "dub" } });
+    fireEvent.submit(edit.container.querySelector("form")!);
+    await act(async () => {});
+    expect(onSubmit).toHaveBeenLastCalledWith(expect.objectContaining({ mediaKind: "dub" }));
+  });
+
   it.each(["false", "rejection"])("preserves metadata, tags and selected files after %s", async (failure) => {
     const file = new File(["audio"], "keep.wav", { type: "audio/wav" });
     vi.stubGlobal("FormData", class {

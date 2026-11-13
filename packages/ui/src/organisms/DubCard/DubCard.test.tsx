@@ -23,6 +23,30 @@ const dub: Dub = {
 };
 
 describe("DubCard actions", () => {
+  it.each([false, true])("opens standalone dubs and samples without playing at mobile=%s", (mobile) => {
+    vi.stubGlobal("matchMedia", vi.fn().mockReturnValue({ matches: mobile, addEventListener: vi.fn(), removeEventListener: vi.fn() }));
+    const onOpenDub = vi.fn(); const onPlay = vi.fn();
+    const sample = { ...dub, id: "sample-1", title: "Snare", mediaKind: "sample" as const };
+    render(<>
+      <DubCard dub={dub} onOpenDub={onOpenDub} onPlay={onPlay} onDownload={vi.fn()} />
+      <DubCard dub={sample} onOpenDub={onOpenDub} onPlay={onPlay} onDownload={vi.fn()} />
+    </>);
+    fireEvent.click(screen.getByRole("button", { name: "Open dub: Night Drive" }));
+    expect(onOpenDub).toHaveBeenLastCalledWith(dub);
+    fireEvent.click(screen.getByRole("button", { name: "Open sample: Snare" }));
+    expect(onOpenDub).toHaveBeenLastCalledWith(sample);
+    expect(onPlay).not.toHaveBeenCalled();
+  });
+
+  it("does not add standalone open controls to pack playlist rows or without a handler", () => {
+    const open = vi.fn();
+    render(<>
+      <DubCard dub={dub} onPlay={vi.fn()} onDownload={vi.fn()} />
+      <DubCard dub={dub} variant="playlist" onOpenDub={open} onPlay={vi.fn()} onDownload={vi.fn()} />
+    </>);
+    expect(screen.queryByRole("button", { name: /^Open (dub|sample):/ })).not.toBeInTheDocument();
+  });
+
   it("offers a streamlined playlist variant with shared artwork, seeking and downloads", () => {
     const onPlay = vi.fn();
     const onSeekProgress = vi.fn();

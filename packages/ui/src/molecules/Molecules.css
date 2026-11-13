@@ -435,6 +435,7 @@
 }
 
 .brand__logo {
+  filter: var(--brand-mark-filter);
   display: block;
   height: auto;
   max-width: min(8rem, 32vw);

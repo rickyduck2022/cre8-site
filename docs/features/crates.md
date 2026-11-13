@@ -1,5 +1,8 @@
 # Crates feature status
 
+See the [product-system map](../developer/product-systems.md) for the distinction
+between retained crate code, download-history My Library and authorized Full Library.
+
 Crates are deferred from the current Cre8 Messenger release. The app does not expose crate navigation, feed actions, or the crate management modal.
 
 The implementation is retained for a later release:

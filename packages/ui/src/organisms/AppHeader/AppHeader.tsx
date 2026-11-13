@@ -6,6 +6,7 @@ import { Brand } from "../../molecules/Brand/Brand";
 import type { NotificationMessage } from "../../molecules/notificationTypes";
 import { SearchField } from "../../molecules/SearchField/SearchField";
 import { NotificationCenter } from "../NotificationCenter/NotificationCenter";
+import { ThemeToggle } from "../../molecules/ThemeToggle/ThemeToggle";
 import "../Organisms.css";
 
 export interface AppHeaderProps {
@@ -14,8 +15,10 @@ export interface AppHeaderProps {
   searchPlaceholder?: string;
   variant?: "default" | "compact" | "mobile";
   onCreate?: () => void;
+  createLabel?: string;
   onEditProfile?: () => void;
   onLogout?: () => void;
+  onHelp?: () => void;
   onNotifications?: () => void;
   onMessages?: () => void;
   unreadMessageCount?: number;
@@ -39,8 +42,10 @@ export function AppHeader({
   logoSrc,
   brandDescriptor,
   onCreate,
+  createLabel = "Share a dub",
   onEditProfile,
   onLogout,
+  onHelp,
   onMessages,
   onNotifications,
   notifications = [],
@@ -81,6 +86,7 @@ export function AppHeader({
         value={searchValue}
       />
       <div className="app-header__actions">
+        <ThemeToggle />
         {onMessages && (
           <button
             aria-label={unreadMessageCount > 0
@@ -108,7 +114,7 @@ export function AppHeader({
           pushSettings={pushSettings}
         />
         <Button
-          aria-label="Share a dub"
+          aria-label={createLabel}
           compactOnMobile
           leadingIcon={<Upload aria-hidden="true" />}
           onClick={onCreate}
@@ -116,6 +122,7 @@ export function AppHeader({
         />
         {onEditProfile && onLogout && (
           <AccountMenu
+            onHelp={onHelp}
             onEditProfile={onEditProfile}
             onLogout={onLogout}
             userName={userName}

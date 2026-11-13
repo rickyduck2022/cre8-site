@@ -1,5 +1,5 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { Repeat } from "@craft/icons";
+import { RepeatSolid as Repeat } from "@craft/icons";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { TransportControls } from "./TransportControls";
 
@@ -23,6 +23,7 @@ describe("TransportControls", () => {
     const playButton = screen.getByRole("button", { name: "Play" });
     expect(playButton.children).toHaveLength(1);
     expect(playButton.firstElementChild).toHaveClass("button__icon");
+    expect(playButton.querySelector("g")).toHaveAttribute("fill", "currentColor");
   });
 
   it("uses the repeat icon and toggles the repeat state", () => {

@@ -57,17 +57,17 @@ describe("DubManagementDialogs", () => {
     expect(close).not.toHaveBeenCalled();
   });
 
-  it("guards deletion, shows failure inline, and permits retry", async () => {
+  it.each(["dub", "sample", "vocal"] as const)("guards %s deletion, shows failure inline, and permits retry", async (mediaKind) => {
     let finish!: (value: boolean) => void;
     const remove = vi.fn()
       .mockImplementationOnce(() => new Promise<boolean>((resolve) => { finish = resolve; }))
       .mockResolvedValueOnce(true);
     const close = vi.fn();
     render(<DubManagementDialogs
-      editingDub={null} deletingDub={dub} artists={[]}
+      editingDub={null} deletingDub={{ ...dub, mediaKind }} artists={[]}
       onCloseEdit={vi.fn()} onCloseDelete={close} onUpdateDub={vi.fn()} onDeleteDub={remove}
     />);
-    fireEvent.click(screen.getByRole("button", { name: "Delete dub" }));
+    fireEvent.click(screen.getByRole("button", { name: `Delete ${mediaKind}` }));
     expect(screen.getByRole("button", { name: "Cancel" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Close" })).toBeDisabled();
     const dialog = screen.getByRole("dialog");
@@ -75,8 +75,8 @@ describe("DubManagementDialogs", () => {
     fireEvent.click(dialog);
     expect(close).not.toHaveBeenCalled();
     await act(async () => { finish(false); });
-    expect(screen.getByRole("alert")).toHaveTextContent("The dub could not be deleted.");
-    fireEvent.click(screen.getByRole("button", { name: "Delete dub" }));
+    expect(screen.getByRole("alert")).toHaveTextContent(`The ${mediaKind} could not be deleted.`);
+    fireEvent.click(screen.getByRole("button", { name: `Delete ${mediaKind}` }));
     await waitFor(() => expect(close).toHaveBeenCalledOnce());
     expect(remove).toHaveBeenCalledTimes(2);
   });

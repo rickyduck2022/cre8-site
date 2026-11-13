@@ -1,6 +1,7 @@
 import "./foundations/Global.css";
 import "./foundations/Scrollbar.css";
 import "./foundations/VaultTheme.css";
+import "./foundations/ThemePalette.css";
 
 export * from "./atoms/Button";
 export * from "./atoms/EdgeTab/EdgeTab";
@@ -24,7 +25,18 @@ export * from "./organisms/EditProfileDialog/EditProfileDialog";
 export * from "./templates";
 export * from "./templates/shared/TrackArtwork";
 export * from "./utils/useAsyncSubmission";
+export * from "./utils/useMobileLayout";
+export * from "./organisms/TutorialGuide/TutorialGuide";
+export * from "./utils/collectionFilters";
+export * from "./templates/shared/DubSearchToolbar";
+export * from "./foundations/Theme";
+export * from "./foundations/TutorialNavigationContext";
+export * from "./foundations/TutorialActivityContext";
+export * from "./molecules/ThemeToggle/ThemeToggle";
 export * from "./utils/useWindowPosition";
 export * from "./organisms/Window/Window";
+export * from "./workspaces/Workspace/Workspace";
+export { workspaceWindows } from "./organisms/Window/workspace";
+export type { SavedWorkspace } from "./organisms/Window/workspace";
 export type { MediaKind } from "./types/domain";
 export * from "@craft/icons";

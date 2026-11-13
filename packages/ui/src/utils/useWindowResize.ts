@@ -1,25 +1,27 @@
 import { useLayoutEffect, useRef, useState, type KeyboardEvent, type PointerEvent, type RefObject } from "react";
 import type { WindowPoint } from "./useWindowPosition";
+import { windowViewport } from "./useWindowPosition";
 
 export type WindowSize = { width: number; height: number };
 type Mode = "floating" | "left" | "right" | "fullscreen";
 
-export function useWindowResize(ref: RefObject<HTMLElement | null>, enabled: boolean, mode: Mode, onPosition: (point: WindowPoint) => void, onDockWidthChange?: (width: number | null) => void) {
-  const [size, setSize] = useState<WindowSize | null>(null);
+export function useWindowResize(ref: RefObject<HTMLElement | null>, enabled: boolean, mode: Mode, onPosition: (point: WindowPoint) => void, onDockWidthChange?: (width: number | null) => void, initialSize: WindowSize | null = null) {
+  const [size, setSize] = useState<WindowSize | null>(initialSize);
   const [dockWidth, setDockWidth] = useState<number | null>(null);
   const [resizing, setResizing] = useState(false);
   const drag = useRef<{ pointerId: number; x: number; y: number; width: number; height: number; left: number; top: number } | null>(null);
 
   function apply(width: number, height: number, left: number, top: number) {
+    const viewport = ref.current ? windowViewport(ref.current) : { width: window.innerWidth, height: window.innerHeight };
     if (mode === "floating") {
-      const maxWidth = Math.max(0, window.innerWidth - Math.max(0, left) - 8);
-      const maxHeight = Math.max(0, window.innerHeight - Math.max(0, top) - 8);
+      const maxWidth = Math.max(0, viewport.width - Math.max(0, left) - 8);
+      const maxHeight = Math.max(0, viewport.height - Math.max(0, top) - 8);
       setSize({
         width: Math.max(Math.min(360, maxWidth), Math.min(maxWidth, width)),
         height: Math.max(Math.min(240, maxHeight), Math.min(maxHeight, height)),
       });
     } else {
-      const next = Math.max(Math.min(360, window.innerWidth - 16), Math.min(window.innerWidth - 16, width));
+      const next = Math.max(Math.min(360, viewport.width - 16), Math.min(viewport.width - 16, width));
       setDockWidth(next);
       onDockWidthChange?.(next);
     }
@@ -37,9 +39,10 @@ export function useWindowResize(ref: RefObject<HTMLElement | null>, enabled: boo
     if (!enabled || mode === "fullscreen" || !element || event.button !== 0 || !event.isPrimary) return;
     event.preventDefault();
     const bounds = element.getBoundingClientRect();
+    const viewport = windowViewport(element);
     drag.current = { pointerId: event.pointerId, x: event.clientX, y: event.clientY,
-      width: bounds.width, height: bounds.height, left: bounds.left, top: bounds.top };
-    if (mode === "floating") onPosition({ x: bounds.left, y: bounds.top });
+      width: bounds.width, height: bounds.height, left: bounds.left - viewport.left, top: bounds.top - viewport.top };
+    if (mode === "floating") onPosition({ x: bounds.left - viewport.left, y: bounds.top - viewport.top });
     setResizing(true);
     event.currentTarget.focus({ preventScroll: true });
     event.currentTarget.setPointerCapture(event.pointerId);
@@ -67,11 +70,12 @@ export function useWindowResize(ref: RefObject<HTMLElement | null>, enabled: boo
     if (!["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) return;
     event.preventDefault();
     const bounds = element.getBoundingClientRect();
+    const viewport = windowViewport(element);
     const step = event.shiftKey ? 64 : 16;
     const horizontal = event.key === "ArrowRight" ? step : event.key === "ArrowLeft" ? -step : 0;
     const vertical = event.key === "ArrowDown" ? step : event.key === "ArrowUp" ? -step : 0;
-    if (mode === "floating") onPosition({ x: bounds.left, y: bounds.top });
-    apply(bounds.width + horizontal * (mode === "right" ? -1 : 1), bounds.height + vertical, bounds.left, bounds.top);
+    if (mode === "floating") onPosition({ x: bounds.left - viewport.left, y: bounds.top - viewport.top });
+    apply(bounds.width + horizontal * (mode === "right" ? -1 : 1), bounds.height + vertical, bounds.left - viewport.left, bounds.top - viewport.top);
   }
 
   return { size, setSize, dockWidth, resizing, onPointerDown, onPointerMove, onPointerUp: stop,

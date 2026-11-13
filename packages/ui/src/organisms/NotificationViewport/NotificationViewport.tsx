@@ -9,18 +9,18 @@ export interface NotificationViewportProps {
   onDismiss: (id: string) => void;
 }
 
-export function NotificationViewport({
-  notifications,
-  onDismiss,
-}: NotificationViewportProps) {
+export function useNotificationPortalTarget(includeWindows = false) {
   const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
 
   useEffect(() => {
     if (typeof document === "undefined" || !document.body) return;
 
     function syncPortalTarget() {
-      const openDialogs = document.querySelectorAll<HTMLElement>("dialog.modal[open]");
-      const nextTarget = openDialogs.item(openDialogs.length - 1) ?? document.body;
+      const openDialogs = [...document.querySelectorAll<HTMLDialogElement>(includeWindows ? "dialog[open]" : "dialog.modal[open]")];
+      const focusedDialog = document.activeElement?.closest<HTMLDialogElement>("dialog[open]");
+      const nextTarget = includeWindows
+        ? (focusedDialog?.matches(":modal") ? focusedDialog : openDialogs.filter((dialog) => dialog.matches(":modal")).at(-1)) ?? document.body
+        : openDialogs.at(-1) ?? document.body;
       setPortalTarget((current) => current === nextTarget ? current : nextTarget);
     }
 
@@ -32,8 +32,17 @@ export function NotificationViewport({
       childList: true,
       subtree: true,
     });
-    return () => observer.disconnect();
-  }, []);
+    if (includeWindows) document.addEventListener("focusin", syncPortalTarget);
+    return () => { observer.disconnect(); document.removeEventListener("focusin", syncPortalTarget); };
+  }, [includeWindows]);
+  return portalTarget;
+}
+
+export function NotificationViewport({
+  notifications,
+  onDismiss,
+}: NotificationViewportProps) {
+  const portalTarget = useNotificationPortalTarget();
 
   if (notifications.length === 0) return null;
   if (!portalTarget) return null;

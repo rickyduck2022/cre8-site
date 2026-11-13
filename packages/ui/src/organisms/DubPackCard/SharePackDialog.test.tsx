@@ -14,7 +14,7 @@ const pack: DubPack = { id: "pack", title: "Toolkit", description: "", kind: "sa
 const buddies: Buddy[] = ["Amber", "Ben"].map((displayName) => ({ id: displayName.toLowerCase(), username: displayName.toLowerCase(),
   displayName, presence: "online", genre: "Jungle", role: "DJ", bio: "", groups: [] }));
 
-it.each(["dub", "sample"] as const)("requires private %s pack access confirmation and prevents duplicate sends", async (kind) => {
+it.each(["dub", "sample", "vocal"] as const)("requires private %s pack access confirmation and prevents duplicate sends", async (kind) => {
   let finish!: (value: boolean) => void;
   const onSend = vi.fn(() => new Promise<boolean>((resolve) => { finish = resolve; }));
   render(<SharePackDialog pack={{ ...pack, kind }} buddies={buddies} onClose={vi.fn()} onSend={onSend} initialBuddyIds={["amber"]} />);

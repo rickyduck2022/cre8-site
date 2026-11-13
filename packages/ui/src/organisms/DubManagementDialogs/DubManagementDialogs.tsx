@@ -35,8 +35,10 @@ export function DubManagementDialogs({
   uploadError = "",
   uploadProgress = null,
 }: DubManagementDialogsProps) {
-  const saving = useAsyncSubmission("The dub could not be saved. Check the notification and try again.", editingDub?.id);
-  const deleting = useAsyncSubmission("The dub could not be deleted. Check the notification and try again.", deletingDub?.id);
+  const deletingNoun = deletingDub?.mediaKind === "vocal" ? "vocal" : deletingDub?.mediaKind === "sample" ? "sample" : "dub";
+  const editingNoun = editingDub?.mediaKind === "vocal" ? "vocal" : editingDub?.mediaKind === "sample" ? "sample" : "dub";
+  const saving = useAsyncSubmission(`The ${editingNoun} could not be saved. Check the notification and try again.`, editingDub?.id);
+  const deleting = useAsyncSubmission(`The ${deletingNoun} could not be deleted. Check the notification and try again.`, deletingDub?.id);
   const closeEdit = () => saving.requestClose(onCloseEdit);
   const closeDelete = () => deleting.requestClose(onCloseDelete);
 
@@ -77,9 +79,10 @@ export function DubManagementDialogs({
 
       <Modal
         isOpen={Boolean(deletingDub)}
+        presentation="modal"
         onClose={closeDelete}
         closeDisabled={deleting.pending}
-        title="Delete dub?"
+        title={`Delete ${deletingNoun}?`}
       >
         <p className="dub-management-dialogs__delete-copy">
           Delete <strong>{deletingDub?.title}</strong>? This also removes its audio and artwork from your releases.
@@ -90,7 +93,7 @@ export function DubManagementDialogs({
             Cancel
           </Button>
           <Button disabled={deleting.pending} loading={deleting.pending} onClick={() => void deleteDub()} variant="primary">
-            Delete dub
+            Delete {deletingNoun}
           </Button>
         </ModalFooter>
       </Modal>

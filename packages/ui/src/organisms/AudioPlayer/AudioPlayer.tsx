@@ -1,5 +1,5 @@
-import { forwardRef, useState, type CSSProperties, type ReactNode } from "react";
-import { Maximize2, Minimize2, Volume2, X } from "@craft/icons";
+import { forwardRef, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { WindowMaximize as Maximize2, WindowMinimize as Minimize2, VolumeSolid as Volume2, MuteSolid as VolumeX, CloseSolid as X } from "@craft/icons";
 import { PlayerTab } from "../../atoms/PlayerTab/PlayerTab";
 import type { NowPlayingProps } from "../../molecules/NowPlaying/NowPlaying";
 import { NowPlaying } from "../../molecules/NowPlaying/NowPlaying";
@@ -17,7 +17,7 @@ export interface AudioPlayerTrack extends NowPlayingProps {
 
 export interface AudioPlayerProps {
   track?: AudioPlayerTrack | null;
-  variant?: "full" | "compact" | "mini" | "docked" | "inline";
+  variant?: "full" | "compact" | "mini" | "docked" | "inline" | "window";
   colorVariant?: "default" | "playable" | "controller";
   mediaKind?: MediaKind;
   transportVariant?: "full" | "minimal";
@@ -106,6 +106,10 @@ export const AudioPlayer = forwardRef<HTMLElement, AudioPlayerProps>(function Au
   const isControlled = playing !== undefined;
   const currentPlaying = isControlled ? playing : internalPlaying;
   const volumeLevel = volume ?? internalVolume;
+  const audibleVolume = useRef(volumeLevel > 0 ? volumeLevel : 0.7);
+  useEffect(() => {
+    if (volumeLevel > 0) audibleVolume.current = volumeLevel;
+  }, [volumeLevel]);
 
   const trackDuration = track
     ? durationSeconds && durationSeconds > 0
@@ -123,6 +127,7 @@ export const AudioPlayer = forwardRef<HTMLElement, AudioPlayerProps>(function Au
   }
 
   function handleVolumeChange(nextVolume: number) {
+    if (nextVolume > 0) audibleVolume.current = nextVolume;
     if (volume === undefined) setInternalVolume(nextVolume);
     onVolumeChange?.(nextVolume);
   }
@@ -209,9 +214,12 @@ export const AudioPlayer = forwardRef<HTMLElement, AudioPlayerProps>(function Au
             : track.duration ?? "00:00"}
         </span>
       </div>
-      <label className="audio-player__volume">
-        <span className="sr-only">Volume</span>
-        <Volume2 aria-hidden="true" />
+      <div className="audio-player__volume" role="group" aria-label="Volume controls">
+        <button type="button" className="audio-player__mute" aria-label={volumeLevel === 0 ? "Unmute" : "Mute"}
+          aria-pressed={volumeLevel === 0} title={volumeLevel === 0 ? "Unmute" : "Mute"}
+          onClick={() => handleVolumeChange(volumeLevel === 0 ? audibleVolume.current : 0)}>
+          {volumeLevel === 0 ? <VolumeX aria-hidden="true" /> : <Volume2 aria-hidden="true" />}
+        </button>
         <input
           aria-label="Volume"
           max="100"
@@ -222,7 +230,7 @@ export const AudioPlayer = forwardRef<HTMLElement, AudioPlayerProps>(function Au
           type="range"
           value={Math.round(volumeLevel * 100)}
           />
-      </label>
+      </div>
       {endAction && (
         <div className="audio-player__end-action">{endAction}</div>
       )}

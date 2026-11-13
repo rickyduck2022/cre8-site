@@ -22,10 +22,10 @@ function mediaRuleFor(css, selector, condition = "(max-width: 760px)") {
   style.textContent = css;
   document.head.append(style);
   try {
-    const mobile = Array.from(style.sheet?.cssRules ?? []).find(
+    const media = Array.from(style.sheet?.cssRules ?? []).filter(
       (candidate) => candidate instanceof CSSMediaRule && candidate.conditionText === condition,
     );
-    const rule = Array.from(mobile?.cssRules ?? []).find(
+    const rule = media.flatMap((block) => Array.from(block.cssRules)).find(
       (candidate) => candidate instanceof CSSStyleRule && candidate.selectorText.replace(/\s+/g, " ") === selector.replace(/\s+/g, " "),
     );
     if (!rule) throw new Error(`Missing mobile CSS rule: ${selector}`);
@@ -40,6 +40,86 @@ function mobileRuleFor(css, selector) {
 }
 
 describe("footer player tab layout", () => {
+  it("uses the primary action role for the selected visibility icon", () => {
+    const css = readFileSync(resolve("src", "foundations", "WorkspacePalette.css"), "utf8");
+    expect(ruleFor(css, ".window-layer__visibility[data-selected]").getPropertyValue("color")).toBe("var(--action-primary)");
+    expect(ruleFor(css, '.window-layer__restore[data-window-state="focused"]').getPropertyValue("--window-restore-focus-border")).toBe("var(--action-primary)");
+    expect(ruleFor(css, ".floating-window.floating-window--active[data-window-kind]").getPropertyValue("--window-focus")).toBe("var(--action-primary)");
+  });
+  it("uses compact folder rows with consistent icons and larger mobile touch targets", () => {
+    const css = readFileSync(resolve("src", "workspaces", "Workspace", "Workspace.css"), "utf8");
+    expect(ruleFor(css, ".workspace-runtime .floating-window__header").getPropertyValue("flex-wrap")).toBe("nowrap");
+    expect(ruleFor(css, ".workspace-runtime .button").getPropertyValue("min-height")).toBe("2rem");
+    expect(mobileRuleFor(css, ".workspace-runtime .button").getPropertyValue("min-height")).toBe("2.75rem");
+    expect(ruleFor(css, ".workspace-runtime .window-layer__group-tabs[hidden]").getPropertyValue("display")).toBe("none");
+    const icons = ruleFor(css, ".workspace-runtime .button__icon, .workspace-runtime .button__icon > svg, .workspace-runtime .window-layer__visibility > svg");
+    expect(icons.getPropertyValue("width")).toBe("1rem");
+    expect(icons.getPropertyValue("height")).toBe("1rem");
+  });
+  it("limits the right bar to the viewport above the measured footer", () => {
+    const css = readFileSync(resolve("src", "workspaces", "Workspace", "Workspace.css"), "utf8");
+    const sidebar = ruleFor(css, ".workspace-sidebar");
+    expect(sidebar.getPropertyValue("height")).toBe("max(0px, calc(100dvh - var(--workspace-footer-height, 0px)))");
+    expect(sidebar.getPropertyValue("max-height")).toBe(sidebar.getPropertyValue("height"));
+    expect(sidebar.getPropertyValue("align-self")).toBe("start");
+  });
+  it("aligns nested window rows with the group label after its disclosure control", () => {
+    const css = readFileSync(resolve("src", "workspaces", "Workspace", "Workspace.css"), "utf8");
+    const tabs = ruleFor(css, ".workspace-runtime .window-layer__group-tabs");
+    expect(tabs.getPropertyValue("margin-inline-start")).toBe("calc(var(--workspace-tree-toggle-size) / 2)");
+    expect(tabs.getPropertyValue("padding-inline-start")).toBe("calc(var(--workspace-tree-toggle-size) / 2 - 1px)");
+    expect(tabs.getPropertyValue("border-inline-start")).toBe("1px solid var(--window-border)");
+    expect(ruleFor(css, ".workspace-runtime").getPropertyValue("--workspace-tree-toggle-size")).toBe("2rem");
+    expect(mobileRuleFor(css, ".workspace-runtime").getPropertyValue("--workspace-tree-toggle-size")).toBe("2.75rem");
+    expect(ruleFor(css, ".workspace-runtime .window-layer__dock-item").getPropertyValue("max-width")).toBe("none");
+  });
+  it("uses the full desktop workspace as the window containing block without lifting sidebar chrome above windows", () => {
+    const css = readFileSync(resolve("src", "workspaces", "Workspace", "Workspace.css"), "utf8");
+    expect(ruleFor(css, ".workspace-root").getPropertyValue("transform")).toBe("translate(0)");
+    expect(ruleFor(css, ".workspace-stage").getPropertyValue("transform")).toBe("");
+    expect(ruleFor(css, ".workspace-sidebar").getPropertyValue("isolation")).toBe("isolate");
+    expect(mobileRuleFor(css, ".workspace-root").getPropertyValue("transform")).toBe("none");
+  });
+  it("keeps the workspace window list scrollable between fixed chrome and editing controls", () => {
+    const css = readFileSync(resolve("src", "workspaces", "Workspace", "Workspace.css"), "utf8");
+    const controls = ruleFor(css, ".workspace-sidebar__controls:has(.workspace-runtime)");
+    expect(controls.getPropertyValue("flex")).toBe("1 1 0");
+    expect(controls.getPropertyValue("min-height")).toBe("0");
+    const body = ruleFor(css, ".workspace-runtime__body");
+    expect(body.getPropertyValue("overflow")).toBe("auto");
+    expect(body.getPropertyValue("min-height")).toBe("0");
+    expect(ruleFor(css, ".workspace-runtime__footer").getPropertyValue("flex")).toBe("0 0 auto");
+    expect(ruleFor(css, ".workspace-runtime .window-layer__group-tabs").getPropertyValue("grid-template-columns")).toBe("minmax(0, 1fr)");
+    expect(mobileRuleFor(css, ".workspace-runtime").getPropertyValue("max-height")).toBe("40dvh");
+  });
+  it("releases collapsed tracklist space to workspace browsing", () => {
+    const workspaceCss = readFileSync(resolve("src", "workspaces", "Workspace", "Workspace.css"), "utf8");
+    const collapsed = ruleFor(workspaceCss, '.workspace-sidebar__player:has(.app-player__pack-toggle[aria-expanded="false"])');
+    expect(collapsed.getPropertyValue("flex")).toBe("0 0 auto");
+    expect(collapsed.getPropertyValue("min-height")).toBe("0");
+    expect(ruleFor(workspaceCss, '.workspace-sidebar:has(.app-player__pack-toggle[aria-expanded="false"]) > .workspace-sidebar__controls').getPropertyValue("max-height")).toBe("none");
+    const css = readFileSync(resolve("src", "templates", "CommunityPageTemplates.css"), "utf8");
+    const header = ruleFor(css, '.app-player-tracklist > .app-player__pack:has(> .app-player__pack-toggle[aria-expanded="false"])');
+    expect(header.getPropertyValue("grid-template-rows")).toBe("auto");
+    expect(header.getPropertyValue("gap")).toBe("0");
+  });
+  it("uses the shared controller surface for a separately scrolling right-bar pack tracklist", () => {
+    const css = readFileSync(resolve("src", "templates", "CommunityPageTemplates.css"), "utf8");
+    const tracklist = ruleFor(css, ".organism-card.audio-player.app-player-tracklist");
+    expect(tracklist.getPropertyValue("grid-template-columns")).toBe("minmax(0, 1fr)");
+    expect(tracklist.getPropertyValue("grid-template-rows")).toBe("minmax(0, 1fr)");
+    expect(tracklist.getPropertyValue("background")).toBe("");
+    const queue = ruleFor(css, ".app-player-tracklist .dub-pack-card__playlist");
+    expect(queue.getPropertyValue("max-height")).toBe("none");
+    expect(queue.getPropertyValue("overflow-y")).toBe("auto");
+    expect(queue.getPropertyValue("align-content")).toBe("start");
+    expect(queue.getPropertyValue("grid-auto-rows")).toBe("max-content");
+    const copy = ruleFor(css, ".app-player-tracklist .now-playing__copy");
+    expect(copy.getPropertyValue("grid-template-rows")).toBe("calc(var(--type-size-caption) * 1.5) calc(var(--type-size-compact) * 1.5) calc(var(--type-size-label) * 1.5)");
+    for (const [part, row] of [["context", "1"], ["title", "2"], ["artist", "3"]]) {
+      expect(ruleFor(css, `.app-player-tracklist .now-playing__${part}`).getPropertyValue("grid-row")).toBe(row);
+    }
+  });
   it("uses a full viewport at every width and exposes the complete pack queue in full-screen mode", () => {
     const css = readFileSync(resolve("src", "templates", "CommunityPageTemplates.css"), "utf8");
     const dialog = ruleFor(css, ".app-player-fullscreen.modal");
@@ -91,7 +171,7 @@ describe("footer player tab layout", () => {
 
   it("reserves a desktop grid column with a full-height player and independently scrolling queue", () => {
     const css = readFileSync(resolve("src", "templates", "CommunityPageTemplates.css"), "utf8");
-    const desktop = (selector) => mediaRuleFor(css, selector, "(min-width: 1051px)");
+    const desktop = (selector) => mediaRuleFor(css, selector, "(min-width: 761px)");
     expect(desktop(".community-dashboard-template--player-right .dashboard-template__main").getPropertyValue("grid-template-columns"))
       .toBe("minmax(0, 1fr) var(--app-player-right-width)");
     expect(desktop(".community-dashboard-template--player-right .app-sticky-footer").getPropertyValue("display")).toBe("contents");
@@ -266,34 +346,16 @@ describe("footer player tab layout", () => {
     expect(mobileMiniLayout.getPropertyValue("--mini-player-padding-y").trim()).toBe("var(--spacing-3)");
   });
 
-  it("docks the desktop mini player below the profile while preserving floating overrides", () => {
+  it("collapses desktop playback in place and reserves one shared workspace bar", () => {
     const css = readFileSync(resolve("src", "templates", "CommunityPageTemplates.css"), "utf8");
-    const wide = "(min-width: 1051px)";
-    const player = mediaRuleFor(css, ".community-dashboard-template .app-player.audio-player--minimized", wide);
-    const docked = mediaRuleFor(css, ".community-dashboard-template--player-docked .app-player.audio-player--playable.audio-player--minimized", wide);
-    expect(docked.getPropertyValue("width")).toBe("var(--app-sidebar-width)");
-    expect(docked.getPropertyValue("left")).toBe("var(--floating-player-left, 0px)");
-    expect(docked.getPropertyValue("right")).toBe("var(--floating-player-right, auto)");
-    expect(docked.getPropertyValue("bottom")).toBe("var(--floating-player-bottom, 0px)");
-    expect(docked.getPropertyValue("border-color")).toBe("transparent");
-    expect(docked.getPropertyValue("border-top-color")).toBe("var(--mini-player-outline)");
-    expect(docked.getPropertyValue("border-radius")).toBe("0");
-    expect(docked.getPropertyValue("box-shadow")).toBe("none");
-    expect(player.getPropertyValue("grid-template-columns")).toBe("");
-    const rail = mediaRuleFor(css, ".community-dashboard-template--player-docked .app-player.audio-player--minimized .audio-player__chrome", wide);
-    expect(rail.getPropertyValue("left")).toBe("0");
-    expect(rail.getPropertyValue("right")).toBe("0");
-    expect(rail.getPropertyValue("border-radius")).toBe("0");
-    expect(ruleFor(css, ".app-player.audio-player--controller").getPropertyValue("--player-tab-surface").trim()).toBe("var(--audio-player-controller-surface)");
-    expect(mediaRuleFor(css, ".community-dashboard-template--player-docked .app-player.audio-player--playable.audio-player--minimized > .audio-player__timeline", wide).getPropertyValue("border-radius")).toBe("0");
-    const sections = mediaRuleFor(css, ".community-dashboard-template--has-player.community-dashboard-template--player-docked .app-sidebar .navigation__sections", wide);
-    expect(sections.getPropertyValue("min-height")).toBe("0");
-    expect(sections.getPropertyValue("overflow-y")).toBe("auto");
-    const profile = mediaRuleFor(css, ".community-dashboard-template--has-player.community-dashboard-template--player-docked .app-sidebar .navigation__footer", wide);
-    expect(profile.getPropertyValue("margin-bottom")).toBe("max(0px, calc(var(--measured-minimized-player-height, 6rem) + var(--app-player-tab-height) - 1rem))");
-    expect(mediaRuleFor(css, ".community-dashboard-template--has-player.community-dashboard-template--player-docked .app-sidebar .navigation__brand, .community-dashboard-template--has-player.community-dashboard-template--player-docked .app-sidebar .navigation__footer", wide).getPropertyValue("flex-shrink")).toBe("0");
-    expect(mediaRuleFor(css, ".community-dashboard-template .app-player.audio-player--minimized .now-playing > .badge", wide).getPropertyValue("clip-path")).toBe("inset(50%)");
-    expect(ruleFor(css, ".app-player.audio-player--minimized .now-playing__artwork + .now-playing__copy").getPropertyValue("margin-left")).toBe("0.5rem");
+    const wide = "(min-width: 761px)";
+    const chrome = mediaRuleFor(css, ".community-dashboard-template .app-player.audio-player--controller.app-player--collapsed > .audio-player__chrome", wide);
+    expect(chrome.getPropertyValue("position")).toBe("static");
+    const rail = mediaRuleFor(css, ".community-dashboard-template.community-dashboard-template--player-right .app-player.audio-player--controller.app-player--collapsed", wide);
+    expect(rail.getPropertyValue("grid-template-columns")).toBe("minmax(0, 1fr)");
+    const workspaceCss = readFileSync(resolve("src", "workspaces", "Workspace", "Workspace.css"), "utf8");
+    expect(ruleFor(workspaceCss, ".workspace-root--sidebar-collapsed").getPropertyValue("grid-template-columns")).toBe("minmax(0, 1fr) 4.5rem");
+    expect(ruleFor(workspaceCss, ".workspace-sidebar > .workspace-explorer").getPropertyValue("position")).toBe("relative");
   });
 
   it("keeps mini-player transport to the right of track details with share/download below", () => {
@@ -308,13 +370,7 @@ describe("footer player tab layout", () => {
     expect(mobileControls.getPropertyValue("grid-row")).toBe("1");
     expect(mobileControls.getPropertyValue("grid-column")).toBe("2");
     expect(mobileRuleFor(css, ".app-player.audio-player--minimized > .now-playing").getPropertyValue("grid-column")).toBe("1");
-    const sidebarControls = mediaRuleFor(css, ".community-dashboard-template--player-docked .app-player.audio-player--playable.audio-player--minimized > .transport-controls", "(min-width: 1051px)");
-    expect(sidebarControls.getPropertyValue("grid-row")).toBe("1");
-    for (const query of ["(max-width: 760px)", "(min-width: 1051px)"]) {
-      const prefix = query.includes("1051")
-        ? ".community-dashboard-template--player-docked" : ".community-dashboard-template";
-      expect(mediaRuleFor(css, `${prefix} .app-player.audio-player--playable.audio-player--minimized .audio-player__error`, query).getPropertyValue("grid-row")).toBe("5");
-    }
+    expect(mobileRuleFor(css, ".community-dashboard-template .app-player.audio-player--playable.audio-player--minimized .audio-player__error").getPropertyValue("grid-row")).toBe("5");
   });
 
   it("makes the reusable player waveform responsive with a desktop width cap", () => {

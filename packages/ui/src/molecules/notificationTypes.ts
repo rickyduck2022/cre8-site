@@ -14,3 +14,9 @@ export interface UploadProgressState {
   fileName: string;
   progress: number;
 }
+
+export interface UploadResult {
+  id: string;
+  message: string;
+  type: "success" | "error";
+}

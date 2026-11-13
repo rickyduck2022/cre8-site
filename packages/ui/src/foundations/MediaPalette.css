@@ -3,8 +3,29 @@
   --audio-active: var(--media-accent);
 }
 
+.collection-tabs > .filter-tab.window-kind--dialog {
+  --window-tab-border: var(--window-dialog-tab-border);
+  --window-tab-indicator: var(--window-dialog-tab-border);
+  --focus-ring: var(--window-dialog-tab-border);
+}
+
+.collection-tabs.media-kind--dub,
+.collection-tabs > .filter-tab.media-kind--dub,
+.collection-tabs.media-kind--dub > .filter-tab {
+  --window-tab-indicator: var(--audio-dub-active);
+  --focus-ring: var(--audio-dub-active);
+}
+
+.collection-tabs.media-kind--sample,
+.collection-tabs > .filter-tab.media-kind--sample,
+.collection-tabs.media-kind--sample > .filter-tab {
+  --window-tab-indicator: var(--audio-sample-active);
+  --focus-ring: var(--audio-sample-active);
+}
+
 .button--audio,
 .media-kind--dub,
+.media-kind--vocal,
 .media-kind--sample {
   --media-accent-hover: color-mix(in srgb, var(--media-accent, var(--audio-active)) 90%, var(--audio-highlight));
   --media-accent-pressed: color-mix(in srgb, var(--media-accent, var(--audio-active)) 85%, var(--text-on-accent));
@@ -12,11 +33,58 @@
   --media-selection-border: color-mix(in srgb, var(--media-accent) 35%, var(--border-default));
 }
 
+.window-addition.window-addition--dub { --window-addition-variant-accent: var(--audio-dub-active); }
+.window-addition.window-addition--sample { --window-addition-variant-accent: var(--audio-sample-active); }
+.window-addition.window-addition--vocal { --window-addition-variant-accent: var(--audio-vocal-active); }
+.window-addition {
+  --window-addition-variant-accent: var(--action-primary);
+  --window-addition-accent: var(--window-addition-variant-accent, var(--action-primary));
+  --window-addition-shadow: 0 0 0.875rem var(--window-addition-accent);
+}
+.window-addition--mixed {
+  --window-addition-accent: var(--window-addition-mixed-accent, var(--window-addition-variant-accent, var(--action-primary)));
+}
+
+.collection-tabs.media-kind--vocal,
+.collection-tabs > .filter-tab.media-kind--vocal,
+.collection-tabs.media-kind--vocal > .filter-tab {
+  --window-tab-indicator: var(--audio-vocal-active);
+  --focus-ring: var(--audio-vocal-active);
+}
+.media-kind--vocal { --media-accent: var(--audio-vocal-active); }
+.media-kind--sample { --media-accent: var(--audio-sample-active); }
+.media-kind--vocal,
 .media-kind--sample {
-  --media-accent: var(--audio-sample-active);
   --audio-active: var(--media-accent);
   --focus-ring: var(--media-accent);
   --surface-media-section: color-mix(in srgb, var(--media-accent) 10%, var(--surface-canvas));
   --shadow-control-audio: 0 0.125rem 0.375rem rgb(0 0 0 / 25%), 0 0 0.5rem color-mix(in srgb, var(--media-accent) 25%, transparent);
   --shadow-control-audio-hover: 0 0.125rem 0.375rem rgb(0 0 0 / 25%), 0 0 0.75rem color-mix(in srgb, var(--media-accent) 25%, transparent);
+}
+.navigation__section-toggle.button--audio {
+  background: var(--media-accent);
+  border-color: var(--media-accent);
+  color: var(--text-on-accent);
+}
+.navigation__section-toggle.button--audio:hover:not(:disabled) {
+  background: var(--media-accent-hover);
+  border-color: var(--media-accent-hover);
+}
+.navigation__section-toggle.button--audio:active:not(:disabled) {
+  background: var(--media-accent-pressed);
+}
+.navigation .navigation__items--nested .navigation__item[class*="media-kind--"] {
+  background: transparent;
+  border-color: transparent;
+  color: var(--text-secondary);
+}
+.navigation .navigation__items--nested .navigation__item[class*="media-kind--"]:hover,
+.navigation .navigation__items--nested .navigation__item[class*="media-kind--"][aria-current="page"] {
+  background: var(--media-selection-surface);
+  border-color: var(--media-selection-border);
+  color: var(--media-accent);
+}
+.navigation .navigation__items--nested .navigation__item[class*="media-kind--"] .navigation__badge {
+  background: var(--surface-control);
+  color: var(--text-secondary);
 }

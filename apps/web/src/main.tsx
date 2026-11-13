@@ -5,11 +5,16 @@ import "@craft/ui/styles.css";
 import { App } from "./App";
 import { PwaStatusProvider } from "./components/PwaStatus";
 import { registerSW } from "virtual:pwa-register";
+import { initializeTheme, ThemeProvider } from "@craft/ui";
+
+initializeTheme();
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    <PwaStatusProvider register={registerSW}>
-      {(status) => <App appStatus={status} />}
-    </PwaStatusProvider>
+    <ThemeProvider>
+      <PwaStatusProvider register={registerSW}>
+        {(status) => <App appStatus={status} />}
+      </PwaStatusProvider>
+    </ThemeProvider>
   </React.StrictMode>,
 );

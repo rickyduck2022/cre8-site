@@ -35,7 +35,7 @@ export function FriendDiscovery({
           <p>{description}</p>
         </div>
       </header>
-      <ul className="friend-discovery__list">
+      <ul className="friend-discovery__list" ref={pagination.listRef}>
         {pagination.items.map((friend) => (
           <li key={friend.name}>
             <SuggestedFriend {...friend} />

@@ -21,13 +21,17 @@
 }
 
 .dub-card--alist,
+.dub-pack-statistics--alist,
 .dub-card--alist .media-kind--dub,
 .dub-card--alist .media-kind--sample,
+.dub-card--alist .media-kind--vocal,
 .pack-view--alist,
 .pack-view--alist .media-kind--dub,
 .pack-view--alist .media-kind--sample,
+.pack-view--alist .media-kind--vocal,
 .audio-player--alist .media-kind--dub,
 .audio-player--alist .media-kind--sample,
+.audio-player--alist .media-kind--vocal,
 .organism-card.audio-player.audio-player--alist {
   --media-accent: var(--release-alist-accent);
   --audio-active: var(--release-alist-accent);

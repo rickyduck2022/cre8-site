@@ -1,0 +1,7 @@
+.preview-notice { background: var(--surface-raised); border: 1px solid var(--border-default); border-radius: var(--radius-md); display: grid; gap: var(--spacing-2); min-width: 0; padding: var(--spacing-3); }
+.preview-notice > strong { color: var(--text-primary); font-size: var(--type-size-body); }
+.preview-notice p { color: var(--text-secondary); font-size: var(--type-size-label); line-height: 1.5; margin: 0; }
+.preview-notice dl { display: flex; flex-wrap: wrap; gap: var(--spacing-2) var(--spacing-4); margin: 0; }
+.preview-notice dl > div { min-width: 0; }
+.preview-notice dt { color: var(--text-secondary); font-size: var(--type-size-caption); }
+.preview-notice dd { color: var(--text-primary); font-size: var(--type-size-label); margin: 0; }

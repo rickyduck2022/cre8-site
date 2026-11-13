@@ -34,3 +34,5 @@ export * from "./DubActionsMenu/DubActionsMenu";
 export * from "./TrackFileMetadata/TrackFileMetadata";
 export * from "./PackPlaybackButton/PackPlaybackButton";
 export * from "./CardActions/CardActions";
+export * from "./CollectionTabs/CollectionTabs";
+export * from "./PreviewNotice/PreviewNotice";

@@ -18,6 +18,7 @@ export const themeColors = {
   green: {
     400: "#4DD89A",
   },
+  violet: { 400: "#B49AFF" },
   blue: {
     500: "#4285F4",
   },
@@ -26,11 +27,18 @@ export const themeColors = {
 export type ThemeColors = typeof themeColors;
 
 export const semanticTokens = {
+  tutorial: {
+    "outline-gradient": "linear-gradient(120deg, var(--action-primary), var(--audio-dub-active), var(--audio-sample-active), var(--audio-vocal-active), var(--action-primary))",
+    "panel-outline-gradient": "linear-gradient(120deg, color-mix(in srgb, var(--action-primary) 40%, var(--surface-raised)), color-mix(in srgb, var(--audio-dub-active) 40%, var(--surface-raised)), color-mix(in srgb, var(--audio-sample-active) 40%, var(--surface-raised)), color-mix(in srgb, var(--audio-vocal-active) 40%, var(--surface-raised)), color-mix(in srgb, var(--action-primary) 40%, var(--surface-raised)))",
+  },
+  brand: { "mark-filter": "none" },
   surface: {
     canvas: "var(--color-neutral-950)",
     raised: "var(--color-neutral-900)",
     control: "var(--color-neutral-800)",
+    frosted: "color-mix(in srgb, var(--surface-raised) 88%, transparent)",
   },
+  overlay: { modal: "rgb(5 8 12 / 78%)", blur: "0.25rem" },
   border: {
     default: "var(--color-neutral-700)",
   },
@@ -43,9 +51,9 @@ export const semanticTokens = {
     "panel-shadow": "inset 0 1px var(--vault-panel-highlight), inset 0 -1px var(--vault-rail-surface), var(--shadow-card)",
   },
   window: {
-    border: "var(--color-neutral-950)",
+    border: "var(--border-default)",
     header: "var(--surface-canvas)",
-    "header-active": "color-mix(in srgb, var(--color-blue-500) 18%, var(--surface-canvas))",
+    "header-active": "var(--surface-control)",
     indicator: "var(--color-cyan-400)",
     focus: "color-mix(in srgb, var(--color-blue-500) 65%, var(--surface-canvas))",
     shadow: "0 0.75rem 1.5rem rgb(0 0 0 / 55%), 0 1.5rem 3.5rem rgb(0 0 0 / 60%)",
@@ -55,6 +63,39 @@ export const semanticTokens = {
     "tab-hover": "var(--surface-control)",
     "tab-border": "var(--border-default)",
     "tab-indicator": "var(--focus-ring)",
+    "dialog-tab-border": "var(--text-primary)",
+    "highlight-surface": "var(--surface-control)",
+    "highlight-border": "var(--action-primary)",
+    "addition-accent": "var(--action-primary)",
+    "addition-mixed-accent": "initial",
+    "addition-shadow": "0 0 0.875rem var(--window-addition-accent)",
+    "dock-surface": "color-mix(in srgb, var(--surface-canvas) 88%, transparent)",
+    "preview-opacity": "0.5",
+    "manager-current-accent": "var(--text-primary)",
+    "manager-explorer-accent": "color-mix(in srgb, var(--text-primary) 55%, var(--text-secondary))",
+    "manager-canvas": "var(--color-neutral-800)",
+    "manager-surface": "var(--color-neutral-700)",
+    "manager-control": "color-mix(in srgb, var(--color-neutral-700) 90%, var(--color-neutral-50))",
+    "manager-border": "color-mix(in srgb, var(--color-neutral-700) 65%, var(--color-neutral-50))",
+    "manager-text": "var(--color-neutral-50)",
+    "manager-selection-surface": "var(--color-neutral-950)",
+    "manager-selection-hover": "var(--color-neutral-900)",
+    "manager-selection-text": "var(--color-neutral-50)",
+    "manager-media-text": "var(--color-neutral-50)",
+    "restore-accent": "var(--color-neutral-700)",
+    "restore-surface": "var(--window-manager-canvas)",
+    "restore-open-surface": "color-mix(in srgb, var(--window-restore-accent) 35%, var(--color-neutral-950))",
+    "restore-focused-surface": "color-mix(in srgb, var(--window-restore-accent) 18%, var(--color-neutral-950))",
+    "restore-hover-surface": "color-mix(in srgb, var(--window-restore-accent) 28%, var(--color-neutral-950))",
+    "restore-text": "var(--color-neutral-50)",
+    "manager-sample-muted": "color-mix(in srgb, var(--audio-sample-active) 22%, var(--window-manager-canvas))",
+    "manager-vocal-muted": "color-mix(in srgb, var(--audio-vocal-active) 22%, var(--window-manager-canvas))",
+    "manager-vocal-open": "color-mix(in srgb, var(--audio-vocal-active) 30%, var(--window-manager-canvas))",
+    "manager-dub-muted": "color-mix(in srgb, var(--audio-dub-active) 22%, var(--window-manager-canvas))",
+    "manager-sample-open": "color-mix(in srgb, var(--audio-sample-active) 30%, var(--window-manager-canvas))",
+    "manager-dub-open": "color-mix(in srgb, var(--audio-dub-active) 30%, var(--window-manager-canvas))",
+    "manager-other-muted": "var(--color-neutral-900)",
+    "manager-muted": "color-mix(in srgb, var(--color-neutral-50) 80%, var(--color-neutral-400))",
   },
   text: {
     primary: "var(--color-neutral-50)",
@@ -71,6 +112,7 @@ export const semanticTokens = {
     highlight: "var(--color-neutral-50)",
     "dub-active": "var(--color-cyan-400)",
     "sample-active": "var(--color-green-400)",
+    "vocal-active": "var(--color-violet-400)",
     inactive: "var(--color-neutral-700)",
   },
   focus: {
@@ -102,11 +144,45 @@ export const semanticTokens = {
 
 export type SemanticTokens = typeof semanticTokens;
 
+export const lightThemeTokens = {
+  brand: { "mark-filter": "invert(1)" },
+  surface: {
+    canvas: "var(--surface-inverse)",
+    raised: "var(--surface-inverse-raised)",
+    control: "var(--surface-inverse-control)",
+    "media-section": "color-mix(in srgb, var(--color-blue-500) 8%, var(--surface-inverse))",
+  },
+  border: { default: "var(--border-inverse)" },
+  text: { primary: "var(--text-inverse)", secondary: "var(--text-inverse-secondary)" },
+  focus: { ring: "var(--audio-inverse-active)" },
+  link: { default: "color-mix(in srgb, var(--color-blue-500) 65%, var(--text-inverse))" },
+  status: { error: "var(--status-inverse-error)" },
+  window: {
+    shadow: "0 0.75rem 1.5rem rgb(0 0 0 / 12%), 0 1.5rem 3.5rem rgb(0 0 0 / 10%)",
+    "shadow-active": "0 1rem 2rem rgb(0 0 0 / 18%), 0 2rem 5rem rgb(0 0 0 / 15%)",
+  },
+  shadow: {
+    card: "0 0.125rem 0.375rem rgb(0 0 0 / 8%), 0 0.5rem 1rem rgb(0 0 0 / 6%)",
+    floating: "0 0.25rem 0.5rem rgb(0 0 0 / 12%), 0 0.75rem 2rem rgb(0 0 0 / 15%)",
+    input: "inset 0 1px 3px rgb(0 0 0 / 10%)",
+    "media-inset": "inset 0 1px 3px rgb(0 0 0 / 8%)",
+    control: "0 1px 3px rgb(0 0 0 / 12%)",
+  },
+  color: {
+    background: "var(--surface-inverse)",
+    surface: "var(--surface-inverse-raised)",
+    text: "var(--text-inverse)",
+    muted: "var(--text-inverse-secondary)",
+    border: "var(--border-inverse)",
+  },
+} as const;
+
 export const layers = {
   "snap-preview": 99,
   "mini-player": 100,
   windows: 110,
   popover: 120,
+  modal: 200,
   notification: 1000,
 } as const;
 

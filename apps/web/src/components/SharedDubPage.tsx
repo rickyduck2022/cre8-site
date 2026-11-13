@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { AudioPlayer, Button, TrackArtwork, type Dub } from "@craft/ui";
+import { AudioPlayer, Button, PreviewNotice, TrackArtwork, type Dub } from "@craft/ui";
 import { Download } from "@craft/icons";
 import { useAudioPlayback } from "../hooks/useAudioPlayback";
 import { downloadDubFile, DownloadSignInRequired } from "../services/downloadDubFile";
@@ -78,13 +78,14 @@ export function SharedDubPage({ dubId }: { dubId: string }) {
   }
 
   const track = result?.dub;
+  const noun = track?.mediaKind === "vocal" ? "vocal" : track?.mediaKind === "sample" ? "sample" : "dub";
   return (
     <main className="shared-dub-page">
       <header className="shared-dub-page__brand">
         <a href="/"><img src="/cre8-main-logo.png" alt="cre8" /></a>
-        <span>Shared from the Dub Vault</span>
+        <span>Shared from the {track?.mediaKind === "vocal" ? "Vocal" : track?.mediaKind === "sample" ? "Sample" : "Dub"} Vault</span>
       </header>
-      <section className="shared-dub-page__card" aria-label="Shared dub">
+      <section className="shared-dub-page__card" aria-label={`Shared ${noun}`}>
         {loading ? <p role="status">Loading shared dub...</p> : loadError ? (
           <>
             <h1>Dub unavailable</h1>
@@ -99,11 +100,13 @@ export function SharedDubPage({ dubId }: { dubId: string }) {
               <h1>{track.title}</h1>
               <p>{track.artist}</p>
             </div>
+            {!result.authenticated && <PreviewNotice seconds={track.previewSeconds ?? 30} />}
             <AudioPlayer
               className="shared-dub-page__player"
               colorVariant="controller"
               mediaKind={track.mediaKind}
               transportVariant="minimal"
+              contextLabel={result.authenticated ? "Full-quality audio" : "Preview playback"}
               distribution={track.distribution}
               track={{ title: track.title, artist: track.artist, duration: track.duration }}
               playing={playback.state.isPlaying}
@@ -116,16 +119,13 @@ export function SharedDubPage({ dubId }: { dubId: string }) {
               onVolumeChange={playback.setVolume}
             />
             {actionError && <p className="shared-dub-page__error" role="alert">{actionError}</p>}
-            <Button disabled={downloadPending} loading={downloadPending} leadingIcon={<Download aria-hidden="true" />} onClick={() => void download()}>
-              {result.authenticated ? "Download dub" : "Sign in to download"}
-            </Button>
-            {!result.authenticated && (
-              <>
-                <p className="shared-dub-page__hint">{track.previewSeconds ?? 30}-second preview. Sign in to hear the full dub.</p>
-                <Button variant="secondary" onClick={signIn}>Sign in to listen in full</Button>
-              </>
-            )}
+            {result.authenticated ? <Button disabled={downloadPending} loading={downloadPending} leadingIcon={<Download aria-hidden="true" />} onClick={() => void download()}>Download {noun}</Button>
+              : <div className="shared-dub-page__actions">
+                <Button onClick={signIn}>Sign in to listen in full</Button>
+                <Button variant="secondary" leadingIcon={<Download aria-hidden="true" />} onClick={signIn}>Sign in to download</Button>
+              </div>}
             <p className="shared-dub-page__hint">Downloads require a cre8 account and count as a like.</p>
+            {track.mediaKind !== "dub" && track.mediaKind && <p className="shared-dub-page__hint">Download access does not grant reuse rights. Check the creator's licence before using this file in a production.</p>}
             {downloadComplete && <p role="status">Download started. Your like is counted once.</p>}
           </>
         )}

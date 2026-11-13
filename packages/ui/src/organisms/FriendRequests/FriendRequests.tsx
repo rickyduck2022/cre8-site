@@ -38,7 +38,7 @@ export function FriendRequests({
           {requests.length}
         </span>
       </header>
-      <ul className="friend-requests__list">
+      <ul className="friend-requests__list" ref={pagination.listRef}>
         {pagination.items.map((request) => (
           <li key={request.name}>
             <FriendRequest {...request} />

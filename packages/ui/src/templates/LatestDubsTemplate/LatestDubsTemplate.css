@@ -2,6 +2,27 @@
   display: grid;
   gap: 1.25rem;
   min-width: 0;
+  container-type: inline-size;
+  container-name: vault-collection;
+}
+
+.latest-dubs-template__results { display: grid; gap: 1.25rem; min-width: 0; }
+.latest-dubs-template__results > .feed-list { min-height: var(--dub-search-results-min-height, 0px); }
+.vault-browse-controls {
+  background: var(--surface-canvas);
+  display: grid;
+  gap: 1.25rem;
+  min-width: 0;
+  position: sticky;
+  top: 0;
+  z-index: 5;
+}
+.vault-browse-controls > .dub-search-toolbar--vault { position: static; }
+.feed-list.vault-pack-grid { align-items: start; grid-template-columns: minmax(0, 1fr); }
+.vault-pack-grid > .empty-state,
+.vault-pack-grid > .latest-dubs-template__loading { grid-column: 1 / -1; }
+@container vault-collection (min-width: 54rem) {
+  .feed-list.vault-pack-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 .latest-dubs-template__title {
@@ -52,6 +73,28 @@
     justify-self: start;
   }
 }
+@media (max-width: 760px) {
+  .latest-dubs-template--vault { row-gap: 0.75rem; }
+  .latest-dubs-template--vault .vault-collection-heading h1 { margin: 0; }
+  .latest-dubs-template--vault .vault-collection-heading .vault-label,
+  .latest-dubs-template--vault .vault-collection-heading__detail,
+  .latest-dubs-template--vault > .page-intro > .badge,
+  .latest-dubs-template--vault > .page-intro .vault-label,
+  .latest-dubs-template--vault > .page-intro p,
+  .latest-dubs-template--vault > .page-intro img { display: none; }
+  .latest-dubs-template--vault > .page-intro { display: block; margin: 0; padding: 0; }
+  .vault-browse-controls { align-items: end; gap: 0; grid-template-columns: minmax(0, 1fr) auto; position: static; }
+  .vault-browse-controls > .vault-view-switch { grid-column: 1; grid-row: 1; }
+  .vault-view-switch > .filter-tab { flex: 1 1 0; max-width: none; text-align: center; }
+  .vault-browse-controls > .dub-search-toolbar--vault { display: contents; }
+  .dub-search-toolbar--vault > .dub-search-toolbar__content { grid-column: 1 / -1; grid-row: 2; padding: 0.75rem 0; }
+  .collection-header .dub-search-toolbar--vault > .dub-search-toolbar__content { box-sizing: border-box; max-height: min(30dvh, 15rem); overflow-y: auto; overscroll-behavior: contain; }
+  .dub-search-toolbar--vault > .dub-search-toolbar__content[hidden] { display: none; }
+  .dub-search-toolbar--vault > .dub-search-toolbar__vault-toggle { display: inline-flex; grid-column: 2; grid-row: 1; min-height: 2.75rem; min-width: 2.75rem; padding: 0.5rem; position: relative; }
+  .dub-search-toolbar__active-count { font-size: var(--type-size-caption); }
+  .dub-search-toolbar__error { grid-column: 1 / -1; margin: 0.5rem 0; color: var(--text-secondary); }
+}
+.dub-search-toolbar__vault-toggle { display: none; }
 .latest-dubs-template__priority {
   color: var(--text-secondary);
   font-size: var(--type-size-compact);

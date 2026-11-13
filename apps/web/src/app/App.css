@@ -21,6 +21,7 @@
 }
 
 .app-login__logo {
+  filter: var(--brand-mark-filter);
   display: block;
   height: auto;
   margin: 0 auto 1.25rem;
@@ -154,4 +155,22 @@
 .app-published-dub p {
   flex: 1 1 16rem;
   margin: 0;
+}
+.owned-media { display: grid; gap: var(--spacing-3); min-width: 0; }
+.owned-media__create { align-items: center; background: var(--surface-raised); border: 1px solid var(--border-default); border-radius: var(--radius-md); display: flex; flex-wrap: wrap; gap: var(--spacing-3); padding: var(--spacing-4); }
+.owned-media__create-copy { flex: 1 1 16rem; min-width: 0; }
+.owned-media__create-copy > strong { display: block; font-size: var(--type-size-body); margin-bottom: var(--spacing-1); }
+.owned-media__create-copy p, .owned-media__hint { color: var(--text-secondary); font-size: var(--type-size-label); margin: 0; }
+.owned-media__hint { flex-basis: 100%; }
+.owned-media__actions { display: flex; flex: 0 1 auto; flex-wrap: wrap; gap: var(--spacing-2); }
+.owned-media__actions > .button { flex: 1 1 auto; min-height: 2.75rem; }
+.owned-media__filter, .upload-choices label { display: grid; font-size: var(--type-size-label); gap: var(--spacing-1); min-width: 0; }
+.owned-media__filter { max-width: 20rem; }
+.owned-media__filter select, .upload-choices select { background: var(--surface-control); border: 1px solid var(--border-default); border-radius: var(--radius-sm); color: var(--text-primary); font: inherit; font-size: max(16px, 1em); min-height: 2.75rem; padding: var(--spacing-2); width: 100%; }
+.upload-choices { border: 1px solid var(--border-default); border-radius: var(--radius-sm); display: grid; gap: var(--spacing-2); grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 0 0 var(--spacing-3); min-width: 0; padding: var(--spacing-3); }
+.upload-choices legend { font-size: var(--type-size-label); padding-inline: var(--spacing-1); }
+.upload-choices p { color: var(--text-secondary); font-size: var(--type-size-label); grid-column: 1 / -1; margin: 0; }
+@media (max-width: 480px) {
+  .owned-media__actions { flex-basis: 100%; }
+  .upload-choices { grid-template-columns: minmax(0, 1fr); }
 }

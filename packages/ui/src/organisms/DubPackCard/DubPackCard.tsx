@@ -1,5 +1,5 @@
 import { useId, useState } from "react";
-import { AudioLines, ChevronDown, MessageCircle } from "@craft/icons";
+import { AudioLines, ChevronDown, Folder, MessageCircle, Microphone } from "@craft/icons";
 import { Badge } from "../../atoms/Badge/Badge";
 import { Button } from "../../atoms/Button/Button";
 import { TrackArtwork } from "../../molecules/TrackArtwork/TrackArtwork";
@@ -8,13 +8,14 @@ import { CardActions } from "../../molecules/CardActions/CardActions";
 import { useAsyncSubmission } from "../../utils/useAsyncSubmission";
 import { DubCard, type DubCardProps } from "../DubCard/DubCard";
 import { PackPlaylist, type PackQueueControls } from "./PackPlaylist";
+import { PackEditorActions } from "./PackEditorActions";
 import type { Dub, DubPack } from "../../types/domain";
 import "./DubPackCard.css";
 
 export type { DubPack } from "../../types/domain";
 
 export function packTypeLabel(kind: DubPack["kind"]) {
-  return kind === "sample" ? "Sample Pack" : "Dub Pack";
+  return kind === "vocal" ? "Vocal Pack" : kind === "sample" ? "Sample Pack" : "Dub Pack";
 }
 
 export function packAudience(pack: Pick<DubPack, "distribution" | "aListPublic">) {
@@ -23,7 +24,7 @@ export function packAudience(pack: Pick<DubPack, "distribution" | "aListPublic">
 }
 
 export function packFileCount(kind: DubPack["kind"], count: number) {
-  const noun = kind === "sample" ? "sample" : "track";
+  const noun = kind === "vocal" ? "vocal" : kind === "sample" ? "sample" : "track";
   return `${count} ${noun}${count === 1 ? "" : "s"}`;
 }
 
@@ -31,7 +32,7 @@ export function packSize(bytes: number) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-export function DubPackIdentity({ pack, compact = false, onEdit }: { pack: DubPack; compact?: boolean; onEdit?: () => void }) {
+export function DubPackIdentity({ pack, compact = false, preview = false, onEdit }: { pack: DubPack; compact?: boolean; preview?: boolean; onEdit?: () => void }) {
   const seconds = pack.items.reduce((total, { dub }) => {
     const [minutes, seconds] = dub.duration.split(":").map(Number);
     return total + (Number.isFinite(minutes + seconds) ? minutes * 60 + seconds : 0);
@@ -41,7 +42,7 @@ export function DubPackIdentity({ pack, compact = false, onEdit }: { pack: DubPa
     <div className="pack-artwork">
       {pack.artworkUrl ? <img src={pack.artworkUrl} alt="" />
         : pack.items[0] ? <TrackArtwork dub={pack.items[0].dub} large />
-          : <AudioLines aria-hidden="true" />}
+          : pack.kind === "vocal" ? <Microphone aria-hidden="true" /> : <AudioLines aria-hidden="true" />}
     </div>
     <div className="pack-identity__details">
       <div className="pack-badges">
@@ -51,7 +52,7 @@ export function DubPackIdentity({ pack, compact = false, onEdit }: { pack: DubPa
       </div>
       <Heading>{pack.title}</Heading>
       <p className="pack-muted">{pack.ownerDisplayName}</p>
-      <p className="pack-muted">{packFileCount(pack.kind, pack.items.length)} · {Math.floor(seconds / 60)}:{String(seconds % 60).padStart(2, "0")} · {packSize(pack.totalBytes)}</p>
+      <p className="pack-muted">{packFileCount(pack.kind, pack.items.length)} · {Math.floor(seconds / 60)}:{String(seconds % 60).padStart(2, "0")}{preview ? " of previews" : ""} · {packSize(pack.totalBytes)}{preview ? " full download" : ""}</p>
       {!compact && pack.description && <p className="pack-description">{pack.description}</p>}
       {onEdit && <div className="pack-identity__edit"><Button size="small" variant="secondary" onClick={onEdit}>Edit pack</Button></div>}
     </div>
@@ -69,13 +70,15 @@ export interface DubPackCardProps extends PackQueueControls, Pick<DubCardProps,
   onSharePack?: (pack: DubPack) => void;
   onOpenPack: (pack: DubPack) => void;
   onEditPack?: (pack: DubPack) => void;
+  onDeletePack?: (pack: DubPack) => Promise<void>;
   currentUsername?: string;
   onDownloadPack?: (pack: DubPack) => Promise<void>;
   matchingDubIds?: Set<string>;
+  layout?: "list" | "grid";
 }
 
 export function DubPackCard({
-  pack, nowPlayingId, isPlaying, activePackId, likedDubIds, onPlayAll, onOpenPack, onEditPack, currentUsername, onDownloadPack, onSharePack, matchingDubIds, ...playback
+  pack, nowPlayingId, isPlaying, activePackId, likedDubIds, onPlayAll, onOpenPack, onEditPack, onDeletePack, currentUsername, onDownloadPack, onSharePack, matchingDubIds, layout = "list", ...playback
 }: DubPackCardProps) {
   const [expanded, setExpanded] = useState(false);
   const playlistId = useId();
@@ -89,9 +92,9 @@ export function DubPackCard({
   function withinPack(action: () => void) {
     if (!disabled && playback.onActivateQueue?.(tracks, pack.id) !== false) action();
   }
-  return <DubCard variant="collection" mediaKind={pack.kind} distribution={pack.distribution} className={`dub-pack-card${playing ? " dub-pack-card--current" : ""}`}
+  return <DubCard variant="collection" mediaKind={pack.kind} distribution={pack.distribution} className={`dub-pack-card${layout === "grid" ? " dub-pack-card--grid" : ""}${playing ? " dub-pack-card--current" : ""}`}
     label={`${packTypeLabel(pack.kind)}: ${pack.title}`} isCurrentTrack={playing}
-    header={<DubPackIdentity pack={pack} compact onEdit={onEditPack && currentUsername === pack.ownerUsername ? () => onEditPack(pack) : undefined} />}
+    header={<DubPackIdentity pack={pack} compact />}
     playbackLabel={`${pack.title} playback controls`} playbackDisabled={disabled}
     player={track ? {
       track: {
@@ -116,18 +119,27 @@ export function DubPackCard({
       onSeek: playback.onSeek ? (time) => withinPack(() => playback.onSeek?.(time, track)) : undefined,
       onSeekProgress: playback.onSeekProgress ? (progress) => withinPack(() => playback.onSeekProgress?.(progress, track)) : undefined,
     } : undefined}
-    actions={<CardActions title={pack.title} className="dub-pack-card__actions">
-      <PackPlaybackButton kind={pack.kind} playing={playing && isPlaying} size="small" disabled={disabled}
-        onClick={() => withinPack(() => current ? playback.onPlay(current) : onPlayAll(tracks, pack.id))} />
+    actions={<div className="dub-pack-card__action-groups">
+      <PackPlaybackButton kind={pack.kind} playing={playing && isPlaying} size="small" disabled={disabled} fullWidth
+        onClick={() => withinPack(() => {
+          if (!playing || !isPlaying) setExpanded(true);
+          if (current) playback.onPlay(current);
+          else onPlayAll(tracks, pack.id);
+        })} />
+      <CardActions title={pack.title} label="Pack actions" className="dub-pack-card__actions" layout={layout === "grid" ? "grid" : "row"}>
       <Button size="small" variant={expanded ? "audio" : "secondary"} className={`dub-pack-card__toggle media-kind--${pack.kind}`}
         aria-expanded={expanded} aria-controls={playlistId} onClick={() => setExpanded(!expanded)}
         leadingIcon={<ChevronDown aria-hidden="true" />}>{expanded ? "Hide playlist" : `Show ${packFileCount(pack.kind, pack.items.length)}`}</Button>
       {onDownloadPack && <Button size="small" variant="secondary" disabled={disabled || download.pending} loading={download.pending}
         onClick={() => void download.run(() => onDownloadPack(pack))}>Download ZIP</Button>}
-      {onSharePack && <Button size="small" variant="secondary" disabled={disabled} leadingIcon={<MessageCircle aria-hidden="true" />}
+      {onSharePack && <Button size="small" variant="primary" disabled={disabled} leadingIcon={<MessageCircle aria-hidden="true" />}
         onClick={() => onSharePack(pack)}>Share pack</Button>}
-      <Button size="small" variant="primary" onClick={() => onOpenPack(pack)}>Open pack</Button>
-    </CardActions>}>
+      <Button size="small" variant="primary" leadingIcon={<Folder aria-hidden="true" />} onClick={() => onOpenPack(pack)}>Open pack</Button>
+      </CardActions>
+      {currentUsername === pack.ownerUsername && <PackEditorActions title={pack.title}
+        onEdit={onEditPack ? () => onEditPack(pack) : undefined}
+        onDelete={onDeletePack ? () => onDeletePack(pack) : undefined} />}
+    </div>}>
     {track && <p className="pack-muted dub-pack-card__queue-hint">This pack only · Loop repeats the playlist</p>}
     {playing && <p className="dub-pack-card__status" role="status">{isPlaying ? "Now playing from this pack" : "Pack playback paused"}</p>}
     {download.error && <p className="dub-pack-card__error" role="alert">{download.error}</p>}

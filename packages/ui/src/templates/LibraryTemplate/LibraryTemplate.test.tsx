@@ -27,7 +27,7 @@ describe("LibraryTemplate", () => {
     expect(screen.getByText(/^Downloaded /)).toHaveAttribute("datetime", "2026-11-02T12:00:00Z");
     expect(screen.queryByRole("region", { name: "Audio player: Sunrise" })).not.toBeInTheDocument();
     fireEvent.change(screen.getByRole("searchbox", { name: /Search tracks/ }), { target: { value: "missing" } });
-    expect(screen.getByText("No downloaded dubs match your filters")).toBeVisible();
+    expect(screen.getByText("No downloaded files match your filters")).toBeVisible();
     fireEvent.click(screen.getByRole("button", { name: /Filters/ }));
     fireEvent.click(screen.getByRole("button", { name: "Clear search" }));
     expect(screen.getByRole("region", { name: "Audio player: Sunrise" })).toBeVisible();
@@ -65,7 +65,7 @@ describe("LibraryTemplate", () => {
     const onDownload = vi.fn();
     render(<LibraryTemplate downloads={history} onDownload={onDownload} onPlay={vi.fn()} />);
     expect(screen.getAllByRole("region", { name: "Audio player: Night Drive" })).toHaveLength(1);
-    expect(screen.getByText("1 dub")).toBeInTheDocument();
+    expect(screen.getByText("1 file")).toBeInTheDocument();
     expect(screen.getByText(/^Downloaded /)).toHaveAttribute("datetime", "2026-11-04T12:00:00Z");
     fireEvent.click(screen.getByRole("button", { name: "Download again" }));
     expect(onDownload).toHaveBeenCalledWith(dub);

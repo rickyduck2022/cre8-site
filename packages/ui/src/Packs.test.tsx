@@ -3,6 +3,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { PackEditor } from "../../../apps/web/src/components/PackEditor";
 import { PackView } from "../../../apps/web/src/components/PackView";
 import { PackWorkspace } from "../../../apps/web/src/components/PackWorkspace";
+import { PackWindows } from "../../../apps/web/src/components/PackWindows";
+import { Workspace } from "@craft/ui";
 import type { Pack } from "../../../apps/web/src/services/packs";
 
 const mocks = vi.hoisted(() => ({ request: vi.fn(), upload: vi.fn(), duration: vi.fn(), download: vi.fn() }));
@@ -29,7 +31,7 @@ const editorProps = { pack, dubs: [dub], artists, approved: true, onSaved: vi.fn
 const playback = { nowPlayingId: null, isPlaying: false, currentTime: 0, duration: 0, volume: 0.7, playbackError: null };
 afterEach(() => { cleanup(); vi.clearAllMocks(); vi.unstubAllGlobals(); });
 
-it.each(["sample", "dub"] as const)("scopes the owned %s workspace and creates that pack type", async (mediaKind) => {
+it.each(["sample", "dub", "vocal"] as const)("scopes the owned %s workspace and creates that pack type", async (mediaKind) => {
   const owned = { ...pack, kind: mediaKind, title: "Owned release" };
   mocks.request.mockImplementation(async (_path: string, method: string) => method === "POST"
     ? { pack: { ...owned, id: "new", title: "Untitled pack" } }
@@ -40,16 +42,171 @@ it.each(["sample", "dub"] as const)("scopes the owned %s workspace and creates t
     onDownloadDub={vi.fn()} onCommunityChange={vi.fn()} />);
   expect(await screen.findByText("Owned release", { exact: true })).toBeVisible();
   expect(screen.getByText("Release archive")).toBeVisible();
-  expect(screen.getByRole("heading", { name: mediaKind === "sample" ? "Your Sample Packs" : "Your Dub Packs" })).toBeVisible();
+  expect(screen.getByRole("heading", { name: mediaKind === "vocal" ? "Your Vocal Packs" : mediaKind === "sample" ? "Your Sample Packs" : "Your Dub Packs" })).toBeVisible();
   expect(screen.queryByText("Other kind")).not.toBeInTheDocument();
   expect(screen.queryByText("Other owner")).not.toBeInTheDocument();
   expect(screen.queryByRole("combobox", { name: "Pack type filter" })).not.toBeInTheDocument();
-  fireEvent.click(screen.getByRole("button", { name: "Create pack" }));
+  expect(screen.getByRole("button", { name: "Open pack", exact: true })).toHaveClass("button--primary");
+  expect(screen.getByRole("button", { name: "Open pack" }).querySelector("svg")).not.toBeNull();
+  expect(screen.getByRole("button", { name: "Play pack" })).toHaveStyle({ width: "100%" });
+  fireEvent.click(screen.getByRole("button", { name: "Add Pack" }));
   await waitFor(() => expect(mocks.request).toHaveBeenCalledWith("/api/packs", "POST", expect.objectContaining({ kind: mediaKind })));
   expect(await screen.findByLabelText("Pack type")).toHaveValue(mediaKind);
 });
 
 describe("Pack editor", () => {
+  it.each(["dub", "sample", "vocal"] as const)("limits the %s existing-file picker to compatible media", (kind) => {
+    const files = (["dub", "sample", "vocal"] as const).map((mediaKind) => ({ ...dub, id: mediaKind, title: `${mediaKind} file`, mediaKind }));
+    render(<PackEditor {...editorProps} pack={{ ...pack, kind, licence: "Original works.", items: [] }} dubs={files} />);
+    fireEvent.click(screen.getByRole("button", { name: "2. Add files" }));
+    for (const file of files) {
+      const compatible = kind === "sample" ? file.mediaKind !== "dub" : kind === file.mediaKind;
+      const option = screen.getByRole("checkbox", { name: new RegExp(file.title) });
+      if (compatible) expect(option).toBeEnabled();
+      else expect(option).toBeDisabled();
+    }
+  });
+
+  it("allows removing an incompatible selection after changing pack type and blocks saving it", async () => {
+    const sample = { ...dub, mediaKind: "sample" as const };
+    mocks.request.mockResolvedValue({ pack: { ...pack, kind: "vocal", items: [] } });
+    render(<PackEditor {...editorProps} pack={{ ...pack, kind: "sample", licence: "Original works.", items: [{ dub: sample }] }} dubs={[sample]} />);
+    fireEvent.change(screen.getByLabelText("Pack type"), { target: { value: "vocal" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save draft" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("incompatible media type");
+    expect(mocks.request).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "2. Add files" }));
+    const selected = screen.getByRole("checkbox", { name: /Night Drive/ });
+    expect(selected).toBeEnabled();
+    fireEvent.click(selected);
+    fireEvent.click(screen.getByRole("button", { name: "Save draft" }));
+    await waitFor(() => expect(mocks.request).toHaveBeenCalledWith("/api/packs/pack", "PATCH", expect.objectContaining({ kind: "vocal", dubIds: [] })));
+  });
+
+  it.each(["dub", "sample", "vocal"] as const)("uploads directly inside an owned %s pack window without replacing it", async (kind) => {
+    HTMLDialogElement.prototype.show = function () { this.open = true; };
+    HTMLDialogElement.prototype.showModal = function () { this.open = true; };
+    HTMLDialogElement.prototype.close = function () { this.open = false; };
+    const typedDub = { ...dub, mediaKind: kind };
+    const published = { ...pack, kind, items: [{ dub: typedDub }], status: "published" as const, licence: kind !== "dub" ? "Use in your own productions." : "" };
+    const uploaded = { ...published, items: [...published.items, { dub: { ...dub, id: "new", title: "New" } }] };
+    let finish!: (value: { uploadId: string }) => void;
+    mocks.duration.mockResolvedValue(60);
+    mocks.upload.mockImplementationOnce(() => new Promise((resolve) => { finish = resolve; }));
+    mocks.request.mockImplementation(async (path: string) => ({ pack: path.endsWith("/tracks") ? uploaded : published }));
+    const close = vi.fn(); const externalEdit = vi.fn(); const refresh = vi.fn().mockResolvedValue(undefined);
+    render(<Workspace><PackWindows withinLayer windows={[{ pack: published, openRequest: 0 }]} stack={[pack.id]} username="amber"
+      editor={{ dubs: [typedDub], artists, approved: true }} authenticated playback={playback} onPlay={vi.fn()} onPlayAll={vi.fn()}
+      onSeek={vi.fn()} onVolume={vi.fn()} onDownloadDub={vi.fn()} onCommunityChange={refresh}
+      onActivate={vi.fn()} onClose={close} onEdit={externalEdit} /></Workspace>);
+    const name = `${kind === "vocal" ? "Vocal" : kind === "sample" ? "Sample" : "Dub"} Pack: ${pack.title}`;
+    const window = screen.getByRole("dialog", { name });
+    fireEvent.click(within(window).getByRole("button", { name: "Edit pack" }));
+    await within(window).findByLabelText("Pack title");
+    expect(screen.getByRole("dialog", { name })).toBe(window);
+    fireEvent.click(within(window).getByRole("button", { name: "2. Add files" }));
+    fireEvent.change(within(window).getByLabelText("Upload audio files"), { target: { files: [new File(["audio"], "New.wav")] } });
+    const confirm = vi.spyOn(globalThis.window, "confirm").mockReturnValue(false);
+    fireEvent.click(within(window).getByRole("button", { name: `Close ${name}` }));
+    expect(confirm).toHaveBeenCalledOnce();
+    expect(close).not.toHaveBeenCalled();
+    fireEvent.click(within(window).getByRole("button", { name: "Next" }));
+    await waitFor(() => expect(mocks.upload).toHaveBeenCalledOnce());
+    expect(within(window).getByRole("button", { name: `Close ${name}` })).toBeDisabled();
+    await act(async () => finish({ uploadId: "new-upload" }));
+    await waitFor(() => expect(mocks.request).toHaveBeenCalledWith("/api/packs/pack/tracks", "POST", expect.objectContaining({ title: "New", uploadId: "new-upload", durationSeconds: 60 })));
+    await waitFor(() => expect(within(window).getByRole("button", { name: "3. Arrange & review" })).toHaveAttribute("aria-current", "step"));
+    expect(within(window).getByText("New", { exact: true })).toBeVisible();
+    expect(externalEdit).not.toHaveBeenCalled();
+    expect(close).not.toHaveBeenCalled();
+    expect(refresh).toHaveBeenCalledOnce();
+    fireEvent.click(within(window).getByRole("button", { name: "Close editor" }));
+    expect(screen.getByRole("dialog", { name })).toBe(window);
+    expect(within(window).getByRole("button", { name: "Edit pack" })).toBeVisible();
+    expect(within(window).queryByLabelText("Upload audio files")).not.toBeInTheDocument();
+    confirm.mockRestore();
+  });
+
+  it("keeps a failed inline editor load in the pack window and rechecks ownership before exposing uploads", async () => {
+    HTMLDialogElement.prototype.show = function () { this.open = true; };
+    HTMLDialogElement.prototype.showModal = function () { this.open = true; };
+    HTMLDialogElement.prototype.close = function () { this.open = false; };
+    const published = { ...pack, status: "published" as const };
+    mocks.request.mockRejectedValueOnce(new Error("Connection interrupted.")).mockResolvedValueOnce({ pack: { ...published, ownerUsername: "someone" } });
+    render(<Workspace><PackWindows withinLayer windows={[{ pack: published, openRequest: 0 }]} stack={[pack.id]} username="amber"
+      editor={{ dubs: [dub], artists, approved: true }} authenticated playback={playback} onPlay={vi.fn()} onPlayAll={vi.fn()}
+      onSeek={vi.fn()} onVolume={vi.fn()} onDownloadDub={vi.fn()} onCommunityChange={vi.fn()}
+      onActivate={vi.fn()} onClose={vi.fn()} onEdit={vi.fn()} /></Workspace>);
+    const dialog = screen.getByRole("dialog", { name: `Dub Pack: ${pack.title}` });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Edit pack" }));
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent("Connection interrupted.");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Retry loading pack" }));
+    await waitFor(() => expect(within(dialog).getByRole("alert")).toHaveTextContent("Only the pack owner"));
+    expect(within(dialog).queryByRole("region", { name: "Pack editor" })).not.toBeInTheDocument();
+    expect(within(dialog).queryByLabelText("Pack title")).not.toBeInTheDocument();
+  });
+
+  it.each(["dub", "sample", "vocal"] as const)("plays and pauses the exact %s pack from its full-width workspace button", async (kind) => {
+    const published = { ...pack, kind, status: "published" as const };
+    const onPlay = vi.fn();
+    const onPlayAll = vi.fn();
+    const activate = vi.fn(() => true);
+    mocks.request.mockResolvedValue({ packs: [published] });
+    const props = { username: "amber", approved: true, dubs: [dub], artists, buddies: [],
+      onPlay, onPlayAll, onActivateQueue: activate, onSeek: vi.fn(), onVolume: vi.fn(),
+      onDownloadDub: vi.fn(), onCommunityChange: vi.fn() };
+    const { rerender } = render(<PackWorkspace {...props} playback={playback} />);
+    const play = await screen.findByRole("button", { name: "Play pack" });
+    fireEvent.click(play);
+    expect(onPlayAll).toHaveBeenCalledWith([dub], pack.id);
+    expect(activate).toHaveBeenCalledWith([dub], pack.id);
+    rerender(<PackWorkspace {...props} activePackId={pack.id} playback={{ ...playback, nowPlayingId: dub.id, isPlaying: true }} />);
+    fireEvent.click(screen.getByRole("button", { name: "Pause pack" }));
+    expect(onPlay).toHaveBeenCalledWith(dub);
+    expect(onPlayAll).toHaveBeenCalledOnce();
+  });
+
+  it.each(["dub", "sample", "vocal"] as const)("uses orange for the %s pack view Share pack action", (kind) => {
+    render(<PackView pack={{ ...pack, kind, status: "published" }} authenticated owner playback={playback}
+      onPlay={vi.fn()} onPlayAll={vi.fn()} onSeek={vi.fn()} onVolume={vi.fn()}
+      onDownloadDub={vi.fn()} onRefresh={vi.fn()} />);
+    expect(screen.getByRole("button", { name: "Share pack", exact: true })).toHaveClass("button--primary");
+  });
+
+  it("deletes a workspace pack after confirmation and refreshes the collection", async () => {
+    const changed = vi.fn().mockResolvedValue(undefined);
+    mocks.request.mockImplementation(async (_path: string, method: string) => {
+      if (method === "DELETE") {
+        mocks.request.mockResolvedValue({ packs: [] });
+        return undefined;
+      }
+      return { packs: [pack] };
+    });
+    render(<PackWorkspace username="amber" approved dubs={[dub]} artists={artists} buddies={[]} playback={playback}
+      onPlay={vi.fn()} onPlayAll={vi.fn()} onSeek={vi.fn()} onVolume={vi.fn()}
+      onDownloadDub={vi.fn()} onCommunityChange={changed} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Delete pack", exact: true }));
+    expect(mocks.request.mock.calls.some(([, method]) => method === "DELETE")).toBe(false);
+    fireEvent.click(screen.getByRole("button", { name: "Confirm delete pack" }));
+    await waitFor(() => expect(screen.queryByRole("heading", { name: pack.title })).not.toBeInTheDocument());
+    expect(mocks.request).toHaveBeenCalledWith("/api/packs/pack", "DELETE");
+    expect(changed).toHaveBeenCalledOnce();
+  });
+
+  it("updates owner download statistics from community snapshots without showing another owner's statistics", async () => {
+    const initial = { ...pack, zipDownloads: 1 };
+    const props = { username: "amber", approved: true, dubs: [dub], artists, buddies: [], playback,
+      onPlay: vi.fn(), onPlayAll: vi.fn(), onSeek: vi.fn(), onVolume: vi.fn(), onDownloadDub: vi.fn(), onCommunityChange: vi.fn() };
+    mocks.request.mockResolvedValue({ packs: [initial, { ...pack, id: "shared", title: "Shared release", ownerUsername: "someone", zipDownloads: 9 }] });
+    const { rerender } = render(<PackWorkspace {...props} communityPacks={[initial]} />);
+    const statistics = await screen.findByRole("region", { name: `Download statistics for ${pack.title}` });
+    expect(within(statistics).getByText("Whole-pack ZIP downloads").nextElementSibling).toHaveTextContent("1");
+    expect(screen.queryByRole("region", { name: "Download statistics for Shared release" })).not.toBeInTheDocument();
+    rerender(<PackWorkspace {...props} communityPacks={[{ ...initial, zipDownloads: 2, items: [{ dub: { ...dub, downloads: 4 } }] }]} />);
+    expect(within(statistics).getByText("Whole-pack ZIP downloads").nextElementSibling).toHaveTextContent("2");
+    expect(within(statistics).getByRole("row", { name: "Night Drive 4" })).toBeVisible();
+  });
+
   it("opens a workspace pack in the window system without changing playback or navigating inline", async () => {
     const onOpenPack = vi.fn();
     const onPlayAll = vi.fn();
@@ -62,19 +219,28 @@ describe("Pack editor", () => {
     expect(onPlayAll).not.toHaveBeenCalled();
     expect(screen.getByRole("heading", { name: "Packs" })).toBeVisible();
   });
-  it.each(["dub", "sample"] as const)("edits an owned published %s pack directly from the workspace and persists changes", async (kind) => {
-    const published: Pack = { ...pack, kind, status: "published", licence: "Original productions." };
+  it.each(["dub", "sample", "vocal"] as const)("edits an owned published %s pack directly from the workspace and persists changes", async (kind) => {
+    const typedDub = { ...dub, mediaKind: kind };
+    const published: Pack = { ...pack, kind, items: [{ dub: typedDub }], status: "published", licence: "Original productions." };
     const updated = { ...published, title: "Updated release" };
     const onCommunityChange = vi.fn().mockResolvedValue(undefined);
     mocks.request.mockImplementation(async (path: string, method: string) => method === "PATCH"
       ? { pack: updated } : path === "/api/packs/pack" ? { pack: published }
         : { packs: [published, { ...published, id: "shared", title: "Someone else's pack", ownerUsername: "someone" }] });
-    render(<PackWorkspace username="amber" approved dubs={[dub]} artists={artists} buddies={[]} playback={playback}
+    render(<PackWorkspace username="amber" approved dubs={[typedDub]} artists={artists} buddies={[]} playback={playback}
       onPlay={vi.fn()} onPlayAll={vi.fn()} onSeek={vi.fn()} onVolume={vi.fn()}
       onDownloadDub={vi.fn()} onCommunityChange={onCommunityChange} />);
     const card = await screen.findByRole("heading", { name: pack.title });
     expect(screen.getAllByRole("button", { name: "Edit pack" })).toHaveLength(1);
-    fireEvent.click(within(card.closest("article")!).getByRole("button", { name: "Edit pack" }));
+    const actions = within(card.closest("article")!);
+    const open = actions.getByRole("button", { name: "Open pack" });
+    const edit = actions.getByRole("button", { name: "Edit pack" });
+    expect(open.closest(".card-actions")).not.toBe(edit.closest(".card-actions"));
+    const controls = actions.getByRole("group", { name: "Pack controls" });
+    expect(controls).toHaveClass("card-actions--grid", "card-actions--separated");
+    expect(within(controls).getAllByRole("button")).toHaveLength(2);
+    expect(within(controls).getByRole("button", { name: "Delete pack" })).toBeVisible();
+    fireEvent.click(edit);
     expect(await screen.findByLabelText("Pack title")).toHaveValue(pack.title);
     expect(screen.getByLabelText("Pack type")).toHaveValue(kind);
     fireEvent.change(screen.getByLabelText("Pack title"), { target: { value: updated.title } });
@@ -106,14 +272,25 @@ describe("Pack editor", () => {
     expect(mocks.request).not.toHaveBeenCalled();
   });
 
-  it("shows a clear empty search and reviews pending uploads before publication", () => {
+  it("shows a clear empty search and starts queued uploads on Next before review", async () => {
+    let finish!: (value: { uploadId: string }) => void;
+    mocks.duration.mockResolvedValue(60);
+    mocks.upload.mockImplementationOnce(() => new Promise((resolve) => { finish = resolve; }));
+    mocks.request.mockResolvedValue({ pack });
     render(<PackEditor {...editorProps} />);
     fireEvent.click(screen.getByRole("button", { name: "2. Add files" }));
     fireEvent.change(screen.getByRole("searchbox", { name: "Search your uploads" }), { target: { value: "missing" } });
     expect(screen.getByText("No uploads match your search.")).toBeVisible();
     fireEvent.change(screen.getByLabelText("Upload audio files"), { target: { files: [new File(["audio"], "New.wav")] } });
-    fireEvent.click(screen.getByRole("button", { name: "3. Arrange & review" }));
-    expect(screen.getByText(/1 file still needs uploading/)).toBeVisible();
+    expect(mocks.upload).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    await waitFor(() => expect(mocks.upload).toHaveBeenCalledOnce());
+    expect(screen.getByRole("heading", { name: "Add tracks" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Next" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    await act(async () => finish({ uploadId: "new" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "3. Arrange & review" })).toHaveAttribute("aria-current", "step"));
+    expect(mocks.upload).toHaveBeenCalledOnce();
   });
 
   it("protects unsaved file metadata when moving between editor steps", () => {
@@ -129,13 +306,58 @@ describe("Pack editor", () => {
     confirm.mockRestore();
   });
 
-  it("switches pack type without uploading again and requires explicit sample usage terms", async () => {
+  it.each([
+    ["sample", "draft"], ["sample", "published"], ["vocal", "draft"], ["vocal", "published"],
+  ] as const)("validates %s licensing on Next, Enter and forward tabs for a %s pack", async (kind, status) => {
+    const { container } = render(<PackEditor {...editorProps} pack={{ ...pack, kind, status, licence: " " }} />);
+    for (const advance of [
+      () => fireEvent.click(screen.getByRole("button", { name: "Next" })),
+      () => fireEvent.submit(container.querySelector("form")!),
+      () => fireEvent.click(screen.getByRole("button", { name: "3. Arrange & review" })),
+    ]) {
+      advance();
+      expect(await screen.findByRole("alert")).toHaveTextContent("Provide usage licence terms");
+      expect(screen.getByRole("button", { name: "1. Details" })).toHaveAttribute("aria-current", "step");
+    }
+    expect(mocks.request).not.toHaveBeenCalled();
+    expect(mocks.upload).not.toHaveBeenCalled();
+    fireEvent.change(screen.getByLabelText("Usage licence"), { target: { value: "Use in original productions only." } });
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    expect(screen.getByRole("heading", { name: kind === "vocal" ? "Add vocals" : "Add samples" })).toBeVisible();
+  });
+
+  it("checks all queued metadata before saving or uploading and stays on Add files when invalid", async () => {
     render(<PackEditor {...editorProps} />);
+    fireEvent.click(screen.getByRole("button", { name: "2. Add files" }));
+    fireEvent.change(screen.getByLabelText("Upload audio files"), { target: { files: [new File(["audio"], "New.wav")] } });
+    fireEvent.change(screen.getByLabelText("File title"), { target: { value: " " } });
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    expect(await screen.findByText("New.wav: Provide a title and artist.")).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Add tracks" })).toBeVisible();
+    expect(mocks.request).not.toHaveBeenCalled();
+    expect(mocks.upload).not.toHaveBeenCalled();
+  });
+
+  it("requires recipient confirmation before Next uploads published private files", async () => {
+    render(<PackEditor {...editorProps} pack={{ ...pack, status: "published", distribution: "private",
+      grants: [{ id: "friend", username: "friend", displayName: "Friend" }] }} />);
+    fireEvent.click(screen.getByRole("button", { name: "2. Add files" }));
+    fireEvent.change(screen.getByLabelText("Upload audio files"), { target: { files: [new File(["audio"], "Private.wav")] } });
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Confirm that existing recipients");
+    expect(mocks.upload).not.toHaveBeenCalled();
+    expect(mocks.request).not.toHaveBeenCalled();
+  });
+
+  it("switches compatible pack type without uploading again and requires explicit sample usage terms", async () => {
+    const vocal = { ...dub, mediaKind: "vocal" as const };
+    render(<PackEditor {...editorProps} pack={{ ...pack, kind: "vocal", items: [{ dub: vocal }] }} dubs={[vocal]} />);
     fireEvent.change(screen.getByLabelText("Pack type"), { target: { value: "sample" } });
     expect(screen.getByLabelText(/Usage licence/)).toBeVisible();
-    fireEvent.click(screen.getByRole("button", { name: "3. Arrange & review" }));
-    fireEvent.click(screen.getByRole("button", { name: "Publish pack" }));
+    fireEvent.change(screen.getByLabelText(/Usage licence/), { target: { value: "   " } });
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("Provide usage licence terms");
+    expect(screen.getByRole("button", { name: "1. Details" })).toHaveAttribute("aria-current", "step");
     expect(mocks.request).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "1. Details" }));
     fireEvent.change(screen.getByLabelText(/Usage licence/), { target: { value: "Use in original productions; no standalone resale." } });
@@ -167,17 +389,38 @@ describe("Pack editor", () => {
     render(<PackEditor {...editorProps} />);
     fireEvent.click(screen.getByRole("button", { name: "2. Add files" }));
     fireEvent.change(screen.getByLabelText("Upload audio files"), { target: { files: [new File(["one"], "New.wav"), new File(["two"], "Again.wav")] } });
-    fireEvent.click(screen.getByRole("button", { name: "Upload files (2)" }));
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
     await screen.findByText("1 file upload failed. Successful files are saved; retry only failed files.");
     expect(screen.getByText("Uploaded")).toBeVisible();
     fireEvent.click(screen.getByRole("button", { name: "3. Arrange & review" }));
-    fireEvent.click(screen.getByRole("button", { name: "Publish pack" }));
-    expect(await screen.findByRole("alert")).toHaveTextContent("Upload or remove all pending and failed files");
-    fireEvent.click(screen.getByRole("button", { name: "2. Add files" }));
-    fireEvent.click(screen.getByRole("button", { name: "Retry failed uploads (1)" }));
     await screen.findByText("All files uploaded and saved.");
     expect(mocks.upload).toHaveBeenCalledTimes(3);
     expect(mocks.upload.mock.calls[2][0].name).toBe("Again.wav");
+  });
+
+  it("reuses the uploaded binary when Next retries a failed track attachment", async () => {
+    const updated = { ...pack, items: [{ dub }, { dub: { ...dub, id: "attached", title: "Retry" } }] };
+    let attachments = 0;
+    mocks.duration.mockResolvedValue(60);
+    mocks.upload.mockResolvedValueOnce({ uploadId: "cached-audio" });
+    mocks.request.mockImplementation(async (path: string) => {
+      if (!path.endsWith("/tracks")) return { pack };
+      if (++attachments === 1) throw new Error("Attachment interrupted");
+      return { pack: updated };
+    });
+    render(<PackEditor {...editorProps} />);
+    fireEvent.click(screen.getByRole("button", { name: "2. Add files" }));
+    fireEvent.change(screen.getByLabelText("Upload audio files"), { target: { files: [new File(["audio"], "Retry.wav")] } });
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    await screen.findByText(/1 file upload failed/);
+    expect(screen.getByRole("heading", { name: "Add tracks" })).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    await screen.findByRole("heading", { name: "Arrange & review" });
+    expect(mocks.upload).toHaveBeenCalledOnce();
+    expect(mocks.request.mock.calls.filter(([path]) => path.endsWith("/tracks"))).toEqual([
+      ["/api/packs/pack/tracks", "POST", expect.objectContaining({ uploadId: "cached-audio" })],
+      ["/api/packs/pack/tracks", "POST", expect.objectContaining({ uploadId: "cached-audio" })],
+    ]);
   });
 
   it("requires confirmation before published private additions reach existing recipients", async () => {
@@ -218,6 +461,7 @@ describe("Pack editor", () => {
     expect(screen.getByRole("button", { name: "Save changes" })).toBeDisabled();
     expect(screen.queryByRole("button", { name: "Save & publish" })).not.toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("Pack title"), { target: { value: updated.title } });
+    fireEvent.click(screen.getByRole("button", { name: "3. Arrange & review" }));
     fireEvent.submit(container.querySelector("form")!);
     await waitFor(() => expect(onSaved).toHaveBeenCalledWith(updated));
     expect(mocks.request).toHaveBeenCalledTimes(1);
@@ -268,7 +512,7 @@ describe("Pack viewing and discovery", () => {
   const props = { pack: { ...pack, status: "published" as const }, authenticated: true, owner: true, playback,
     onPlay: vi.fn(), onPlayAll: vi.fn(), onSeek: vi.fn(), onVolume: vi.fn(), onDownloadDub: vi.fn(),
     onRefresh: vi.fn().mockResolvedValue(undefined), onEdit: vi.fn() };
-  it.each(["dub", "sample"] as const)("uses the shared %s pack playback button to pause and resume the selected file", (kind) => {
+  it.each(["dub", "sample", "vocal"] as const)("uses the shared %s pack playback button to pause and resume the selected file", (kind) => {
     const active = { ...props.pack, kind };
     const onActivateQueue = vi.fn(() => true);
     const { rerender } = render(<PackView {...props} pack={active} activePackId="pack"
@@ -311,12 +555,20 @@ describe("Pack viewing and discovery", () => {
     window.history.replaceState(null, "", "/");
   });
 
-  it("keeps draft card playback and downloads disabled", () => {
+  it("lets owners play drafts without enabling unpublished downloads or sharing", () => {
     render(<PackView {...props} pack={pack} />);
     const card = screen.getByRole("article", { name: "Night Drive" });
-    expect(within(card).getByRole("button", { name: "Play" })).toBeDisabled();
+    expect(within(card).getByRole("button", { name: "Play" })).toBeEnabled();
+    fireEvent.click(within(card).getByRole("button", { name: "Play" }));
+    expect(props.onPlay).toHaveBeenCalledWith(dub);
     expect(within(card).getByRole("button", { name: "Download · Like" })).toBeDisabled();
-    expect(within(card).queryByRole("slider", { name: "Night Drive playback progress" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Share pack" })).not.toBeInTheDocument();
+  });
+
+  it("keeps draft playback disabled for non-owners", () => {
+    render(<PackView {...props} pack={pack} owner={false} />);
+    expect(within(screen.getByRole("article", { name: "Night Drive" })).getByRole("button", { name: "Play" })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "Play all" })).not.toBeInTheDocument();
   });
 
   it("plays files in pack order and offers a manual clipboard fallback", async () => {
@@ -401,6 +653,6 @@ describe("Pack viewing and discovery", () => {
       onPlay={vi.fn()} onPlayAll={vi.fn()} onSeek={vi.fn()} onVolume={vi.fn()} onDownloadDub={vi.fn()} onCommunityChange={vi.fn()} />);
     expect(await screen.findByRole("button", { name: "Already in pack" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Add selected dub" })).toBeDisabled();
-    expect(screen.getByText("This pack has a different audience.")).toBeVisible();
+    expect(screen.getByText("This pack has an incompatible media type or audience.")).toBeVisible();
   });
 });

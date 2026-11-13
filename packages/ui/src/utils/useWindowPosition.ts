@@ -9,11 +9,18 @@ export interface WindowSnapTarget<Kind extends string> {
   previewStyle?: CSSProperties;
 }
 
+export function windowViewport(element: HTMLElement) {
+  const container = element.closest<HTMLElement>(".workspace-surface, .workspace-root")
+    ?? element.closest<HTMLElement>(".workspace-stage");
+  return container ? container.getBoundingClientRect() : { left: 0, top: 0, width: window.innerWidth, height: window.innerHeight };
+}
+
 export function clampWindowPosition(position: WindowPoint, element: HTMLElement): WindowPoint {
   const bounds = element.getBoundingClientRect();
+  const viewport = windowViewport(element);
   return {
-    x: Math.max(0, Math.min(Math.max(0, window.innerWidth - bounds.width), position.x)),
-    y: Math.max(0, Math.min(Math.max(0, window.innerHeight - bounds.height), position.y)),
+    x: Math.max(0, Math.min(Math.max(0, viewport.width - bounds.width), position.x)),
+    y: Math.max(0, Math.min(Math.max(0, viewport.height - bounds.height), position.y)),
   };
 }
 
@@ -52,11 +59,12 @@ export function useWindowPosition<Kind extends string>(elementRef: RefObject<HTM
     };
   }, [enabled, elementRef, clamp]);
 
-  function onPointerDown(event: PointerEvent<HTMLButtonElement>) {
+  function onPointerDown(event: PointerEvent<HTMLElement>) {
     const element = elementRef.current;
     if (!enabled || !element || event.button !== 0 || !event.isPrimary) return;
     const bounds = element.getBoundingClientRect();
-    drag.current = { pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, origin: { x: bounds.left, y: bounds.top }, moved: false };
+    const viewport = windowViewport(element);
+    drag.current = { pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, origin: { x: bounds.left - viewport.left, y: bounds.top - viewport.top }, moved: false };
     setPreviews(targets(element, { x: bounds.left, y: bounds.top }, event.clientX, event.clientY, { x: event.clientX - bounds.left, y: event.clientY - bounds.top }));
     event.currentTarget.setPointerCapture(event.pointerId);
   }
@@ -66,7 +74,7 @@ export function useWindowPosition<Kind extends string>(elementRef: RefObject<HTM
     return clamp({ x: active.origin.x + clientX - active.startX, y: active.origin.y + clientY - active.startY }, element);
   }
 
-  function onPointerMove(event: PointerEvent<HTMLButtonElement>) {
+  function onPointerMove(event: PointerEvent<HTMLElement>) {
     const active = drag.current;
     const element = elementRef.current;
     if (!active || active.pointerId !== event.pointerId || !element) return;
@@ -78,7 +86,7 @@ export function useWindowPosition<Kind extends string>(elementRef: RefObject<HTM
     return true;
   }
 
-  function onPointerUp(event: PointerEvent<HTMLButtonElement>) {
+  function onPointerUp(event: PointerEvent<HTMLElement>) {
     const active = drag.current;
     const element = elementRef.current;
     if (!active || active.pointerId !== event.pointerId) return;
@@ -91,7 +99,7 @@ export function useWindowPosition<Kind extends string>(elementRef: RefObject<HTM
     drag.current = null;
   }
 
-  function stopDragging(event: PointerEvent<HTMLButtonElement>) {
+  function stopDragging(event: PointerEvent<HTMLElement>) {
     if (drag.current?.pointerId === event.pointerId) {
       drag.current = null;
       setPreviews([]);
@@ -114,7 +122,8 @@ export function useWindowPosition<Kind extends string>(elementRef: RefObject<HTM
     if (!delta) return;
     event.preventDefault();
     const bounds = element.getBoundingClientRect();
-    setPosition(clamp({ x: bounds.left + delta.x, y: bounds.top + delta.y }, element));
+    const viewport = windowViewport(element);
+    setPosition(clamp({ x: bounds.left - viewport.left + delta.x, y: bounds.top - viewport.top + delta.y }, element));
   }
 
   return { position, setPosition, previews, onPointerDown, onPointerMove, onPointerUp, onPointerCancel: stopDragging, onLostPointerCapture: stopDragging, onKeyDown };

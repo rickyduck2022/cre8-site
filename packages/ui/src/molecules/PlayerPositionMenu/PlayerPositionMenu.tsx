@@ -1,11 +1,11 @@
 import { useEffect, useId, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
-import { Ellipsis } from "@craft/icons";
+import { EllipsisSolid as Ellipsis } from "@craft/icons";
 import { Button } from "../../atoms/Button/Button";
 import { PlayerTab } from "../../atoms/PlayerTab/PlayerTab";
 import "./PlayerPositionMenu.css";
 
-export type PlayerPosition = "header" | "footer" | "sidebar" | "right-dock" | "default" | "floating" | "left-edge" | "right-edge" | "fullscreen" | "minimized";
+export type PlayerPosition = "header" | "footer" | "sidebar" | "right-dock" | "default" | "floating" | "left-edge" | "right-edge" | "fullscreen" | "minimized" | "window";
 
 export interface PlayerPositionMenuProps {
   positions: PlayerPosition[];
@@ -25,6 +25,7 @@ const labels: Record<PlayerPosition, string> = {
   "right-edge": "Right edge",
   fullscreen: "Full screen",
   minimized: "Minimized",
+  window: "Window",
 };
 
 function PositionIcon({ position }: { position: PlayerPosition }) {
@@ -39,10 +40,11 @@ function PositionIcon({ position }: { position: PlayerPosition }) {
     "right-edge": { x: 18, y: 9, width: 2, height: 6 },
     fullscreen: { x: 4, y: 5, width: 16, height: 14 },
     minimized: { x: 13, y: 14, width: 6, height: 4 },
+    window: { x: 7, y: 8, width: 10, height: 8 },
   };
   return (
     <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-      <rect x="3" y="4" width="18" height="16" rx="2" />
+      <path fill="currentColor" stroke="none" fillRule="evenodd" d="M5 3h14a3 3 0 0 1 3 3v12a3 3 0 0 1-3 3H5a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3zm0 3v12h14V6z" />
       <rect {...areas[position]} rx="0.5" fill="currentColor" stroke="none" data-position={position} />
     </svg>
   );
@@ -98,7 +100,8 @@ export function PlayerPositionMenu({ positions, current, onSelect, opacityContro
         className="player-position-menu__trigger" leadingIcon={<Ellipsis aria-hidden="true" />}
         onClick={toggle} />
       {open && createPortal(
-        <div ref={popover} className="player-position-menu__popover" id={id} role="group" aria-label="Player positions" style={menuStyle}>
+        <div ref={popover} className="player-position-menu__popover" id={id} role="group" aria-label="Player positions" style={menuStyle}
+          data-window-system={root.current?.closest("[data-window-system]") ? "" : undefined}>
           {positions.map((position) => (
             <Button key={position} aria-pressed={current === position} leadingIcon={<PositionIcon position={position} />} onClick={() => {
               setOpen(false);

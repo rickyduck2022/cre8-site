@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState, type FormEvent } from "react";
-import { Button, NowPlaying, ProgressBar, SearchField, TrackArtwork, type ArtistOption, type Dub } from "@craft/ui";
+import { useEffect, useId, useRef, useState, type FormEvent } from "react";
+import { Button, NowPlaying, ProgressBar, SearchField, TrackArtwork, useReportTutorialActivity, type ArtistOption, type Dub } from "@craft/ui";
 import { uploadFile } from "../services/uploadFile";
 import { readAudioDurationSeconds } from "../services/readAudioDuration";
 import { canAddDubToPack, packAudience, packFileCount, packRequest, packTypeLabel, type Pack, type PackDetails } from "../services/packs";
 import { PackTrackFields, packTrackMetadata, type PackTrackValues } from "./PackTrackFields";
+import "./AListApplication.css";
 
 interface Props {
   pack: Pack;
@@ -14,6 +15,8 @@ interface Props {
   onClose: () => void;
   onCommunityChange: () => Promise<void>;
   creating?: boolean;
+  onBusyChange?: (busy: boolean) => void;
+  onDirtyChange?: (dirty: boolean) => void;
 }
 interface UploadRow extends PackTrackValues {
   id: number;
@@ -23,7 +26,8 @@ interface UploadRow extends PackTrackValues {
   error?: string;
 }
 
-export function PackEditor({ pack: initial, dubs, artists, approved, onSaved, onClose, onCommunityChange, creating = false }: Props) {
+export function PackEditor({ pack: initial, dubs, artists, approved, onSaved, onClose, onCommunityChange, creating = false, onBusyChange, onDirtyChange }: Props) {
+  const reportActivity = useReportTutorialActivity();
   const [pack, setPack] = useState(initial);
   const [details, setDetails] = useState<PackDetails>({
     title: initial.title, description: initial.description, kind: initial.kind,
@@ -45,10 +49,15 @@ export function PackEditor({ pack: initial, dubs, artists, approved, onSaved, on
   const busy = useRef(false);
   const heading = useRef<HTMLHeadingElement>(null);
   const artworkUpload = useRef<{ file: File; id: string } | null>(null);
+  const licenceInput = useRef<HTMLTextAreaElement>(null);
+  const titleInput = useRef<HTMLInputElement>(null);
+  const stepHeading = useRef<HTMLHeadingElement>(null);
+  const previousStep = useRef(step);
+  const stepTitleId = useId();
   const nextRow = useRef(0);
   const uploadIds = useRef(new Map<number, string>());
-  const allDubs = new Map([...dubs, ...pack.items.map(({ dub }) => dub)].map((dub) => [dub.id, dub]));
-  const label = details.kind === "sample" ? "samples" : "tracks";
+  const allDubs = new Map([...pack.items.map(({ dub }) => dub), ...dubs].map((dub) => [dub.id, dub]));
+  const label = details.kind === "vocal" ? "vocals" : details.kind === "sample" ? "samples" : "tracks";
   const published = pack.status === "published";
   const addedMembers = selectedIds.some((id) => !pack.items.some(({ dub }) => dub.id === id));
   const needsConfirmation = published && pack.distribution === "private" && Boolean(pack.grants?.length) && addedMembers;
@@ -57,7 +66,14 @@ export function PackEditor({ pack: initial, dubs, artists, approved, onSaved, on
   const detailsChanged = (Object.keys(details) as (keyof PackDetails)[]).some((key) => details[key] !== pack[key]);
   const orderChanged = selectedIds.length !== pack.items.length || selectedIds.some((id, index) => id !== pack.items[index]?.dub.id);
   const hasChanges = detailsChanged || orderChanged || Boolean(artwork) || itemDirty || pendingRows.length > 0;
+  useEffect(() => { onBusyChange?.(pending); }, [pending, onBusyChange]);
+  useEffect(() => { onDirtyChange?.(hasChanges); }, [hasChanges, onDirtyChange]);
+  useEffect(() => () => { onBusyChange?.(false); onDirtyChange?.(false); }, [onBusyChange, onDirtyChange]);
   useEffect(() => { heading.current?.focus(); }, []);
+  useEffect(() => {
+    if (previousStep.current !== step) stepHeading.current?.focus();
+    previousStep.current = step;
+  }, [step]);
   useEffect(() => {
     if (!hasChanges && !pending) return;
     const warn = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ""; };
@@ -65,7 +81,20 @@ export function PackEditor({ pack: initial, dubs, artists, approved, onSaved, on
     return () => window.removeEventListener("beforeunload", warn);
   }, [hasChanges, pending]);
   function goToStep(next: number) {
-    if (busy.current) return;
+    if (busy.current || refreshNeeded) return;
+    if (next > step) {
+      if (!details.title.trim()) {
+        setError("Provide a pack title."); titleInput.current?.focus(); return;
+      }
+      if (details.kind !== "dub" && !details.licence.trim()) {
+        setStep(0); setError("Provide usage licence terms before continuing with a Sample or Vocal Pack.");
+        requestAnimationFrame(() => licenceInput.current?.focus());
+        return;
+      }
+      if (next === 2 && pendingRows.length) {
+        void uploadRows(next); return;
+      }
+    }
     if (itemDirty && !window.confirm("Discard unsaved file details? Your saved pack files will remain.")) return;
     setEditingItem(null); setItemDirty(false);
     setStep(next);
@@ -87,8 +116,12 @@ export function PackEditor({ pack: initial, dubs, artists, approved, onSaved, on
   async function save(nextIds = selectedIds) {
     if (!details.title.trim()) throw new Error("Provide a pack title.");
     if (published && !nextIds.length) throw new Error("A published pack must keep at least one file.");
-    if (published && details.kind === "sample" && !details.licence.trim()) throw new Error("Provide usage licence terms for this Sample Pack.");
+    if (published && details.kind !== "dub" && !details.licence.trim()) throw new Error("Provide usage licence terms for this Sample or Vocal Pack.");
     if (needsConfirmation && !confirmed) throw new Error("Confirm access for existing recipients before adding files.");
+    for (const id of nextIds) {
+      const dub = allDubs.get(id);
+      if (dub && !canAddDubToPack(details, dub)) throw new Error(`"${dub.title}" has an incompatible media type or audience. Dub Packs accept dubs; Sample Packs accept samples and vocals; Vocal Packs accept only vocals.`);
+    }
     let artworkUploadId: string | undefined;
     if (artwork) {
       if (artworkUpload.current?.file !== artwork) {
@@ -113,6 +146,7 @@ export function PackEditor({ pack: initial, dubs, artists, approved, onSaved, on
       throw new Error("Your pack was saved, but the community could not be refreshed. Retry refresh without saving again.");
     }
     setRefreshNeeded(null);
+    reportActivity({ type: "pack-saved", subjectId: updated.id });
     onSaved(updated);
   }
   function addFiles(files: FileList | null) {
@@ -141,20 +175,30 @@ export function PackEditor({ pack: initial, dubs, artists, approved, onSaved, on
     setRows((current) => current.map((row) => row.id === id ? { ...row, ...patch } : row));
     setSaved("");
   }
-  async function uploadRows() {
+  async function uploadRows(nextStep: number) {
     await run(async () => {
+      if (!details.title.trim()) throw new Error("Provide a pack title.");
+      if (details.kind !== "dub" && !details.licence.trim()) throw new Error("Provide usage licence terms before continuing with a Sample or Vocal Pack.");
+      for (const row of pendingRows) {
+        try {
+          packTrackMetadata(row);
+          if (row.file.size > 100 * 1024 * 1024) throw new Error("Audio files must be 100 MB or smaller.");
+        } catch (failure) {
+          const message = failure instanceof Error ? failure.message : "Check the file details.";
+          updateRow(row.id, { state: "failed", error: message });
+          throw new Error(`${row.file.name}: ${message}`);
+        }
+      }
       if (published && pack.distribution === "private" && pack.grants?.length && !confirmed) {
         throw new Error("Confirm that existing recipients may access the new files before uploading.");
       }
-      await save();
-      let updated = pack;
-      const ids = [...selectedIds];
+      let updated = await save();
+      const ids = updated.items.map(({ dub }) => dub.id);
       let failures = 0;
       for (const row of rows.filter((item) => item.state === "waiting" || item.state === "failed")) {
         updateRow(row.id, { state: "uploading", error: "" });
         try {
           const metadata = packTrackMetadata(row);
-          if (row.file.size > 100 * 1024 * 1024) throw new Error("Audio files must be 100 MB or smaller.");
           const durationSeconds = await readAudioDurationSeconds(row.file);
           let uploadId = uploadIds.current.get(row.id);
           if (!uploadId) {
@@ -174,9 +218,14 @@ export function PackEditor({ pack: initial, dubs, artists, approved, onSaved, on
           updateRow(row.id, { state: "failed", error: failure instanceof Error ? failure.message : "Upload failed. Retry this file." });
         }
       }
-      await onCommunityChange();
-      if (failures) throw new Error(`${failures} file upload${failures === 1 ? "" : "s"} failed. Successful files are saved; retry only failed files.`);
+      let refreshError = "";
+      try { await onCommunityChange(); }
+      catch { refreshError = "Files were saved, but the community could not be refreshed. Reload the page to refresh the community."; }
+      if (failures) throw new Error(`${failures} file upload${failures === 1 ? "" : "s"} failed. Successful files are saved; retry only failed files.${refreshError ? ` ${refreshError}` : ""}`);
       setSaved("All files uploaded and saved.");
+      setStep(nextStep); setEditingItem(null); setItemDirty(false);
+      if (refreshError) throw new Error(refreshError);
+      reportActivity({ type: "file-uploaded", subjectId: updated.id });
     });
   }
   function close() {
@@ -192,17 +241,17 @@ export function PackEditor({ pack: initial, dubs, artists, approved, onSaved, on
   async function publish(event: FormEvent) {
     event.preventDefault();
     if (refreshNeeded) return;
+    if (step < 2) { goToStep(step + 1); return; }
     if (published) {
       if (!hasChanges || itemDirty || pendingRows.length || !selectedIds.length || (needsConfirmation && !confirmed)) return;
       await run(async () => { await finish(await save()); });
       return;
     }
-    if (step < 2) { goToStep(step + 1); return; }
     await run(async () => {
       if (rows.some((row) => row.state !== "done")) throw new Error("Upload or remove all pending and failed files before publishing.");
       if (itemDirty) throw new Error("Save or close the file details before publishing.");
       if (selectedIds.length === 0) throw new Error("Add at least one file before publishing.");
-      if (details.kind === "sample" && !details.licence.trim()) throw new Error("Provide usage licence terms before publishing a Sample Pack.");
+      if (details.kind !== "dub" && !details.licence.trim()) throw new Error("Provide usage licence terms before publishing a Sample or Vocal Pack.");
       await save();
       const { pack: updated } = await packRequest<{ pack: Pack }>(`/api/packs/${pack.id}/publish`, "POST");
       await finish(updated);
@@ -219,13 +268,20 @@ export function PackEditor({ pack: initial, dubs, artists, approved, onSaved, on
           aria-current={step === index ? "step" : undefined} variant={step === index ? "primary" : "secondary"}
           disabled={pending} onClick={() => goToStep(index)}>{index + 1}. {name}</Button>)}
       </nav>
-      <form onSubmit={(event) => void publish(event)}>
+      <form className="pack-editor__form" onSubmit={(event) => void publish(event)}>
+        <section className="pack-editor__section" aria-labelledby={stepTitleId}>
+          <header className="pack-editor__section-heading">
+            <span className="pack-editor__section-number" aria-hidden="true">{String(step + 1).padStart(2, "0")}</span>
+            <div><h2 ref={stepHeading} tabIndex={-1} id={stepTitleId}>{["Release details", "Select your files", "Arrange & review"][step]}</h2>
+              <p>{["Name your release, choose its audience and set sample/vocal usage terms.", "Choose existing uploads or add new audio. Next uploads queued files before review.", "Check the running order and file details before saving or publishing."][step]}</p></div>
+          </header>
         <fieldset disabled={pending || Boolean(refreshNeeded)} className="pack-fields">
           {step === 0 && <>
             <div className="pack-field-grid">
-            <label>Pack type<select value={details.kind} onChange={(event) => change("kind", event.currentTarget.value === "sample" ? "sample" : "dub")}>
-              <option value="dub">Dub Pack</option><option value="sample">Sample Pack</option></select></label>
-            <label>Pack title<input required maxLength={100} value={details.title} onChange={(event) => change("title", event.currentTarget.value)} /></label>
+            <label>Pack type<select value={details.kind} onChange={(event) => change("kind", event.currentTarget.value === "vocal" ? "vocal" : event.currentTarget.value === "sample" ? "sample" : "dub")}>
+              <option value="dub">Dub Pack</option><option value="sample">Sample Pack</option><option value="vocal">Vocal Pack</option></select></label>
+            <p className="pack-muted">Dub Packs accept dubs. Sample Packs accept samples and vocals. Vocal Packs accept only vocals. New uploads use the selected pack type.</p>
+            <label>Pack title<input ref={titleInput} required maxLength={100} value={details.title} onChange={(event) => change("title", event.currentTarget.value)} /></label>
             </div>
             <label>Description<textarea maxLength={2000} value={details.description} onChange={(event) => change("description", event.currentTarget.value)} /></label>
             <label>Pack artwork (optional)<input type="file" accept=".jpg,.jpeg,.png,.webp" onChange={(event) => { setArtwork(event.currentTarget.files?.[0] ?? null); setSaved(""); }} /></label>
@@ -238,9 +294,9 @@ export function PackEditor({ pack: initial, dubs, artists, approved, onSaved, on
             <p className="pack-muted">{published ? "The audience is fixed for this published pack." : pack.items.length ? "Remove all saved files before changing the audience." : "Choose the audience before adding files. Existing dubs must match it."} Publishing never broadens a dub's permissions.</p>
             {details.distribution === "alist" && <label className="pack-check"><input type="checkbox" checked={details.aListPublic}
               disabled={published || pack.items.length > 0} onChange={(event) => change("aListPublic", event.currentTarget.checked)} />Public A-List pack</label>}
-            {details.kind === "sample" && <label>Usage licence<textarea aria-label="Usage licence" maxLength={4000} value={details.licence} onChange={(event) => change("licence", event.currentTarget.value)}
+            {details.kind !== "dub" && <label>Usage licence<textarea ref={licenceInput} aria-label="Usage licence" aria-invalid={Boolean(error && !details.licence.trim())} maxLength={4000} value={details.licence} onChange={(event) => change("licence", event.currentTarget.value)}
               placeholder="Explain permitted uses, attribution and any restrictions." />
-              <small>Required to publish. Download access alone does not grant reuse rights. Only license content you have permission to distribute.</small></label>}
+              <small>Required to continue. Download access alone does not grant reuse rights. Only license content you have permission to distribute.</small></label>}
           </>}
           {step === 1 && <>
             <h2>Add {label}</h2><p className="pack-muted">Up to 50 files · 100 MB per file · 500 MB per pack. Successful uploads are saved individually.</p>
@@ -252,20 +308,20 @@ export function PackEditor({ pack: initial, dubs, artists, approved, onSaved, on
               <strong>{row.file.name}</strong><span role="status">{row.state === "uploading" ? `Uploading ${row.progress}%` : row.state === "done" ? "Uploaded" : row.state === "failed" ? "Failed" : "Ready to upload"}</span>
               {row.state === "uploading" && <ProgressBar label={`Uploading ${row.file.name}`} value={row.progress} />}
               {row.state !== "done" && <>
-                <PackTrackFields values={row} artists={artists} sample={details.kind === "sample"} onChange={(patch) => updateRow(row.id, patch)} />
+                <PackTrackFields values={row} artists={artists} sample={details.kind !== "dub"} onChange={(patch) => updateRow(row.id, patch)} />
                 <Button variant="tertiary" aria-label={`Remove ${row.file.name}`} onClick={() => { uploadIds.current.delete(row.id); setRows((current) => current.filter((item) => item.id !== row.id)); setSaved(""); }}>Remove file</Button>
               </>}
               {row.error && <p role="alert">{row.error}</p>}
             </article>)}
-            {pendingRows.length > 0 && <Button loading={pending} onClick={() => void uploadRows()}>{pendingRows.some((row) => row.state === "failed") ? "Retry failed uploads" : "Upload files"} ({pendingRows.length})</Button>}
+            {pendingRows.length > 0 && <p className="pack-muted" role="status">{pendingRows.length} {pendingRows.length === 1 ? "file" : "files"} queued. Choose Next to upload{pendingRows.some((row) => row.state === "failed") ? " or retry failed files" : ""} and continue.</p>}
             <h2>Choose existing uploads</h2>
             <SearchField aria-label="Search your uploads" placeholder="Search titles, artists or genres" value={query} onChange={(event) => setQuery(event.currentTarget.value)} />
             {!matchingDubs.length && <p className="pack-empty">{dubs.length ? "No uploads match your search." : "No existing uploads yet. Add audio files above to get started."}</p>}
             <div className="pack-picker">{matchingDubs.map((dub) => {
               const compatible = canAddDubToPack(details, dub);
-              return <label className="pack-check" key={dub.id}><input type="checkbox" disabled={!compatible || (selectedIds.length >= 50 && !selectedIds.includes(dub.id))}
+              return <label className="pack-check" key={dub.id}><input type="checkbox" disabled={(!compatible && !selectedIds.includes(dub.id)) || (selectedIds.length >= 50 && !selectedIds.includes(dub.id))}
                 checked={selectedIds.includes(dub.id)} onChange={(event) => { setSelectedIds(event.currentTarget.checked ? [...selectedIds, dub.id] : selectedIds.filter((id) => id !== dub.id)); setSaved(""); }} />
-                <span>{dub.title}<small>{compatible ? dub.artist : "Different distribution: this dub cannot be added."}</small></span></label>;
+                <span>{dub.title}<small>{compatible ? dub.artist : "Incompatible media type or audience. Remove this file or choose a compatible pack type."}</small></span></label>;
             })}</div>
           </>}
           {step === 2 && <>
@@ -296,16 +352,17 @@ export function PackEditor({ pack: initial, dubs, artists, approved, onSaved, on
                     if (editingItem === id) { setEditingItem(null); setItemDirty(false); }
                   }}>Remove from pack</Button>
                 </div>
-                {editingItem === id && dub && <PackItemEditor dub={dub} artists={artists} packId={pack.id} sample={details.kind === "sample"} initialKey={pack.items.find((item) => item.dub.id === id)?.key}
+                {editingItem === id && dub && <PackItemEditor dub={dub} artists={artists} packId={pack.id} sample={details.kind !== "dub"} initialKey={pack.items.find((item) => item.dub.id === id)?.key}
                   onSave={(updated) => { setPack(updated); setEditingItem(null); setItemDirty(false); }} onDirty={() => setItemDirty(true)} onError={setError} onCommunityChange={onCommunityChange}
                   onBusyChange={(value) => { busy.current = value; setPending(value); }} />}
               </li>;
             })}</ol>
-            {details.kind === "sample" && <section><h3>Usage licence</h3><p className="pack-licence">{details.licence || "Add licence terms in Details before publishing."}</p></section>}
+            {details.kind !== "dub" && <section><h3>Usage licence</h3><p className="pack-licence">{details.licence || "Add licence terms in Details before publishing."}</p></section>}
             {needsConfirmation && <label className="pack-check"><input type="checkbox" checked={confirmed} onChange={(event) => setConfirmed(event.currentTarget.checked)} />Grant existing pack recipients access to newly added files. Separate dub grants are unaffected.</label>}
             <p>Removing a file from this pack does not delete the original upload. Removing private access cannot recall files already downloaded.</p>
           </>}
         </fieldset>
+        </section>
         {error && <p role="alert" className="pack-error">{error}</p>}
         {saved && <p role="status">{saved}</p>}
         {refreshNeeded && <Button variant="secondary" disabled={pending} onClick={() => void run(() => finish(refreshNeeded))}>Retry refresh</Button>}
@@ -316,7 +373,7 @@ export function PackEditor({ pack: initial, dubs, artists, approved, onSaved, on
             onClick={() => void run(async () => { await finish(await save()); })}>Save {published ? "changes" : "draft"}</Button>
           {published && <Button variant="tertiary" disabled={pending} onClick={close}>Cancel</Button>}
           {step > 0 && <Button variant="tertiary" disabled={pending} onClick={() => goToStep(step - 1)}>Previous</Button>}
-          {step < 2 ? <Button disabled={pending} onClick={() => goToStep(step + 1)}>Next</Button>
+          {step < 2 ? <Button type="submit" disabled={pending || Boolean(refreshNeeded)} loading={pending}>Next</Button>
             : !published && <Button type="submit" disabled={pending || Boolean(refreshNeeded) || (needsConfirmation && !confirmed)} loading={pending}>Publish pack</Button>}
         </footer>
       </form>

@@ -1,10 +1,85 @@
 # Community API and demo deployment
 
+See the [developer handbook](../../docs/developer/README.md) for whole-app
+architecture, the [API map](../../docs/developer/api-and-data.md) for route
+families, and [operations](../../docs/developer/operations.md) for runtime
+boundaries. This document owns detailed API/storage procedures.
+
 Run the app and API together with `pnpm dev`, or start the backend alone with
 `pnpm dev:api`. The API listens on port 3001 and the Vite development server
 proxies `/api` requests to it.
 During development, the web app loads the UI package from source so player and
 other component changes are reflected without rebuilding the UI bundle.
+
+Tutorial progress is account-owned and stored on the user record in both
+compatibility storage modes. `GET /api/onboarding` returns version-1 progress
+with independent `desktop` and `mobile` objects, each containing `dismissed`
+and `completed` lesson IDs. `PATCH /api/onboarding` accepts
+`{ ownerId, platform, action, lessonId? }`. Platform is `desktop` or `mobile`;
+action is `dismiss` or `complete` (the latter requires one of `media`, `browse`,
+`workspace`, `upload`, `sharing`, `community`). Updates acknowledge the welcome
+offer, merge completion IDs without duplicates, and never modify the other
+platform. The authenticated account must match `ownerId`; anonymous access is
+rejected and responses are private/no-store. Progress survives sign-out and
+server restarts. Replay does not clear completed lessons.
+
+Signed-in window workspaces are stored on the user record in both JSON and
+PostgreSQL compatibility modes. `GET /api/workspace` returns the current
+account's workspace (or `null`), also included as `windowWorkspace` in community
+snapshots. `PUT /api/workspace` accepts `{ ownerId, workspace }`; `ownerId` must
+match the authenticated account, protecting delayed saves during account changes.
+The version-1 workspace contains at most 50 uniquely identified windows
+(`pack:`, `conversation:`, `track:`, `profile:<username>` or `player`), their validated frames, names,
+groups, order, minimized state, dock widths and an optional Player track ID.
+Root layouts optionally include `mode` (`simple` or `explorer`) and
+`explorerIntroduced` (boolean). These account preferences survive access pruning
+and server restarts; nested layouts cannot override them. Simple mode hides
+independent contexts without removing their saved layouts.
+Named contexts optionally include `savedLayout`, a validated flat layout
+checkpoint from the last explicit Save. `layout` remains the recoverable working
+arrangement. Checkpoint membership is historical, not live ownership; access
+pruning applies to both layouts, including their opened dependency lists.
+Older contexts without a checkpoint use their existing layout on first load.
+The optional root-only `viewedWorkspaceId` remembers the inspected workspace:
+`""` means Draft; other values must name a context in this account's catalog.
+The optional root-only `activeWorkspaceId` records the running workspace for
+the entry chooser: `""` means Draft, `null` means none, and other values must
+name a context in the same catalog. Inspecting a different workspace does not
+change this resume target. The UI offers to load the previous workspace or
+start an empty Draft; it does not reveal saved windows before that choice.
+Each layout optionally includes `openedDependencies`, a unique list of up to
+50 IDs owned by that layout. Workspace-shell IDs cannot be selected. Access
+pruning removes inaccessible IDs from both membership and remembered selection.
+Explorer presents Draft and saved workspaces as flat peers; selecting one opens
+all its windows directly. Manage opens its catalog separately. Legacy
+workspace-shell records are flattened by the UI on save.
+Entries optionally include `tabOrder` (a bounded non-negative integer, independent
+of activation order) and `groupTitle` (a trimmed name of at most 100 characters,
+only for grouped entries). Legacy version-1 layouts without these fields remain
+valid. Feature-dialog windows and their drafts are session-only and are not saved.
+Unknown fields are discarded, and unavailable/inaccessible content is excluded
+on save and retrieval. Changes use the normal `persist()` transaction path.
+Profile identifiers use the existing username format and are removed when the
+corresponding user no longer exists; profiles can share saved groups with chats
+and media, but profile contents and drafts are not part of the layout payload.
+Workspace sync uses last-write-wins snapshots, restored on the next app load;
+it does not push layout changes into already-open devices or synchronize drafts.
+
+The same version-1 payload optionally includes a flat `workspaces` catalog of
+up to 20 `{ id, title, saved, dependencies, layout }` contexts. A context's
+`layout` has the normal version-1 fields without another catalog. Legacy
+`workspace:<id>` window entries and context dependency links remain accepted
+compatibility data; the current UI flattens workspace shells and clears those
+links when saving. They do not describe the current flat workspace-opening
+journey. Each layout permits 50 windows;
+the complete arrangement permits 200, with globally unique window ownership.
+Missing references, duplicate ownership, nested catalogs and cycles across
+dependency links or workspace containment are rejected. Access pruning applies
+independently to every context. Legacy layouts without the catalog still work.
+`saved: false` retains temporary arrangements for reload without naming them
+saved workspaces; explicit naming sets `saved: true`, after which layout changes
+continue through the same account sync. Closed contexts can remain in the
+catalog without an open window.
 
 For the Render-first production-readiness assessment, migration gates and prepared
 proof-of-concept scope, see the
@@ -306,7 +381,7 @@ the Stage A synthetic catalogue, not Stage B media IDs.
 | `POST /api/packs` | `{ title, kind?, distribution, aListPublic?, licence?, dubIds? }` creates a draft |
 | `PATCH /api/packs/:id` | Owner edits title/kind/licence/ordered dubIds; audience immutable in this POC |
 | `POST /api/packs/:id/tracks` | `{ uploadId, title, confirmNewAccess? }` adds a new validated track |
-| `POST /api/packs/:id/publish` | `{}`; validates membership, audience, readiness, bytes and sample terms atomically |
+| `POST /api/packs/:id/publish` | `{}`; validates membership, audience, readiness, bytes and Sample/Vocal usage terms atomically |
 | `GET /api/packs/:id` | Authorized pack metadata; owner may inspect drafts |
 | `POST /api/packs/:id/archive` | `{}`; returns 202 job `{ id, state, revision }`, deduplicated per revision |
 | `GET /api/packs/:id/archive` | Ready current-revision ZIP only; rechecks pack access on every request |
@@ -449,7 +524,7 @@ the session cookie.
 Community `sharedDubIds` includes accessible published files from received packs
 as well as individual dub shares. Pack receipt is derived from full received
 message history or current private pack grants, with pack and file permissions
-checked before inclusion. This supports both dub and sample shared-file pages.
+checked before inclusion. This supports dub, sample and vocal shared-file pages.
 The accompanying `sharedPackIds` identifies accessible received packs so clients
 can display whole releases rather than infer receipt from public discovery.
 
@@ -506,14 +581,14 @@ the sharing dialog, including when there are no friends to send to. Links use
 `/#share?dub=<id>` and open a standalone player without the community navigation
 or Messenger. Logged-out listeners hear only a preview from the beginning.
 
-## Dub and sample packs
+## Dub, sample and vocal packs
 
-Authenticated artists can keep Dub Packs and Sample Packs as private drafts,
+Authenticated artists can keep Dub Packs, Sample Packs and Vocal Packs as private drafts,
 publish them to one audience (Worldwide, Private, or A-List), and share
 published private packs with existing friends. Pack access is checked from
 current pack membership; removing a pack recipient does not remove independent
 track grants. Deleting a pack retains its tracks, and tracks created for a
-discarded draft are kept private. Sample packs require the owner's usage-terms
+discarded draft are kept private. Sample and Vocal packs require the owner's usage-terms
 text before publishing; that text is included as `LICENCE.txt` in downloads.
 
 Community snapshots include accessible published `packs` for compact release
@@ -640,14 +715,25 @@ and repeat remain inside that pack. The active queue's pack identity is separate
 from its track membership so overlapping releases retain the correct playlist
 and share/download context.
 
-Dub responses include derived `mediaKind: "dub" | "sample"`. Published Sample
-Pack membership takes precedence over Dub Pack membership; drafts do not
-reclassify existing releases. Classification is recomputed from membership,
-not stored as another editable field. Pack item responses carry that pack's kind
+Dub responses include effective `mediaKind: "dub" | "sample" | "vocal"`.
+Individual `POST /api/dubs` and `PATCH /api/dubs/:id` accept optional
+`mediaKind: "dub" | "vocal"`; omitting it preserves the explicit type on edits.
+Explicit Vocal uploads or published Vocal Pack membership take priority over
+published Sample Pack membership. Otherwise files are dubs. Drafts never
+reclassify existing releases. Removing pack membership recomputes classification
+without clearing an explicit Vocal type. Pack item responses carry that pack's kind
 for playback context. Existing access checks still apply independently.
-`GET /api/dubs/search` accepts optional `mediaKind=dub|sample`; omitting it keeps
+Pack create/edit accept `kind: "dub" | "sample" | "vocal"`. Both Sample and Vocal
+Packs require a nonempty licence on publication or published edits, and include
+`LICENCE.txt` in ZIP downloads. Individual download access does not confer reuse rights.
+Existing membership edits and publication enforce typed content: Dub Packs
+accept dubs only, Sample Packs accept samples or vocals, and Vocal Packs accept
+vocals only. Incompatible members return 409 without persisting partial changes.
+New files uploaded through a pack use its kind; samples remain classified by
+published membership. Individual type edits cannot invalidate a published pack.
+`GET /api/dubs/search` accepts optional `mediaKind=dub|sample|vocal`; omitting it keeps
 the mixed-media behavior for existing clients. Pack title matching respects the
-selected kind. The two vaults use this scope for search and the same classification
+selected kind. The three vaults use this scope for search and the same classification
 for their default feeds, available formats and navigation counts.
 
 The seeded demo accounts are `meladee` / `meladee` and `holik` / `holik`.

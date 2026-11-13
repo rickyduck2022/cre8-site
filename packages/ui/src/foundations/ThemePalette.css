@@ -1,0 +1,24 @@
+:root[data-theme="light"] .organism-card.audio-player--playable.audio-player--controller:not(.audio-player--alist) {
+  --text-primary: var(--text-inverse);
+  --text-secondary: var(--text-inverse-secondary);
+  --audio-inactive: var(--audio-inverse-inactive);
+  --focus-ring: var(--audio-inverse-active);
+  --status-error: var(--status-inverse-error);
+  --player-tab-color: var(--text-inverse);
+  --player-tab-border: var(--border-inverse);
+}
+
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+}
+
+.theme-toggle-menu {
+  display: contents;
+}
+
+@media (max-width: 520px) {
+  .app-header__actions > .theme-toggle {
+    display: none;
+  }
+}

@@ -6,7 +6,7 @@
  */
 
 export type Presence = "online" | "away" | "offline";
-export type MediaKind = "dub" | "sample";
+export type MediaKind = "dub" | "sample" | "vocal";
 
 export type AListRole = "DJ" | "Producer" | "DJ & Producer" | "MC / Vocalist" | "Other";
 
@@ -122,6 +122,7 @@ export interface DubPack {
   createdAt: string;
   updatedAt: string;
   totalBytes: number;
+  zipDownloads?: number;
 }
 
 export interface ArtistOption {

@@ -1,12 +1,13 @@
 import { useState, type ComponentProps, type ReactNode } from "react";
-import { ChevronDown, ChevronRight, Download, MessageCircle, Pause, Play, X } from "@craft/icons";
+import { createPortal } from "react-dom";
+import { ChevronDownSolid as ChevronDown, ChevronRightSolid as ChevronRight, DownloadSolid as Download, MessageSolid as MessageCircle, PauseSolid as Pause, Play, MoveSolid, MinimizeSolid, MaximizeSolid } from "@craft/icons";
 import { AudioPlayer, Button, Modal, PackPlaylist, PlayerPositionMenu, PlayerTab, SnapPreview, TrackArtwork, packTypeLabel, type Dub, type DubPack, type PackPlaylistProps } from "@craft/ui";
 import { useAsyncSubmission } from "@craft/ui";
 import type { PlayerLayoutController } from "../hooks/usePlayerLayout";
 
 type PlaybackProps = Pick<ComponentProps<typeof AudioPlayer>,
   "playing" | "currentTimeSeconds" | "durationSeconds" | "volume" | "shuffle" | "repeat"
-  | "playbackError" | "onClose" | "onPlayChange" | "onSeek" | "onSeekProgress"
+  | "playbackError" | "onPlayChange" | "onSeek" | "onSeekProgress"
   | "onVolumeChange" | "onShuffleChange" | "onRepeatChange" | "onPrevious" | "onNext"
 >;
 
@@ -17,6 +18,7 @@ interface AppPlayerProps {
   onOpenProfile: (username: string) => void;
   pack?: DubPack | null;
   playlist?: Omit<PackPlaylistProps, "pack">;
+  playlistContainer?: HTMLElement | null;
   onShare?: () => void;
   onDownload?: () => Promise<void>;
 }
@@ -27,15 +29,23 @@ function PlayerView({ fullscreen, onMinimize, children }: { fullscreen: boolean;
     : <>{children}</>;
 }
 
-export function AppPlayer({ track, layout, playback, onOpenProfile, pack, playlist, onShare, onDownload }: AppPlayerProps) {
+export function AppPlayer({ track, layout, playback, onOpenProfile, pack, playlist, playlistContainer, onShare, onDownload }: AppPlayerProps) {
   const { floating, mobileEdgeDock } = layout;
-  const { playing, onPlayChange, onClose } = playback;
+  const { playing, onPlayChange } = playback;
   const [collapsedPackId, setCollapsedPackId] = useState<string | null>(null);
   const download = useAsyncSubmission("The download could not be completed. Please try again.", pack?.id ?? track?.id);
   const playlistOpen = Boolean(pack && collapsedPackId !== pack.id);
+  const packPlaylist = track && pack && playlist ? <section className="app-player__pack" aria-label="Current pack playlist">
+    <Button className="app-player__pack-toggle" variant="tertiary" size="small" aria-expanded={playlistOpen} leadingIcon={<ChevronDown aria-hidden="true" />}
+      onClick={() => setCollapsedPackId(playlistOpen ? pack.id : null)}>
+      <span className="app-player__pack-title" title={`${packTypeLabel(pack.kind)} · ${pack.title}`}>{packTypeLabel(pack.kind)} · {pack.title}</span>
+      <span className="app-player__pack-position">{pack.items.findIndex(({ dub }) => dub.id === track.id) + 1}/{pack.items.length}</span>
+    </Button>
+    {playlistOpen && <PackPlaylist {...playlist} pack={pack} showControls={false} />}
+  </section> : null;
 
   return (
-    <>
+    <div style={{ display: "contents" }}>
       {track && layout.isMinimized && <div aria-hidden="true" className="app-player-footer-target" />}
       {floating.previews.map((target) => (
         <SnapPreview
@@ -53,13 +63,14 @@ export function AppPlayer({ track, layout, playback, onOpenProfile, pack, playli
         <PlayerView fullscreen={layout.isFullscreen} onMinimize={() => layout.selectPosition("minimized")}>
         <AudioPlayer
           {...playback}
-          className={`app-player${mobileEdgeDock ? " app-player--edge-collapsed" : ""}`}
+          onClose={undefined}
+          className={`app-player${layout.collapsed ? " app-player--collapsed" : ""}${mobileEdgeDock ? " app-player--edge-collapsed" : ""}`}
           colorVariant="controller"
           mediaKind={pack?.kind ?? track.mediaKind}
-          contextLabel={playing ? "Now playing" : "Playback paused"}
+          contextLabel={`Global player · ${playing ? "Now playing" : "Playback paused"}`}
           ref={layout.playerRef}
           style={layout.style}
-          dragHandle={<PlayerTab
+          dragHandle={layout.desktop ? undefined : <PlayerTab
             aria-label="Move audio player with arrow keys or drag; Home returns it to its original position"
             title="Drag or use arrow keys to move; press Home to return"
             className="audio-player__drag"
@@ -69,19 +80,21 @@ export function AppPlayer({ track, layout, playback, onOpenProfile, pack, playli
             onPointerCancel={floating.onPointerCancel}
             onLostPointerCapture={floating.onLostPointerCapture}
             onKeyDown={floating.onKeyDown}
-          ><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M12 2v20M2 12h20M8 6l4-4 4 4M8 18l4 4 4-4M6 8l-4 4 4 4M18 8l4 4-4 4" />
-          </svg></PlayerTab>}
+          ><MoveSolid aria-hidden="true" size={20} /></PlayerTab>}
           minimized={layout.isMinimized}
-          minimizeLabel={layout.popsOutOnMinimize ? "Pop out audio player" : undefined}
-          minimizeIcon={layout.popsOutOnMinimize ? "minimize" : undefined}
-          positionMenu={<PlayerPositionMenu
+          positionMenu={layout.desktop ? <PlayerTab
+            aria-label={layout.collapsed ? "Expand audio player" : "Collapse audio player"}
+            aria-expanded={!layout.collapsed}
+            leadingIcon={layout.collapsed ? <MaximizeSolid /> : <MinimizeSolid />}
+            onClick={() => layout.changeMinimized(!layout.collapsed)}
+          /> : <PlayerPositionMenu
             positions={layout.positions}
             current={layout.currentPosition}
             opacityControl={layout.opacityControl}
             onSelect={layout.selectPosition}
           />}
-          onMinimizedChange={layout.changeMinimized}
+          onMinimizedChange={layout.desktop ? undefined : layout.changeMinimized}
+          transportVariant={layout.collapsed ? "minimal" : "full"}
           distribution={pack?.distribution ?? track.distribution ?? "worldwide"}
           track={{
             title: track.title,
@@ -93,28 +106,22 @@ export function AppPlayer({ track, layout, playback, onOpenProfile, pack, playli
           }}
           variant="full"
           endAction={(onShare || onDownload) && <div className="app-player__actions" role="group" aria-label="Share and download">
-            {onShare && <Button aria-label={`Share ${pack ? packTypeLabel(pack.kind) : track.mediaKind === "sample" ? "sample" : "dub"}: ${pack?.title ?? track.title}`}
-              title={pack ? "Share pack in Messenger" : `Share ${track.mediaKind === "sample" ? "sample" : "dub"} in Messenger`} leadingIcon={<MessageCircle aria-hidden="true" />}
+            {onShare && <Button aria-label={`Share ${pack ? packTypeLabel(pack.kind) : track.mediaKind === "vocal" ? "vocal" : track.mediaKind === "sample" ? "sample" : "dub"}: ${pack?.title ?? track.title}`}
+              title={pack ? "Share pack in Messenger" : `Share ${track.mediaKind === "vocal" ? "vocal" : track.mediaKind === "sample" ? "sample" : "dub"} in Messenger`} leadingIcon={<MessageCircle aria-hidden="true" />}
               size="small" variant="tertiary" onClick={onShare} />}
-            {onDownload && <Button aria-label={`Download ${pack ? packTypeLabel(pack.kind) : track.mediaKind === "sample" ? "sample" : "dub"}: ${pack?.title ?? track.title}`}
-              title={pack ? "Download pack ZIP" : `Download ${track.mediaKind === "sample" ? "sample" : "dub"}`} leadingIcon={<Download aria-hidden="true" />}
+            {onDownload && <Button aria-label={`Download ${pack ? packTypeLabel(pack.kind) : track.mediaKind === "vocal" ? "vocal" : track.mediaKind === "sample" ? "sample" : "dub"}: ${pack?.title ?? track.title}`}
+              title={pack ? "Download pack ZIP" : `Download ${track.mediaKind === "vocal" ? "vocal" : track.mediaKind === "sample" ? "sample" : "dub"}`} leadingIcon={<Download aria-hidden="true" />}
               size="small" variant="tertiary" disabled={download.pending} loading={download.pending}
               onClick={() => void download.run(onDownload)} />}
           </div>}
-          metadata={(download.error || (pack && playlist)) ? <>
+          metadata={(download.error || (!layout.desktop && packPlaylist)) ? <>
             {download.error && <p role="alert" className="pack-error">{download.error}</p>}
-            {pack && playlist && <section className="app-player__pack" aria-label="Current pack playlist">
-              <Button className="app-player__pack-toggle" variant="tertiary" size="small" aria-expanded={playlistOpen} leadingIcon={<ChevronDown aria-hidden="true" />}
-                onClick={() => setCollapsedPackId(playlistOpen ? pack.id : null)}>
-                <span className="app-player__pack-title" title={`${packTypeLabel(pack.kind)} · ${pack.title}`}>{packTypeLabel(pack.kind)} · {pack.title}</span>
-                <span className="app-player__pack-position">{pack.items.findIndex(({ dub }) => dub.id === track.id) + 1}/{pack.items.length}</span>
-              </Button>
-              {playlistOpen && <PackPlaylist {...playlist} pack={pack} showControls={false} />}
-            </section>}
+            {!layout.desktop && packPlaylist}
           </> : undefined}
         />
         </PlayerView>
       )}
+      {layout.desktop && playlistContainer && packPlaylist && createPortal(packPlaylist, playlistContainer)}
       {track && mobileEdgeDock && <div className={`app-player-edge-handle app-player-edge-handle--${mobileEdgeDock}`}>
         <Button
           aria-label={playing ? "Pause audio player" : "Play audio player"}
@@ -132,8 +139,7 @@ export function AppPlayer({ track, layout, playback, onOpenProfile, pack, playli
           size="small"
           variant="tertiary"
         />
-        <Button aria-label="Close audio player" leadingIcon={<X aria-hidden="true" />} onClick={onClose} size="small" variant="tertiary" />
       </div>}
-    </>
+    </div>
   );
 }

@@ -1,10 +1,17 @@
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import { useState } from "react";
 import { LatestDubsTemplate } from "./LatestDubsTemplate";
 import type { Dub } from "../communityTypes";
 import type { DubPack } from "../../organisms/DubPackCard/DubPackCard";
+import { CollectionHeaderContext } from "../shared/CollectionHeaderContext";
+import { createEmptyDubSearchFilters } from "../../organisms/DubSearch/DubSearch";
 
-afterEach(cleanup);
+beforeAll(() => {
+  HTMLDialogElement.prototype.showModal = function () { this.open = true; };
+  HTMLDialogElement.prototype.close = function () { this.open = false; };
+});
+afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
 const dub: Dub = {
   id: "owned", title: "My Dub", artist: "Amber", uploader: "amber",
@@ -24,6 +31,118 @@ describe("LatestDubsTemplate ownership controls", () => {
     likedDubIds: new Set<string>(), nowPlayingId: null, isPlaying: false,
     onDownload: vi.fn(), onOpenProfile: vi.fn(), onPlay: vi.fn(), onPlayPack: vi.fn(), onOpenPack: vi.fn(),
   };
+  it("distinguishes standalone file playback from pack playback callbacks", () => {
+    const onPlaySingle = vi.fn();
+    const onPlay = vi.fn();
+    const playable = { ...dub, audioUrl: "/audio/check" };
+    render(<LatestDubsTemplate {...packProps} onPlay={onPlay} onPlaySingle={onPlaySingle} mediaKind="dub"
+      dubs={[playable]} packs={[{ ...pack, items: [{ dub: playable }] }]} />);
+    fireEvent.click(screen.getByRole("button", { name: "Play", exact: true }));
+    expect(onPlaySingle).toHaveBeenCalledWith(playable);
+    expect(onPlay).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("tab", { name: "Packs", exact: true }));
+    fireEvent.click(screen.getByRole("button", { name: "Show 1 track", exact: true }));
+    fireEvent.click(screen.getAllByRole("button", { name: "Play", exact: true }).at(-1)!);
+    expect(onPlay).toHaveBeenCalledWith(playable);
+    expect(onPlaySingle).toHaveBeenCalledTimes(1);
+  });
+  it.each(["dub", "sample"] as const)("keeps %s mobile search compact, accessible and stateful", (kind) => {
+    vi.stubGlobal("matchMedia", vi.fn().mockReturnValue({
+      matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn(),
+    }));
+    function Vault() {
+      const [query, setQuery] = useState("");
+      const [filters, setFilters] = useState(createEmptyDubSearchFilters);
+      return <LatestDubsTemplate {...packProps} compactHeader mediaKind={kind} dubs={[dub, second]} packs={[{ ...pack, kind }]}
+        query={query} onQueryChange={setQuery} filters={filters} onFiltersChange={setFilters} searchError="Search unavailable" />;
+    }
+    render(<Vault />);
+    const toggle = screen.getByRole("button", { name: "Search and filters" });
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByRole("searchbox")).not.toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveTextContent("Search unavailable");
+    fireEvent.click(screen.getByRole("tab", { name: "Packs" }));
+    expect(screen.getByRole("tab", { name: "Packs" })).toHaveAttribute("aria-selected", "true");
+    fireEvent.click(toggle);
+    const search = screen.getByRole("searchbox");
+    fireEvent.change(search, { target: { value: "Night" } });
+    expect(toggle).toHaveAccessibleName("Search and filters, 1 active");
+    fireEvent.click(screen.getByRole("button", { name: "Filters", exact: true }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Private" }));
+    fireEvent.click(screen.getByRole("button", { name: "Apply filters" }));
+    expect(toggle).toHaveAccessibleName("Search and filters, 2 active");
+    fireEvent.click(toggle);
+    expect(screen.queryByRole("searchbox")).not.toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveTextContent("Search unavailable");
+    fireEvent.click(toggle);
+    expect(screen.getByRole("searchbox")).toHaveValue("Night");
+    expect(screen.getByRole("button", { name: "Filters, 1 active", exact: true })).toBeVisible();
+    expect(screen.getByRole("tab", { name: "Packs" })).toHaveAttribute("aria-selected", "true");
+  });
+  it.each(["dub", "sample"] as const)("places %s tabs and compact search in the mobile header", (kind) => {
+    vi.stubGlobal("matchMedia", vi.fn().mockReturnValue({
+      matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn(),
+    }));
+    const header = document.createElement("div");
+    document.body.append(header);
+    const { container } = render(<CollectionHeaderContext.Provider value={header}>
+      <LatestDubsTemplate {...packProps} mediaKind={kind} compactHeader dubs={[dub, second]} packs={[{ ...pack, kind }]} />
+    </CollectionHeaderContext.Provider>);
+    const tabs = within(header).getByRole("tablist", { name: /view/ });
+    const toggle = within(header).getByRole("button", { name: "Search and filters" });
+    expect(container).not.toContainElement(tabs);
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(within(tabs).getByRole("tab", { name: "Packs" }));
+    expect(within(container).getByRole("tabpanel")).toHaveAccessibleName("Packs");
+    fireEvent.click(toggle);
+    expect(within(header).getByRole("searchbox")).toBeVisible();
+    header.remove();
+  });
+  it.each(["dub", "sample"] as const)("separates individual %s files from a pack grid while retaining filters and playback", (kind) => {
+    const play = vi.fn();
+    const single = { ...dub, id: "single", title: "Standalone" };
+    const release = { ...pack, kind: "sample" as const };
+    const { rerender } = render(<LatestDubsTemplate {...packProps} mediaKind={kind} dubs={[dub, second, single]}
+      packs={[{ ...pack, kind }, { ...release, id: "draft", status: "draft" }]} onPlayPack={play} />);
+    const feed = screen.getByRole("region", { name: "Community uploads" });
+    const tabs = within(screen.getByRole("tablist", { name: "Dub Vault view" })).getAllByRole("tab");
+    expect(tabs.map(tab => tab.textContent)).toEqual(kind === "sample" ? ["Packs", "Samples"] : ["Dubs", "Packs"]);
+    expect(tabs[0]).toHaveAttribute("aria-selected", "true");
+    if (kind === "sample") {
+      expect(within(feed).getByRole("button", { name: "Open pack" })).toBeVisible();
+      fireEvent.click(screen.getByRole("tab", { name: "Samples", exact: true }));
+    }
+    expect(screen.getByRole("tab", { name: kind === "sample" ? "Samples" : "Dubs", exact: true }).parentElement)
+      .toHaveClass("collection-tabs", `media-kind--${kind}`);
+    expect(within(feed).getAllByRole("article")).toHaveLength(3);
+    expect(within(feed).queryByRole("button", { name: "Open pack" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("tab", { name: "Packs", exact: true }));
+    expect(screen.getByRole("tab", { name: "Packs", exact: true })).toHaveAttribute("aria-selected", "true");
+    expect(feed).toHaveClass("vault-pack-grid");
+    expect(within(feed).getAllByRole("article")).toHaveLength(1);
+    expect(within(feed).getByRole("article")).toHaveClass("dub-pack-card--grid");
+    expect(within(feed).getByRole("region", { name: "Audio player: My Dub" })).toBeVisible();
+    expect(within(feed).queryByRole("button", { name: "Play all" })).not.toBeInTheDocument();
+    fireEvent.click(within(feed).getByRole("button", { name: "Play", exact: true }));
+    expect(play).toHaveBeenCalledWith(pack.items.map(({ dub }) => dub), pack.id);
+    rerender(<LatestDubsTemplate {...packProps} mediaKind={kind} dubs={[single]} packs={[{ ...pack, kind }]} queryAlreadyFiltered />);
+    expect(screen.getByText("No packs found")).toBeVisible();
+    expect(within(feed).queryByRole("article")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("tab", { name: kind === "sample" ? "Samples" : "Dubs", exact: true }));
+    expect(within(feed).getByRole("region", { name: "Audio player: Standalone" })).toBeVisible();
+  });
+
+  it("finds a pack by title in Packs and preserves a matching subset in its playlist", () => {
+    const { rerender } = render(<LatestDubsTemplate {...packProps} mediaKind="dub" dubs={[dub, second]} packs={[pack]} query="Night Sessions" />);
+    fireEvent.click(screen.getByRole("tab", { name: "Packs", exact: true }));
+    expect(screen.getByRole("article", { name: "Dub Pack: Night Sessions" })).toBeVisible();
+    rerender(<LatestDubsTemplate {...packProps} mediaKind="dub" dubs={[second]} packs={[pack]} queryAlreadyFiltered query="Closing" />);
+    fireEvent.click(screen.getByRole("button", { name: "Show 2 tracks" }));
+    expect(screen.getByText(/1 track matches your filters/)).toBeVisible();
+    expect(screen.queryByRole("article", { name: "My Dub" })).not.toBeInTheDocument();
+    expect(screen.getByRole("article", { name: "Closing Dub" })).toBeVisible();
+  });
+
   it("groups pack members into one expandable release before pagination without duplicate standalone cards", () => {
     const standalone = { ...dub, id: "single", title: "Standalone" };
     render(<LatestDubsTemplate {...packProps} dubs={[dub, second, standalone]} packs={[pack]} />);

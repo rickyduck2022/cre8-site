@@ -11,6 +11,7 @@ import { useAsyncSubmission } from "../../utils/useAsyncSubmission";
 import "../Molecules.css";
 
 export interface DubUploadFormValues {
+  mediaKind?: "dub" | "vocal";
   title: string;
   artistId: string;
   tags: string[];
@@ -24,6 +25,8 @@ export interface DubUploadFormValues {
 }
 
 export interface DubUploadFormProps {
+  lockMediaKind?: boolean;
+  initialMediaKind?: "dub" | "vocal";
   artists: Array<{ id: string; name: string }>;
   onSubmit: (values: DubUploadFormValues) => unknown | Promise<unknown>;
   onCancel: () => void;
@@ -43,16 +46,20 @@ export function DubUploadForm({
   uploadProgress = null,
   submissionError = "",
   initialDub,
+  initialMediaKind = "dub",
+  lockMediaKind = false,
   aListApproved = false,
   buddies = [],
   aListMembers = [],
   initialBuddyIds = [],
 }: DubUploadFormProps) {
   const isEditing = Boolean(initialDub);
+  const [mediaKind, setMediaKind] = useState<"dub" | "vocal">(initialDub?.mediaKind === "vocal" ? "vocal" : initialMediaKind);
+  const noun = initialDub?.mediaKind === "sample" ? "sample" : mediaKind;
   const formId = `dub-upload-form-${useId()}`;
   const [tags, setTags] = useState<string[]>(initialDub?.tags ?? [initialDub?.genre ?? ""].filter(Boolean));
   const [fileError, setFileError] = useState("");
-  const submission = useAsyncSubmission(isEditing ? "The dub could not be saved. Check the notification and try again." : "The dub could not be shared. Check the notification and try again.");
+  const submission = useAsyncSubmission(`The ${noun} could not be ${isEditing ? "saved" : "shared"}. Check the notification and try again.`);
   const isSubmitting = submission.pending;
   const [distribution, setDistribution] = useState<"worldwide" | "private" | "alist">("worldwide");
   const [aListPublic, setAListPublic] = useState(initialDub?.aListPublic === true);
@@ -78,6 +85,7 @@ export function DubUploadForm({
 
     const bpmValue = String(formData.get("bpm") ?? "").trim();
     const saved = await submission.run(() => onSubmit({
+      ...(initialDub?.mediaKind !== "sample" && (!isEditing || mediaKind !== (initialDub?.mediaKind === "vocal" ? "vocal" : "dub")) ? { mediaKind } : {}),
       title: String(formData.get("title") ?? ""),
       artistId: String(formData.get("artistId") ?? ""),
       tags,
@@ -106,6 +114,14 @@ export function DubUploadForm({
     <>
     <form aria-busy={isSubmitting} className="dub-upload-form" id={formId} onSubmit={submit}>
       <fieldset className="dub-upload-form__fields" disabled={isSubmitting}>
+        {lockMediaKind && mediaKind === "vocal" && <p>Adding a vocal does not grant others reuse rights. Use a Vocal Pack to include usage licence terms.</p>}
+        {!lockMediaKind && initialDub?.mediaKind !== "sample" && <label className="dub-upload-form__field">
+          <span>Media type</span>
+          <select aria-label="Media type" value={mediaKind} onChange={(event) => {
+            if (event.currentTarget.value === "dub" || event.currentTarget.value === "vocal") setMediaKind(event.currentTarget.value);
+          }}><option value="dub">Dub</option><option value="vocal">Vocal</option></select>
+          <small>Published pack membership can classify a file as a Sample or Vocal. Vocal classification takes priority. Download access does not grant reuse rights.</small>
+        </label>}
         <label className="dub-upload-form__field">
           <span>Track title</span>
           <input autoFocus defaultValue={initialDub?.title} maxLength={100} name="title" required />
@@ -136,7 +152,7 @@ export function DubUploadForm({
         )}
         {!isEditing && distribution === "private" && (
           <div className="dub-upload-form__private-friends">
-            <p>Optional: send this private dub to friends in Messenger when it uploads. Manage access in My Dubs; unsending does not revoke access or recall downloaded files.</p>
+            <p>Optional: send this private {noun} to friends in Messenger when it uploads. Manage access in Your {mediaKind === "vocal" ? "Vocals" : "Dubs"}; unsending does not revoke access or recall downloaded files.</p>
             <FriendPicker buddies={buddies} selectedIds={buddyIds} onChange={setBuddyIds} />
           </div>
         )}
@@ -144,7 +160,7 @@ export function DubUploadForm({
         {effectiveDistribution === "alist" && (
           <label className="dub-upload-form__public">
             <input checked={aListPublic} onChange={(event) => { setAListPublic(event.currentTarget.checked); setBuddyIds([]); }} type="checkbox" />
-            <span><strong>Public</strong><small>Allow everyone to discover and play this A-List dub. Turn off to restrict access to approved A-List members; previously downloaded files cannot be recalled.</small></span>
+            <span><strong>Public</strong><small>Allow everyone to discover and play this A-List {noun}. Turn off to restrict access to approved A-List members; previously downloaded files cannot be recalled.</small></span>
           </label>
         )}
         {isEditing && (
@@ -217,7 +233,7 @@ export function DubUploadForm({
         Cancel
       </Button>
       <Button disabled={isSubmitting} form={formId} loading={isSubmitting} type="submit">
-        {isSubmitting ? (isEditing ? "Saving dub" : "Sharing dub") : (isEditing ? "Save changes" : "Share dub")}
+        {isSubmitting ? `${isEditing ? "Saving" : lockMediaKind ? "Adding" : "Sharing"} ${noun}` : (isEditing ? "Save changes" : lockMediaKind ? `Add ${mediaKind === "vocal" ? "Vocal" : "Dub"}` : `Share ${noun}`)}
       </Button>
     </ModalFooter>
     </>

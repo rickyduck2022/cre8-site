@@ -52,7 +52,7 @@ function OnlineFriendsGroupView({ group }: { group: OnlineFriendsGroup }) {
   return (
     <li className="online-friends__group">
       <span className="online-friends__label">{group.title}</span>
-      <div className="online-friends__people">
+      <div className="online-friends__people" ref={pagination.listRef}>
         {pagination.items.map((friend) => (
           <a
             className="online-friends__person"

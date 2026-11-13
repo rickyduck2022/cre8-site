@@ -1,12 +1,12 @@
-import { useEffect, useRef, useState } from "react";
-import type { Dub } from "@craft/ui";
+import { useCallback, useEffect, useRef, useState, type SetStateAction } from "react";
+import type { Dub, TutorialActivity } from "@craft/ui";
 
 export interface PlaybackPosition {
   dubId: string;
   positionSeconds: number;
 }
 
-interface PlaybackState {
+export interface PlaybackState {
   queuePackId: string | null;
   nowPlayingId: string | null;
   isPlaying: boolean;
@@ -16,6 +16,14 @@ interface PlaybackState {
   shuffle: boolean;
   repeat: boolean;
   playbackError: string | null;
+}
+
+interface PackPlaybackContext {
+  playback: PlaybackState;
+  queue: string[] | null;
+  history: string[];
+  visited: string[];
+  progress: number | null;
 }
 
 const initialPlaybackState: PlaybackState = {
@@ -30,30 +38,62 @@ export function useAudioPlayback(
   userId: string | undefined,
   savedPosition: PlaybackPosition | null,
   savePosition?: (position: PlaybackPosition) => Promise<void>,
-  { autoAdvance = true }: { autoAdvance?: boolean } = {},
+  { autoAdvance = true, onTutorialActivity }: { autoAdvance?: boolean; onTutorialActivity?: (activity: TutorialActivity) => void } = {},
 ) {
-  const [playback, setPlayback] = useState(initialPlaybackState);
+  const [playback, setPlaybackState] = useState(initialPlaybackState);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const dubsRef = useRef(dubs);
   const stateRef = useRef(playback);
   const onErrorRef = useRef(onError);
   const saveRef = useRef(savePosition);
   const autoAdvanceRef = useRef(autoAdvance);
+  const tutorialActivity = useRef(onTutorialActivity);
+  tutorialActivity.current = onTutorialActivity;
   const pendingSeek = useRef<number | null>(null);
   const pendingProgress = useRef<number | null>(null);
   const restoredUser = useRef<string | undefined>(undefined);
   const history = useRef<string[]>([]);
   const queue = useRef<string[] | null>(null);
   const queuePackId = useRef<string | null>(null);
+  const contexts = useRef<Record<string, PackPlaybackContext>>({});
+  const globalContext = useRef<PackPlaybackContext | null>(null);
+  const [globalPlayback, setGlobalPlayback] = useState<PlaybackState | null>(null);
+  const activeWindowId = useRef<string | null>(null);
+  const [audibleContextId, setAudibleContextId] = useState<string | null>(null);
+  const [selectedContext, setSelectedContext] = useState<{ id: string | null; tracks: Dub[]; packId?: string }>({ id: null, tracks: [] });
+  const selectedContextId = playback.nowPlayingId ? audibleContextId : selectedContext.id;
+  const [packContexts, setPackContexts] = useState<Record<string, PlaybackState>>({});
   const visited = useRef(new Set<string>());
   const saveQueue = useRef<Promise<void>>(Promise.resolve());
   const sessionGeneration = useRef(0);
   const trackGeneration = useRef(0);
   dubsRef.current = dubs;
   stateRef.current = playback;
+  const setPlayback = useCallback((update: SetStateAction<PlaybackState>) => {
+    const next = typeof update === "function" ? update(stateRef.current) : update;
+    stateRef.current = next;
+    setPlaybackState(next);
+  }, []);
   onErrorRef.current = onError;
   saveRef.current = savePosition;
   autoAdvanceRef.current = autoAdvance;
+
+  function rememberPack() {
+    const id = activeWindowId.current;
+    const audio = audioRef.current;
+    const snapshot = { ...stateRef.current, queuePackId: queuePackId.current,
+      nowPlayingId: audio?.dataset.dubId ?? null,
+      currentTime: pendingSeek.current ?? audio?.currentTime ?? 0, isPlaying: false };
+    const context = { playback: snapshot, queue: queue.current ? [...queue.current] : null,
+      history: [...history.current], visited: [...visited.current], progress: pendingProgress.current };
+    if (id) {
+      contexts.current[id] = context;
+      setPackContexts((current) => ({ ...current, [id]: snapshot }));
+    } else {
+      globalContext.current = context;
+      setGlobalPlayback(snapshot);
+    }
+  }
 
   function persistPosition() {
     if (!saveRef.current) return saveQueue.current;
@@ -96,7 +136,9 @@ export function useAudioPlayback(
       currentTime: positionSeconds, duration: 0, playbackError: null,
     }));
     if (autoplay) {
-      void audio.play().catch(() => {
+      void audio.play().then(() => {
+        if (generation === trackGeneration.current && !audio.paused) tutorialActivity.current?.({ type: "playback-started", subjectId: dub.id });
+      }).catch(() => {
         if (generation !== trackGeneration.current) return;
         const message = `Unable to play ${dub.title}. Check that the audio file is available.`;
         setPlayback((current) => ({ ...current, playbackError: message, isPlaying: false }));
@@ -235,9 +277,11 @@ export function useAudioPlayback(
       if (!queue.current?.includes(dub.id)) clearQueue();
       history.current = []; startTrack(dub); return;
     }
-    if (!audio.paused) { audio.pause(); void persistPosition(); return; }
+    if (!audio.paused) { audio.pause(); tutorialActivity.current?.({ type: "playback-paused", subjectId: dub.id }); void persistPosition(); return; }
     const generation = trackGeneration.current;
-    void audio.play().catch(() => {
+    void audio.play().then(() => {
+      if (generation === trackGeneration.current && !audio.paused) tutorialActivity.current?.({ type: "playback-started", subjectId: dub.id });
+    }).catch(() => {
       if (generation !== trackGeneration.current) return;
       const message = `Unable to play ${dub.title}. Check that the audio file is available.`;
       setPlayback((current) => ({ ...current, playbackError: message, isPlaying: false }));
@@ -290,6 +334,7 @@ export function useAudioPlayback(
     setPlayback((current) => ({ ...current, repeat }));
   }
   function clearQueue() {
+    rememberPack();
     queue.current = null;
     queuePackId.current = null;
     setPlayback((current) => ({ ...current, queuePackId: null }));
@@ -301,6 +346,7 @@ export function useAudioPlayback(
     if (!available.length) { onErrorRef.current("This pack has no playable files.", "error"); return null; }
     if (available.length !== tracks.length) { onErrorRef.current("Some pack files are unavailable. Refresh the pack before playing it.", "error"); return null; }
     const ids = available.map((dub) => dub.id);
+    if (queuePackId.current !== (packId ?? null)) rememberPack();
     if (queue.current?.join("|") !== ids.join("|") || queuePackId.current !== (packId ?? null)) {
       history.current = [];
       visited.current = new Set(audioRef.current?.dataset.dubId && ids.includes(audioRef.current.dataset.dubId) ? [audioRef.current.dataset.dubId] : []);
@@ -326,6 +372,10 @@ export function useAudioPlayback(
       duration: 0, playbackError: null,
     }));
   }
+  function pausePlayback() {
+    audioRef.current?.pause();
+    void persistPosition();
+  }
   function reset() {
     clearQueue();
     trackGeneration.current++;
@@ -337,18 +387,164 @@ export function useAudioPlayback(
     pendingProgress.current = null;
     restoredUser.current = undefined;
     history.current = [];
+    contexts.current = {};
+    globalContext.current = null;
+    setGlobalPlayback(null);
+    activeWindowId.current = null;
+    setAudibleContextId(null);
+    setSelectedContext({ id: null, tracks: [] });
+    setPackContexts({});
     setPlayback(initialPlaybackState);
   }
+  function setWindowSettings(packId: string, settings: Partial<Pick<PlaybackState, "shuffle" | "repeat">>, tracks?: Dub[]) {
+    const ids = activeWindowId.current === packId ? queue.current : contexts.current[packId]?.queue;
+    const available = tracks ?? (ids ?? []).flatMap((id) => {
+      const dub = dubsRef.current.find((entry) => entry.id === id);
+      return dub ? [dub] : [];
+    });
+    if (available.length) selectPlayerContext(packId, available, packId.startsWith("track:") ? undefined : packId);
+    if (activeWindowId.current === packId) {
+      if (settings.shuffle !== undefined) setShuffle(settings.shuffle);
+      if (settings.repeat !== undefined) setRepeat(settings.repeat);
+      return;
+    }
+    const saved = contexts.current[packId] ?? { playback: { ...initialPlaybackState, queuePackId: packId }, queue: null, history: [], visited: [], progress: null };
+    const next = { ...saved, playback: { ...saved.playback, ...settings },
+      visited: settings.shuffle !== undefined ? saved.playback.nowPlayingId ? [saved.playback.nowPlayingId] : [] : saved.visited };
+    contexts.current[packId] = next;
+    setPackContexts((current) => ({ ...current, [packId]: next.playback }));
+  }
+  function activateWindowQueue(tracks: Dub[], packId: string) {
+    const switching = activeWindowId.current !== packId;
+    const saved = contexts.current[packId];
+    if (switching) rememberPack();
+    const available = prepareQueue(tracks, packId);
+    if (!available) return false;
+    selectPlayerContext(packId, available, packId.startsWith("track:") ? undefined : packId);
+    activeWindowId.current = packId;
+    setAudibleContextId(packId);
+    if (!switching && audioRef.current?.dataset.dubId && available.some((dub) => dub.id === audioRef.current?.dataset.dubId)) return true;
+    const track = available.find((dub) => dub.id === saved?.playback.nowPlayingId) ?? available[0];
+    if (saved) {
+      history.current = saved.history.filter((id) => available.some((dub) => dub.id === id));
+      visited.current = new Set(saved.visited.filter((id) => available.some((dub) => dub.id === id)));
+    }
+    const shuffle = saved?.playback.shuffle ?? false;
+    const repeat = saved?.playback.repeat ?? false;
+    setPlayback((current) => ({ ...current, shuffle, repeat }));
+    startTrack(track, track.id === saved?.playback.nowPlayingId ? saved.playback.currentTime : 0, false,
+      track.id === saved?.playback.nowPlayingId ? saved.progress : null);
+    return true;
+  }
+  function activateGlobalContext() {
+    if (activeWindowId.current === null) return;
+    rememberPack();
+    activeWindowId.current = null;
+    setAudibleContextId(null);
+    const saved = globalContext.current;
+    queue.current = saved?.queue?.filter((id) => dubsRef.current.some((dub) => dub.id === id)) ?? null;
+    queuePackId.current = saved?.playback.queuePackId ?? null;
+    history.current = saved?.history ?? [];
+    visited.current = new Set(saved?.visited ?? []);
+    const track = dubsRef.current.find((dub) => dub.id === saved?.playback.nowPlayingId);
+    audioRef.current?.pause();
+    setPlayback({ ...(saved?.playback ?? initialPlaybackState), volume: stateRef.current.volume, isPlaying: false });
+    if (track) startTrack(track, saved?.playback.currentTime ?? 0, false, saved?.progress ?? null);
+    else {
+      trackGeneration.current++;
+      audioRef.current?.removeAttribute("src");
+      if (audioRef.current) delete audioRef.current.dataset.dubId;
+      pendingSeek.current = null;
+      pendingProgress.current = null;
+      setPlayback((current) => ({ ...current, nowPlayingId: null, currentTime: 0, duration: 0 }));
+    }
+  }
+  const selectPlayerContext = useCallback((id: string | null, tracks: Dub[] = [], packId?: string) => {
+    setSelectedContext((current) => current.id === id && current.packId === packId
+      && current.tracks.map((dub) => dub.id).join("|") === tracks.map((dub) => dub.id).join("|") ? current : { id, tracks, packId });
+  }, []);
+  function activateSelectedContext() {
+    if (playback.nowPlayingId && selectedContextId === activeWindowId.current) return true;
+    if (selectedContextId === null) { activateGlobalContext(); return true; }
+    return activateWindowQueue(selectedContext.tracks, selectedContextId);
+  }
+  function setGlobalSettings(settings: Partial<Pick<PlaybackState, "shuffle" | "repeat">>) {
+    if (activeWindowId.current === null) {
+      if (settings.shuffle !== undefined) setShuffle(settings.shuffle);
+      if (settings.repeat !== undefined) setRepeat(settings.repeat);
+      return;
+    }
+    const saved = globalContext.current ?? {
+      playback: initialPlaybackState, queue: null, history: [], visited: [], progress: null,
+    };
+    globalContext.current = { ...saved, playback: { ...saved.playback, ...settings },
+      visited: settings.shuffle !== undefined ? saved.playback.nowPlayingId ? [saved.playback.nowPlayingId] : [] : saved.visited };
+    setGlobalPlayback(globalContext.current.playback);
+  }
+  function setMainSettings(settings: Partial<Pick<PlaybackState, "shuffle" | "repeat">>) {
+    if (selectedContextId !== null) setWindowSettings(selectedContextId, settings);
+    else setGlobalSettings(settings);
+  }
+  function playQueue(tracks: Dub[], packId?: string) {
+    const available = prepareQueue(tracks, packId);
+    if (!available) return;
+    history.current = [];
+    visited.current.clear();
+    startTrack(available[stateRef.current.shuffle ? Math.floor(Math.random() * available.length) : 0]);
+  }
+  const selectedSnapshot = selectedContextId === activeWindowId.current ? playback
+    : selectedContextId === null ? globalPlayback : packContexts[selectedContextId];
+  const validSnapshot = selectedSnapshot?.nowPlayingId && dubs.some((dub) => dub.id === selectedSnapshot.nowPlayingId)
+    && (playback.nowPlayingId || selectedContextId === null || selectedContext.tracks.some((dub) => dub.id === selectedSnapshot.nowPlayingId)) ? selectedSnapshot : undefined;
+  const mainState: PlaybackState = {
+    ...(validSnapshot ?? { ...initialPlaybackState, shuffle: selectedSnapshot?.shuffle ?? false, repeat: selectedSnapshot?.repeat ?? false }),
+    nowPlayingId: validSnapshot?.nowPlayingId ?? selectedContext.tracks[0]?.id ?? null,
+    queuePackId: selectedContextId === activeWindowId.current ? playback.queuePackId
+      : selectedContextId === null ? selectedSnapshot?.queuePackId ?? null : selectedContext.packId ?? null,
+    volume: playback.volume,
+    isPlaying: Boolean(validSnapshot && selectedContextId === activeWindowId.current && playback.isPlaying),
+  };
   return {
-    playQueue: (tracks: Dub[], packId?: string) => {
-      const available = prepareQueue(tracks, packId);
-      if (!available) return;
-      history.current = [];
-      visited.current.clear();
-      startTrack(available[stateRef.current.shuffle ? Math.floor(Math.random() * available.length) : 0]);
+    setWindowSettings, activateWindowQueue, activateGlobalContext, selectPlayerContext, pausePlayback,
+    toggleSinglePlayback: (dub: Dub) => { activateGlobalContext(); clearQueue(); togglePlayback(dub); },
+    setGlobalShuffle: (shuffle: boolean) => setGlobalSettings({ shuffle }),
+    setGlobalRepeat: (repeat: boolean) => setGlobalSettings({ repeat }),
+    mainPlayer: {
+      state: mainState,
+      togglePlayback: (dub: Dub) => { if (activateSelectedContext()) togglePlayback(dub); },
+      seekPlayback: (seconds: number, dub?: Dub) => { if (activateSelectedContext()) seekPlayback(seconds, dub); },
+      seekPlaybackProgress: (progress: number, dub: Dub) => { if (activateSelectedContext()) seekPlaybackProgress(progress, dub); },
+      playNextDub: () => { if (activateSelectedContext()) playAdjacentDub(1); },
+      playPreviousDub: () => { if (activateSelectedContext()) playAdjacentDub(-1); },
+      setShuffle: (shuffle: boolean) => setMainSettings({ shuffle }),
+      setRepeat: (repeat: boolean) => setMainSettings({ repeat }),
+      activateQueue: (tracks: Dub[], packId?: string) => activateSelectedContext() && prepareQueue(tracks, packId) !== null,
+      playQueue: (tracks: Dub[], packId?: string) => {
+        if (activateSelectedContext()) playQueue(tracks, packId);
+      },
+      closePlayer: () => {
+        if (selectedContextId === activeWindowId.current) closePlayer();
+        else {
+          if (selectedContextId === null) { globalContext.current = null; setGlobalPlayback(null); }
+          else {
+            delete contexts.current[selectedContextId];
+            setPackContexts((current) => {
+              const next = { ...current };
+              delete next[selectedContextId];
+              return next;
+            });
+          }
+        }
+      },
     },
+    playQueue,
     activateQueue: (tracks: Dub[], packId?: string) => prepareQueue(tracks, packId) !== null,
-    state: playback, togglePlayback, seekPlayback, seekPlaybackProgress, setVolume, setShuffle, setRepeat,
+    restoreWindowTrack: (dub: Dub) => {
+      if (audioRef.current?.dataset.dubId === dub.id) return;
+      clearQueue();
+      startTrack(dub, savedPosition?.dubId === dub.id ? savedPosition.positionSeconds : 0, false);
+    },
+    state: { ...playback, packContexts, audibleContextId }, togglePlayback, seekPlayback, seekPlaybackProgress, setVolume, setShuffle, setRepeat,
     playNextDub: () => playAdjacentDub(1), playPreviousDub: () => playAdjacentDub(-1),
     flushPosition: persistPosition, reset, closePlayer,
   };

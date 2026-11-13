@@ -1,4 +1,6 @@
-import type { MouseEvent, ReactNode } from "react";
+import { useEffect, useId, useState, type MouseEvent, type ReactNode } from "react";
+import { ChevronDown } from "@craft/icons";
+import { Button } from "../../atoms/Button/Button";
 import { Avatar } from "../../atoms/Avatar/Avatar";
 import { Brand } from "../../molecules/Brand/Brand";
 import type { MediaKind } from "../../types/domain";
@@ -8,6 +10,7 @@ import "./Navigation.css";
 
 export interface NavigationItem {
   label: string;
+  displayLabel?: string;
   icon: ReactNode;
   href?: string;
   badge?: string;
@@ -18,6 +21,8 @@ export interface NavigationItem {
 
 export interface NavigationSection {
   label?: string;
+  mediaKind?: MediaKind;
+  icon?: ReactNode;
   items: NavigationItem[];
   footer?: ReactNode;
 }
@@ -101,16 +106,26 @@ function NavigationSectionView({
   section,
   variant,
 }: NavigationSectionViewProps) {
+  const isActive = section.items.some((item) => item.label === activeItem);
+  const [expanded, setExpanded] = useState(isActive);
+  const itemsId = useId();
+  useEffect(() => { if (isActive) setExpanded(true); }, [isActive]);
+  const collapsible = Boolean(section.mediaKind && section.label);
   return (
     <div className="navigation__section">
-      {section.label && (
+      {collapsible ? (
+        <Button className={`navigation__section-toggle media-kind--${section.mediaKind}`} variant="audio"
+          leadingIcon={section.icon} aria-label={`${section.label} menu`} aria-expanded={expanded} aria-controls={itemsId} onClick={() => setExpanded((value) => !value)}>
+          <span>{section.label}</span><ChevronDown aria-hidden="true" className="navigation__section-chevron" />
+        </Button>
+      ) : section.label && (
         <div className="navigation__section-label">{section.label}</div>
       )}
-      <div className="navigation__items">
+      <div className={`navigation__items${collapsible ? " navigation__items--nested" : ""}`} id={itemsId} hidden={collapsible && !expanded}>
         {section.items.map((item) => (
           <a
             aria-current={activeItem === item.label ? "page" : undefined}
-            aria-label={variant === "icons" ? item.label : undefined}
+            aria-label={variant === "icons" || item.displayLabel ? item.label : undefined}
             className={["navigation__item", item.variant && `navigation__item--${item.variant}`, item.mediaKind && `media-kind--${item.mediaKind}`].filter(Boolean).join(" ")}
             href={item.href ?? "#"}
             key={item.label}
@@ -120,7 +135,7 @@ function NavigationSectionView({
             <span aria-hidden="true" className="navigation__icon">
               {item.icon}
             </span>
-            <span className="navigation__label">{item.label}</span>
+            <span className="navigation__label">{item.displayLabel ?? item.label}</span>
             {item.badge && (
               <span className="navigation__badge">{item.badge}</span>
             )}

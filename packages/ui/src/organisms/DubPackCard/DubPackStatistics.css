@@ -1,0 +1,33 @@
+.dub-pack-statistics {
+  display: grid;
+  gap: var(--spacing-3);
+  min-width: 0;
+}
+
+.dub-pack-statistics__files {
+  border-collapse: collapse;
+  color: var(--text-primary);
+  font-size: var(--type-size-compact);
+  table-layout: fixed;
+  width: 100%;
+}
+
+.dub-pack-statistics__files caption {
+  color: var(--text-secondary);
+  padding-bottom: var(--spacing-2);
+  text-align: left;
+}
+
+.dub-pack-statistics__files th,
+.dub-pack-statistics__files td {
+  border-bottom: 1px solid var(--border-default);
+  overflow-wrap: anywhere;
+  padding: var(--spacing-2);
+  text-align: left;
+}
+
+.dub-pack-statistics__files th:last-child,
+.dub-pack-statistics__files td:last-child {
+  text-align: right;
+  width: 30%;
+}

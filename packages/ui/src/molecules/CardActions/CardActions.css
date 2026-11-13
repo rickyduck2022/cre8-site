@@ -21,6 +21,17 @@
 .card-actions__item--overflow > .button { flex: 0 0 auto; }
 .card-actions__menu { display: grid; gap: var(--spacing-2); }
 .card-actions__menu > .button { justify-content: flex-start; margin-left: 0; min-height: 2.75rem; width: 100%; }
+.card-actions.card-actions--grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.card-actions--grid > .card-actions__item { min-width: 0; margin-left: 0; }
+.card-actions--grid > .card-actions__item > .button { min-height: 2.75rem; width: 100%; white-space: normal; }
+.card-actions--grid > .card-actions__item--last:nth-child(odd) { grid-column: 1 / -1; }
+.card-actions--separated {
+  border-top: 1px solid var(--border-default);
+  padding-top: var(--spacing-3);
+}
 @media (max-width: 760px) {
   .card-actions { flex-wrap: nowrap; }
   .card-actions .button { white-space: nowrap; }

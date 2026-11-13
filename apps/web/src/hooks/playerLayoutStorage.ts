@@ -4,13 +4,18 @@ type PlayerContext = "messenger" | "other";
 
 export interface PlayerLayout {
   minimized: Partial<Record<PlayerContext, boolean>>;
-  placement: Partial<Record<PlayerContext, "header" | "footer" | "right-dock" | "fullscreen">>;
+  placement: Partial<Record<PlayerContext, "header" | "footer" | "right-dock" | "fullscreen" | "window">>;
   position: FloatingPlayerPosition;
   opacity: number;
 }
 
 const storageKey = "cre8:player-layout";
-const defaultLayout: PlayerLayout = { minimized: {}, placement: {}, position: "initial", opacity: 100 };
+const defaultLayout: PlayerLayout = {
+  minimized: { messenger: false, other: false },
+  placement: { messenger: "footer", other: "footer" },
+  position: "initial",
+  opacity: 100,
+};
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -34,7 +39,7 @@ export function readPlayerLayout(): PlayerLayout {
     const value: unknown = JSON.parse(stored);
     if (isRecord(value)
       && isContextMap(value.minimized, (entry) => typeof entry === "boolean")
-      && isContextMap(value.placement, (entry) => entry === "header" || entry === "footer" || entry === "right-dock" || entry === "fullscreen")
+      && isContextMap(value.placement, (entry) => entry === "header" || entry === "footer" || entry === "right-dock" || entry === "fullscreen" || entry === "window")
       && isPosition(value.position)
       && (value.opacity === undefined || (typeof value.opacity === "number"
         && Number.isFinite(value.opacity) && value.opacity >= 30 && value.opacity <= 100))) {

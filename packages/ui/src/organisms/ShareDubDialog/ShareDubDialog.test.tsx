@@ -32,6 +32,8 @@ describe("ShareDubDialog", () => {
     expect(screen.getByLabelText("Logged-out preview length")).toHaveValue("30");
     expect(screen.getByRole("button", { name: "Save preview length" })).toBeDisabled();
     fireEvent.change(screen.getByLabelText("Logged-out preview length"), { target: { value: "60" } });
+    expect(screen.getByRole("region", { name: "Preview limitations" })).toHaveTextContent("First 30 seconds maximum");
+    expect(screen.getByText(/Unsaved preview length/)).toHaveAttribute("role", "status");
     expect(screen.getByRole("button", { name: "Copy link" })).toBeDisabled();
     const save = screen.getByRole("button", { name: "Save preview length" });
     fireEvent.click(save);
@@ -45,7 +47,8 @@ describe("ShareDubDialog", () => {
     expect(close).not.toHaveBeenCalled();
     await act(async () => finish());
     expect(await screen.findByText("Preview length saved for all external links.")).toHaveAttribute("role", "status");
-    expect(screen.getByText(/hear a 60-second preview/)).toBeVisible();
+    expect(screen.queryByText(/Unsaved preview length/)).not.toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Preview limitations" })).toHaveTextContent("First 60 seconds maximum");
     expect(screen.getByRole("button", { name: "Copy link" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "Save preview length" })).toBeDisabled();
   });
@@ -60,11 +63,11 @@ describe("ShareDubDialog", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save preview length" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("Could not save setting");
     expect(screen.getByLabelText("Logged-out preview length")).toHaveValue("90");
-    expect(screen.getByText(/hear a 30-second preview/)).toBeVisible();
+    expect(screen.getByRole("region", { name: "Preview limitations" })).toHaveTextContent("First 30 seconds maximum");
     fireEvent.click(screen.getByRole("button", { name: "Save preview length" }));
     await screen.findByText("Preview length saved for all external links.");
     expect(update).toHaveBeenCalledTimes(2);
-    expect(screen.getByText(/hear a 90-second preview/)).toBeVisible();
+    expect(screen.getByRole("region", { name: "Preview limitations" })).toHaveTextContent("First 90 seconds maximum");
   });
 
   it("copies public links without requiring friends, and allows manual copying after failure", async () => {

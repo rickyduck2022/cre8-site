@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { Button, DubPackIdentity, PackPlaylist, PackPlaybackButton, SearchField, type PackQueueControls, type Buddy, type Dub } from "@craft/ui";
+import { AudioPlayer, Button, DubPackIdentity, PackPlaylist, PackPlaybackButton, PreviewNotice, SearchField, type PackQueueControls, type Buddy, type Dub } from "@craft/ui";
 import { downloadPack, packRequest, packUrl, packTypeLabel, PackSignInRequired, signInForPack, type Pack } from "../services/packs";
 
 export interface PackPlayback {
@@ -26,9 +26,10 @@ interface Props extends PackQueueControls {
   onRefresh: () => Promise<void>;
   onDelete?: () => void;
   standalone?: boolean;
+  showPlayer?: boolean;
 }
 
-export function PackView({ pack, authenticated, owner, buddies = [], playback, onPlay, onPlayAll, onSeek, onVolume, onDownloadDub, onEdit, onRefresh, onDelete, standalone = false, ...queueControls }: Props) {
+export function PackView({ pack, authenticated, owner, buddies = [], playback, onPlay, onPlayAll, onSeek, onVolume, onDownloadDub, onEdit, onRefresh, onDelete, standalone = false, showPlayer = false, ...queueControls }: Props) {
   const [sharing, setSharing] = useState(false);
   const [section, setSection] = useState<"friends" | "external">(owner ? "friends" : "external");
   const [recipients, setRecipients] = useState<string[]>([]);
@@ -46,6 +47,13 @@ export function PackView({ pack, authenticated, owner, buddies = [], playback, o
   const current = queueControls.activePackId === undefined || queueControls.activePackId === pack.id
     ? pack.items.find(({ dub }) => dub.id === playback.nowPlayingId)?.dub : undefined;
   const published = pack.status === "published";
+  const playable = published || (authenticated && owner);
+  const playerTrack = current ?? pack.items[0]?.dub;
+  const previewSeconds = pack.items[0]?.dub.previewSeconds ?? 30;
+  const uniformPreviewLength = pack.items.every(({ dub }) => (dub.previewSeconds ?? 30) === previewSeconds);
+  function withinPack(action: () => void) {
+    if (playable && queueControls.onActivateQueue?.(pack.items.map(({ dub }) => dub), pack.id) !== false) action();
+  }
   async function run(action: () => Promise<void>) {
     if (busy.current) return;
     busy.current = true; setPending(true); setError(""); setMessage("");
@@ -75,21 +83,37 @@ export function PackView({ pack, authenticated, owner, buddies = [], playback, o
   const matchingFriends = eligible.filter((buddy) => `${buddy.displayName} ${buddy.username}`.toLowerCase().includes(query.trim().toLowerCase()));
   return (
     <article className={`pack-view media-kind--${pack.kind}${pack.distribution === "alist" ? " pack-view--alist" : ""}`} aria-label={`${title}: ${pack.title}`}>
-      <DubPackIdentity pack={pack} />
+      <DubPackIdentity pack={pack} preview={!authenticated} />
+      {!authenticated && <PreviewNotice seconds={pack.items.length && uniformPreviewLength ? previewSeconds : undefined} />}
+      {showPlayer && playerTrack && playable && <section className="pack-window__player" aria-label={`${pack.title} window player`}>
+        <AudioPlayer variant="window" mediaKind={pack.kind} distribution={pack.distribution} colorVariant="controller"
+          track={playerTrack} contextLabel={playback.isPlaying ? "Playing from this window" : "Window player"}
+          playing={Boolean(current && playback.isPlaying)}
+          currentTimeSeconds={current ? playback.currentTime : 0} durationSeconds={current ? playback.duration : 0}
+          volume={playback.volume} playbackError={playback.playbackError}
+          shuffle={queueControls.shuffle} repeat={queueControls.repeat}
+          onPlayChange={() => withinPack(() => onPlay(playerTrack))}
+          onSeekProgress={(progress) => withinPack(() => onSeek(progress, playerTrack))}
+          onVolumeChange={onVolume}
+          onPrevious={() => withinPack(() => queueControls.onPrevious?.())}
+          onNext={() => withinPack(() => queueControls.onNext?.())}
+          onShuffleChange={queueControls.onShuffleChange}
+          onRepeatChange={queueControls.onRepeatChange} />
+      </section>}
       {!published && <p className="pack-notice">Only you can see this draft. Add your files and review the pack before publishing.</p>}
       <div className="pack-actions">
-        {published && <div className="pack-actions__primary">
+        {playable && <div className="pack-actions__primary">
           <PackPlaybackButton kind={pack.kind} playing={Boolean(current && playback.isPlaying)} preview={!authenticated}
-            disabled={!pack.items.length || !published} onClick={() => {
+            disabled={!pack.items.length} onClick={() => {
               const tracks = pack.items.map(({ dub }) => dub);
               if (queueControls.onActivateQueue?.(tracks, pack.id) === false) return;
               if (current) onPlay(current);
               else onPlayAll(tracks, pack.id);
             }} />
-          <Button variant="secondary" disabled={pending || !pack.items.length || !published} loading={downloading} onClick={download}>{authenticated ? "Download pack (ZIP)" : "Sign in to download pack"}</Button>
+          {published && <Button variant="secondary" disabled={pending || !pack.items.length} loading={downloading} onClick={download}>{authenticated ? "Download pack (ZIP)" : "Sign in to download pack"}</Button>}
         </div>}
         <div className="pack-actions__secondary">
-        {published && (owner || publicPack) && <Button variant="secondary" onClick={() => setSharing(!sharing)} aria-expanded={sharing}>Share pack</Button>}
+        {published && (owner || publicPack) && <Button variant="primary" onClick={() => setSharing(!sharing)} aria-expanded={sharing}>Share pack</Button>}
         {owner && <Button variant={published ? "tertiary" : "primary"} onClick={onEdit}>{published ? "Edit pack" : "Continue editing"}</Button>}
         {owner && pack.distribution === "private" && published && <Button variant="tertiary" onClick={() => { setSharing(true); setSection("friends"); }}>
           Manage access · {pack.grants?.length ?? 0}</Button>}
@@ -97,28 +121,30 @@ export function PackView({ pack, authenticated, owner, buddies = [], playback, o
       </div>
       {error && <p role="alert" className="pack-error">{error}</p>}
       {message && <p role="status" className="pack-notice">{message}</p>}
-      {!authenticated && <p className="pack-notice">Short previews only. Sign in to hear full files and download. Download access does not grant sample reuse rights.</p>}
+      {!authenticated && <Button onClick={() => signInForPack(pack.id)}>Sign in to listen in full</Button>}
       {current && !standalone && <p role="status">{playback.isPlaying ? "Now playing from this pack" : "Pack playback paused"}</p>}
       {standalone && current && <label className="pack-volume">Volume<input aria-label="Volume" type="range" min={0} max={100} value={Math.round(playback.volume * 100)} onChange={(event) => onVolume(Number(event.currentTarget.value) / 100)} /></label>}
       <section className="pack-playlist" aria-label="Playlist">
-      <h2>{pack.kind === "sample" ? "Samples" : "Tracks"} <span className="pack-muted">({pack.items.length})</span></h2>
+      <h2>{pack.kind === "vocal" ? "Vocals" : pack.kind === "sample" ? "Samples" : "Tracks"} <span className="pack-muted">({pack.items.length})</span></h2>
       {!pack.items.length && <p className="pack-empty">No files in this pack yet. Continue editing to add uploads.</p>}
-      <PackPlaylist {...queueControls} pack={pack} label={pack.kind === "sample" ? "Pack samples" : "Pack tracks"}
+      <PackPlaylist {...queueControls} pack={pack} label={pack.kind === "vocal" ? "Pack vocals" : pack.kind === "sample" ? "Pack samples" : "Pack tracks"}
+        preview={!authenticated}
+        showControls={!showPlayer}
         nowPlayingId={playback.nowPlayingId} isPlaying={playback.isPlaying}
         currentTimeSeconds={playback.currentTime} durationSeconds={playback.duration}
         volume={playback.volume} playbackError={playback.playbackError}
         onPlay={onPlay} onPlayAll={onPlayAll} onSeekProgress={onSeek} onVolumeChange={onVolume}
-        disabled={!published} downloadDisabled={pending || !published}
+        disabled={!playable} downloadDisabled={pending || !published}
         onDownload={(dub) => {
               if (!authenticated) signInForPack(pack.id);
               else void run(async () => { await onDownloadDub(dub); await onRefresh(); setMessage(`${dub.title} downloaded.`); });
         }} />
       </section>
-      {published && <details className="pack-help"><summary>About downloads{pack.kind === "sample" ? " and usage rights" : ""}</summary>
+      {published && <details className="pack-help"><summary>About downloads{pack.kind !== "dub" ? " and usage rights" : ""}</summary>
         <p>Downloads count as likes on the individual dubs. Repeat downloads keep one copy of each in My Library.</p>
-        <p>The ZIP contains all {pack.items.length} files ({pack.kind === "sample" ? "including usage licence terms" : "in pack order"}). Downloaded files cannot be recalled.</p>
+        <p>The ZIP contains all {pack.items.length} files ({pack.kind !== "dub" ? "including usage licence terms" : "in pack order"}). Downloaded files cannot be recalled.</p>
       </details>}
-      {pack.kind === "sample" && <section className="pack-notice"><h2>Usage licence</h2><p className="pack-licence">{pack.licence || "No reuse licence has been provided."}</p></section>}
+      {pack.kind !== "dub" && <section className="pack-notice"><h2>Usage licence</h2><p className="pack-licence">{pack.licence || "No reuse licence has been provided."}</p><p>Download access does not grant reuse rights. Follow the creator's licence.</p></section>}
       {sharing && <section className="pack-share" aria-label="Share pack">
         <div className="pack-toolbar"><h2>{owner ? "Share pack" : "External link"}</h2><Button variant="tertiary" onClick={() => setSharing(false)}>Close sharing</Button></div>
         {publicPack && owner && <div className="pack-toolbar" role="group" aria-label="Pack sharing options">
@@ -126,7 +152,7 @@ export function PackView({ pack, authenticated, owner, buddies = [], playback, o
           <Button variant={section === "external" ? "primary" : "secondary"} onClick={() => setSection("external")} aria-pressed={section === "external"}>External link</Button>
         </div>}
         {section === "external" && publicPack ? <>
-          <h2>External link</h2><p>Anyone with this link can preview this pack. Full playback and downloads require sign-in.</p>
+          <h2>External link</h2><p>Anyone with this link can hear shortened, reduced-quality previews of this pack. Full-length, original-quality playback and downloads require sign-in.</p>
           <label>Pack share link<input ref={linkRef} readOnly value={packUrl(pack.id)} /></label>
           <div className="pack-toolbar"><Button disabled={pending} onClick={() => void run(async () => {
             if (!navigator.clipboard?.writeText) throw new Error("Copy is unavailable. Use Select link and copy it manually.");
@@ -166,7 +192,7 @@ export function PackView({ pack, authenticated, owner, buddies = [], playback, o
         </> : <p>Use External link to share this public pack. Private sharing is managed by its uploader.</p>}
       </section>}
       {owner && onDelete && <footer className="pack-danger"><Button variant="tertiary" disabled={pending} onClick={() => setConfirmDelete(!confirmDelete)}>Delete pack</Button>
-        {confirmDelete && <div role="group" aria-label="Confirm pack deletion"><p>Delete this pack? Its files remain in Your Dubs or Your Samples based on their remaining published pack memberships. Pack-only access will be removed; downloaded files cannot be recalled.</p>
+        {confirmDelete && <div role="group" aria-label="Confirm pack deletion"><p>Delete this pack? Its files remain in Your Dubs, Your Samples or Your Vocals based on their remaining published pack memberships. Pack-only access will be removed; downloaded files cannot be recalled.</p>
           <Button disabled={pending} onClick={() => void run(async () => { await packRequest(`/api/packs/${pack.id}`, "DELETE"); await onRefresh(); onDelete(); })}>Confirm delete pack</Button>
           <Button variant="secondary" onClick={() => setConfirmDelete(false)}>Cancel</Button></div>}</footer>}
     </article>

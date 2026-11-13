@@ -7,25 +7,18 @@ import { SearchField } from "../../molecules/SearchField/SearchField";
 import { ShareDubIcon } from "../../molecules/ShareDubIcon/ShareDubIcon";
 import { DubCard } from "../../organisms/DubCard/DubCard";
 import { DubStatistics } from "../../organisms/DubStatistics/DubStatistics";
-import { DubPackCollection, type DubPackCollectionProps } from "../../organisms/DubPackCard/DubPackCollection";
 import type { Dub } from "../communityTypes";
 import type { MediaKind } from "../../types/domain";
+import { matchesOwnedFile, type DubSearchFilters } from "../../utils/collectionFilters";
+import { getDubSearchFilterCount } from "../../organisms/DubSearch/DubSearch";
 import "../CommunityPageTemplates.css";
 import "./MyDubsTemplate.css";
 
 export interface MyDubsTemplateProps {
-  mediaKind?: MediaKind;
+  mediaKind?: MediaKind | "all";
   title?: string;
-  activePackId?: string | null;
+  collectionSearch?: { query: string; filters: DubSearchFilters; onClear: () => void };
   dubs: Dub[];
-  packs?: DubPackCollectionProps["packs"];
-  ownerUsername?: string;
-  onPlayPack?: DubPackCollectionProps["onPlayAll"];
-  onOpenPack?: DubPackCollectionProps["onOpenPack"];
-  onEditPack?: DubPackCollectionProps["onEditPack"];
-  onDownloadPack?: DubPackCollectionProps["onDownloadPack"];
-  onSharePack?: DubPackCollectionProps["onSharePack"];
-  onActivateQueue?: DubPackCollectionProps["onActivateQueue"];
   likedDubIds: Set<string>;
   nowPlayingId: string | null;
   isPlaying: boolean;
@@ -44,28 +37,21 @@ export interface MyDubsTemplateProps {
   onRepeatChange?: (enabled: boolean) => void;
   onDownload: (dub: Dub) => void;
   onPlay: (dub: Dub) => void;
-  onShareDub: () => void;
+  onShareDub?: () => void;
   onShareWithFriend?: (dub: Dub) => void;
   onEditDub: (dub: Dub) => void;
   onDeleteDub: (dub: Dub) => void;
   onRevokeGrant?: (dubId: string, userId: string) => void;
   onAddToPack?: (dub: Dub) => void;
   onOpenProfile?: (username: string) => void;
+  onOpenDub?: (dub: Dub) => void;
 }
 
 export function MyDubsTemplate({
   mediaKind,
-  title = mediaKind === "sample" ? "Your Samples" : "My Dubs",
+  title = mediaKind === "vocal" ? "Your Vocals" : mediaKind === "sample" ? "Your Samples" : "My Dubs",
+  collectionSearch,
   dubs,
-  packs = [],
-  ownerUsername,
-  onPlayPack,
-  onOpenPack,
-  onEditPack,
-  onDownloadPack,
-  onSharePack,
-  onActivateQueue,
-  activePackId,
   likedDubIds,
   nowPlayingId,
   isPlaying,
@@ -91,20 +77,26 @@ export function MyDubsTemplate({
   onRevokeGrant,
   onAddToPack,
   onOpenProfile,
+  onOpenDub,
 }: MyDubsTemplateProps) {
   const isSample = mediaKind === "sample";
-  const noun = isSample ? "sample" : "dub";
-  const uploadLabel = isSample ? "Create Sample Pack" : "Share a dub";
+  const isVocal = mediaKind === "vocal";
+  const isAll = mediaKind === "all";
+  const noun = isAll ? "file" : isVocal ? "vocal" : isSample ? "sample" : "dub";
+  const uploadLabel = isVocal ? "Share a vocal" : isSample ? "Create Sample Pack" : "Share a dub";
   const [query, setQuery] = useState("");
   const statisticsRefs = useRef(new Map<string, HTMLDetailsElement>());
   const filteredDubs = useMemo(() => {
+    if (collectionSearch) return dubs.filter((dub) => matchesOwnedFile(dub, collectionSearch.query, collectionSearch.filters));
     const needle = query.trim().toLocaleLowerCase();
     return dubs.filter((dub) =>
       !needle || [dub.title, dub.artist, dub.genre, ...(dub.tags ?? [])]
         .some((value) => value.toLocaleLowerCase().includes(needle)),
     );
-  }, [dubs, query]);
-  const pagination = usePagination(filteredDubs, query);
+  }, [dubs, query, collectionSearch]);
+  const searchActive = collectionSearch ? Boolean(collectionSearch.query
+    || getDubSearchFilterCount(collectionSearch.filters, ["worldwide", "private", "alist"])) : false;
+  const pagination = usePagination(filteredDubs, collectionSearch ? `${collectionSearch.query}|${JSON.stringify(collectionSearch.filters)}` : query);
   const manageAccess = (dubId: string) => {
     const details = statisticsRefs.current.get(dubId);
     if (!details) return;
@@ -118,34 +110,24 @@ export function MyDubsTemplate({
         <div>
           <span className="eyebrow">YOUR STUDIO</span>
           <h1>{title}</h1>
-          <p>{isSample ? "Manage your samples, packs and usage terms." : "Manage your releases and keep your music moving."}</p>
+          <p>{isAll ? "All your uploaded files in one place. Switch to Packs for your releases and drafts." : isVocal ? "Manage your individual vocals. Find releases and usage terms in Packs." : isSample ? "Manage your individual samples. Find releases and usage terms in Packs." : "Manage your individual dubs. Find your releases in Packs."}</p>
         </div>
         <div className="my-dubs-template__intro-actions">
           <Badge dot variant="audio">{dubs.length} {noun}{dubs.length === 1 ? "" : "s"}</Badge>
-          <Button aria-label={uploadLabel} hideLabelOnMobile leadingIcon={<ShareDubIcon desktopIcon={<AudioLines />} />} onClick={onShareDub}>
+          {onShareDub && <Button aria-label={uploadLabel} hideLabelOnMobile leadingIcon={<ShareDubIcon desktopIcon={<AudioLines />} />} onClick={onShareDub}>
             {uploadLabel}
-          </Button>
+          </Button>}
         </div>
       </section>
 
-      <SearchField
-        aria-label={isSample ? "Search your samples" : title === "My Dubs" ? "Search my dubs" : "Search your dubs"}
+      {!collectionSearch && <SearchField
+        aria-label={isAll ? "Search your uploads" : isVocal ? "Search your vocals" : isSample ? "Search your samples" : title === "My Dubs" ? "Search my dubs" : "Search your dubs"}
         onChange={(event) => setQuery(event.currentTarget.value)}
         placeholder="Search your tracks, tags, or genres"
         value={query}
-      />
+      />}
 
-      {ownerUsername && onPlayPack && onOpenPack && <DubPackCollection
-        packs={packs} mediaKind={mediaKind} ownerUsername={ownerUsername} query={query} likedDubIds={likedDubIds}
-        nowPlayingId={nowPlayingId} isPlaying={isPlaying} currentTimeSeconds={currentTimeSeconds}
-        durationSeconds={durationSeconds} volume={volume} shuffle={shuffle} repeat={repeat} playbackError={playbackError}
-        onPlay={onPlay} onPlayAll={onPlayPack} onOpenPack={onOpenPack} onDownloadPack={onDownloadPack} onSharePack={onSharePack}
-        onEditPack={onEditPack} currentUsername={ownerUsername}
-        onDownload={onDownload} onOpenProfile={onOpenProfile} onSeek={onSeek} onSeekProgress={onSeekProgress}
-        activePackId={activePackId} onActivateQueue={onActivateQueue} onPrevious={onPrevious} onNext={onNext}
-        onShuffleChange={onShuffleChange} onRepeatChange={onRepeatChange} onVolumeChange={onVolumeChange} />}
-
-      <section aria-label={title} className="my-dubs-template__list feed-list">
+      <section aria-label={title} className="my-dubs-template__list feed-list" ref={pagination.listRef}>
         {pagination.items.map((dub) => (
           <div className="my-dubs-template__track" key={dub.id}>
             <DubCard
@@ -169,6 +151,7 @@ export function MyDubsTemplate({
               onDownload={onDownload}
               onOpenProfile={onOpenProfile}
               onPlay={onPlay}
+              onOpenDub={onOpenDub}
               onEdit={onEditDub}
               onDelete={onDeleteDub}
               onShareWithFriend={onShareWithFriend}
@@ -191,15 +174,16 @@ export function MyDubsTemplate({
         {filteredDubs.length === 0 && (
           <div className="empty-state">
             <Search aria-hidden="true" />
-            <strong>{dubs.length ? `No ${noun}s found` : `Your first ${noun} starts here`}</strong>
-            <span>{dubs.length ? "Try another track, tag, or genre." : isSample ? "Create a Sample Pack to upload samples and define their usage terms." : "Share a dub to add it to your collection."}</span>
-            {!dubs.length && <Button aria-label={uploadLabel} hideLabelOnMobile leadingIcon={<ShareDubIcon desktopIcon={<AudioLines />} />} onClick={onShareDub}>{uploadLabel}</Button>}
+            <strong>{dubs.length || searchActive ? `No ${noun}s found` : `Your first ${noun} starts here`}</strong>
+            <span>{dubs.length || searchActive ? collectionSearch ? "Try another search or clear your filters." : "Try another track, tag, or genre." : isAll ? "Use Upload to add a dub, sample or vocal, or create a pack." : isVocal ? "Upload a vocal or create a Vocal Pack with usage terms." : isSample ? "Create a Sample Pack to upload samples and define their usage terms." : "Share a dub to add it to your collection."}</span>
+            {collectionSearch && searchActive && <Button variant="secondary" onClick={collectionSearch.onClear}>Show all files</Button>}
+            {!dubs.length && onShareDub && <Button aria-label={uploadLabel} hideLabelOnMobile leadingIcon={<ShareDubIcon desktopIcon={<AudioLines />} />} onClick={onShareDub}>{uploadLabel}</Button>}
           </div>
         )}
       </section>
       <Pagination
         itemCount={filteredDubs.length}
-        label={isSample ? "Your samples" : "My dubs"}
+        label={isAll ? "Your uploads" : isVocal ? "Your vocals" : isSample ? "Your samples" : "My dubs"}
         onPageChange={pagination.setPage}
         onPageSizeChange={pagination.setPageSize}
         page={pagination.page}

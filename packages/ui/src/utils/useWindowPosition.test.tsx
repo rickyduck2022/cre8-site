@@ -1,9 +1,24 @@
 import { act, cleanup, renderHook } from "@testing-library/react";
 import type { PointerEvent } from "react";
 import { afterEach, expect, it, vi } from "vitest";
-import { useWindowPosition } from "./useWindowPosition";
+import { clampWindowPosition, useWindowPosition, windowViewport } from "./useWindowPosition";
 
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
+
+it("uses the full workspace including its sidebar while preserving nested surface bounds", () => {
+  const root = document.createElement("div"); root.className = "workspace-root";
+  const stage = document.createElement("div"); stage.className = "workspace-stage";
+  const element = document.createElement("section"); stage.append(element); root.append(stage);
+  const bounds = (width: number, height: number) => ({ x: 0, y: 0, left: 0, top: 0, right: width, bottom: height, width, height, toJSON() {} });
+  vi.spyOn(root, "getBoundingClientRect").mockReturnValue(bounds(1440, 900));
+  vi.spyOn(stage, "getBoundingClientRect").mockReturnValue(bounds(1056, 900));
+  vi.spyOn(element, "getBoundingClientRect").mockReturnValue(bounds(640, 480));
+  expect(windowViewport(element).width).toBe(1440);
+  expect(clampWindowPosition({ x: 800, y: 100 }, element)).toEqual({ x: 800, y: 100 });
+  stage.className = "workspace-surface";
+  expect(windowViewport(element).width).toBe(1056);
+  expect(clampWindowPosition({ x: 800, y: 100 }, element)).toEqual({ x: 416, y: 100 });
+});
 
 it("shares pointer capture, cancellation and snap-on-release without moving other windows", () => {
   vi.stubGlobal("innerWidth", 900); vi.stubGlobal("innerHeight", 700);

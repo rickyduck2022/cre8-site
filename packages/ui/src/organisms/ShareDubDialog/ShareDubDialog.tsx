@@ -3,6 +3,7 @@ import { Link, MessageCircle } from "@craft/icons";
 import { Button } from "../../atoms/Button/Button";
 import { FriendPicker } from "../../molecules/FriendPicker/FriendPicker";
 import { ModalFooter } from "../../molecules/ModalFooter/ModalFooter";
+import { PreviewNotice } from "../../molecules/PreviewNotice/PreviewNotice";
 import { Modal } from "../Modal/Modal";
 import { AudioPlayer } from "../AudioPlayer/AudioPlayer";
 import { TrackArtwork } from "../../templates/shared/TrackArtwork";
@@ -44,6 +45,7 @@ export interface ShareDubDialogProps {
 
 export function ShareDubDialog({ dub, buddies, friends = buddies, onClose, onFindFriends, onOpenChat, onOpenProfile, onPlay, onSeekProgress, isCurrentTrack = false, isPlaying = false, currentTimeSeconds = 0, durationSeconds, playbackError, onSendMessage, initialBuddyIds = [], initiallySentIds = [], initialFailure = false, externalShareUrl, onUpdatePreview }: ShareDubDialogProps) {
   const formId = useId();
+  const noun = dub.mediaKind === "vocal" ? "vocal" : dub.mediaKind === "sample" ? "sample" : "dub";
   const [recipients] = useState(buddies);
   const restrictedAList = dub.distribution === "alist" && dub.aListPublic !== true;
   const [buddyIds, setBuddyIds] = useState<string[]>(initialBuddyIds);
@@ -101,7 +103,7 @@ export function ShareDubDialog({ dub, buddies, friends = buddies, onClose, onFin
     if (!selectedIds.length || pending) return;
     setFailed(false);
     await submission.run(async () => {
-      const result = await shareDubToFriends(selectedIds, dub.id, message.trim() || `Shared a dub: ${dub.title}`, onSendMessage);
+      const result = await shareDubToFriends(selectedIds, dub.id, message.trim() || `Shared a ${noun}: ${dub.title}`, onSendMessage);
       const outstanding = [...new Set([...failedIds.filter((id) => !result.sent.includes(id)), ...result.failed])];
       setSentIds((current) => [...current, ...result.sent]);
       setBuddyIds(outstanding);
@@ -183,7 +185,7 @@ export function ShareDubDialog({ dub, buddies, friends = buddies, onClose, onFin
       <h2 className="share-dub-dialog__section-title">Share externally</h2>
       {canShareDubExternally(dub) ? (
         <>
-          <p className="share-dub-dialog__hint">Logged-out listeners hear a {savedPreviewSeconds}-second preview. Sign in for the full dub and downloads.</p>
+          <PreviewNotice seconds={savedPreviewSeconds} sharing />
           {onUpdatePreview ? (
             <>
               <label className="share-dub-dialog__preview">
@@ -196,8 +198,9 @@ export function ShareDubDialog({ dub, buddies, friends = buddies, onClose, onFin
                   {[30, 60, 90].map((seconds) => <option key={seconds} value={seconds}>{seconds} seconds</option>)}
                 </select>
               </label>
-              <p className="share-dub-dialog__hint">Your setting applies to every external link for this dub. Previews start at the beginning.</p>
+              <p className="share-dub-dialog__hint">Your setting applies to every external link for this {noun}. Previews start at the beginning.</p>
               <Button variant="secondary" disabled={pending || previewSeconds === savedPreviewSeconds} loading={previewSubmission.pending} onClick={() => void savePreview()}>Save preview length</Button>
+              {previewSeconds !== savedPreviewSeconds && <p className="share-dub-dialog__hint" role="status">Unsaved preview length. Save it before copying the link; guests still hear up to {savedPreviewSeconds} seconds.</p>}
               {previewSubmission.error && <p className="share-dub-dialog__error" role="alert">{previewSubmission.error}</p>}
               {previewSaved && <p role="status">Preview length saved for all external links.</p>}
             </>
@@ -210,7 +213,7 @@ export function ShareDubDialog({ dub, buddies, friends = buddies, onClose, onFin
           {copied && <p role="status">Link copied.</p>}
           {copySubmission.error && <p className="share-dub-dialog__error" role="alert">{copySubmission.error}</p>}
         </>
-      ) : <p className="share-dub-dialog__hint">External links are only available for worldwide and public A-List dubs. This dub stays protected.</p>}
+      ) : <p className="share-dub-dialog__hint">External links are only available for worldwide and public A-List files. This {noun} stays protected.</p>}
     </section>
   );
 

@@ -4,7 +4,7 @@ import type { Dub } from "../communityTypes";
 import { formatLocalTimestamp } from "../templateFormatters";
 
 export interface DubCardListProps extends Pick<DubCardProps,
-  "onDownload" | "onOpenProfile" | "onSeek" | "onSeekProgress" | "onPrevious" | "onNext" |
+  "onDownload" | "onOpenProfile" | "onOpenDub" | "onSeek" | "onSeekProgress" | "onPrevious" | "onNext" |
   "onVolumeChange" | "onShuffleChange" | "onRepeatChange" | "onEdit" | "onDelete" | "onShareWithFriend" |
   "currentTimeSeconds" | "durationSeconds" | "volume" | "shuffle" | "repeat" | "playbackError"> {
   entries: Array<{ dub: Dub; downloadedAt?: string }>;
@@ -18,7 +18,7 @@ export interface DubCardListProps extends Pick<DubCardProps,
 
 export function DubCardList({
   entries, label, currentUsername, likedDubIds, nowPlayingId, isPlaying,
-  onPlay, onDownload, onOpenProfile, onSeek, onSeekProgress, onPrevious, onNext,
+  onPlay, onDownload, onOpenProfile, onOpenDub, onSeek, onSeekProgress, onPrevious, onNext,
   onVolumeChange, onShuffleChange, onRepeatChange, onEdit, onDelete, onShareWithFriend,
   currentTimeSeconds, durationSeconds, volume, shuffle, repeat, playbackError,
 }: DubCardListProps) {
@@ -46,6 +46,7 @@ export function DubCardList({
             onRepeatChange={onRepeatChange}
             onDownload={onDownload}
             onOpenProfile={onOpenProfile}
+            onOpenDub={onOpenDub}
             onPlay={onPlay}
             manageable={Boolean(currentUsername && dub.uploader === currentUsername)}
             onEdit={onEdit}

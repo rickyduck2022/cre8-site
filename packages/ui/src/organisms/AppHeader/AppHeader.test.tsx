@@ -5,6 +5,13 @@ import { AppHeader } from "./AppHeader";
 afterEach(cleanup);
 
 describe("AppHeader", () => {
+  it("wires Help to the account menu", () => {
+    const onHelp = vi.fn();
+    render(<AppHeader userName="Amber" onEditProfile={vi.fn()} onLogout={vi.fn()} onHelp={onHelp} />);
+    fireEvent.click(screen.getByRole("button", { name: "Account menu for Amber" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Help & tutorials" }));
+    expect(onHelp).toHaveBeenCalledOnce();
+  });
   it("keeps the original controls when showing the Dub Vault descriptor", () => {
     render(<AppHeader brandDescriptor="Dub Vault" onMessages={vi.fn()} />);
     expect(screen.getByText("Dub Vault")).toBeVisible();

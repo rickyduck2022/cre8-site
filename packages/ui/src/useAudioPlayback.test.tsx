@@ -1,7 +1,14 @@
-import { act, cleanup, renderHook } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, renderHook, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useAudioPlayback } from "../../../apps/web/src/hooks/useAudioPlayback";
 import type { Dub } from "./templates/communityTypes";
+import { AudioPlayer, type DubPack } from "@craft/ui";
+import { PackWindows } from "../../../apps/web/src/components/PackWindows";
+import { useCommunity } from "../../../apps/web/src/hooks/useCommunity";
+
+vi.mock("../../../apps/web/src/hooks/useChatConnection", () => ({
+  useChatConnection: () => "connected",
+}));
 
 class FakeAudio extends EventTarget {
   static latest: FakeAudio;
@@ -35,6 +42,9 @@ const dubs: Dub[] = ["one", "two", "three"].map((id) => ({
 
 beforeEach(() => {
   vi.stubGlobal("Audio", FakeAudio);
+  HTMLDialogElement.prototype.show = function () { this.open = true; };
+  HTMLDialogElement.prototype.showModal = function () { this.open = true; };
+  HTMLDialogElement.prototype.close = function () { this.open = false; };
 });
 afterEach(() => {
   cleanup();
@@ -43,6 +53,308 @@ afterEach(() => {
 });
 
 describe("useAudioPlayback", () => {
+  it("reports tutorial playback only after audio starts and an explicit pause of that track", async () => {
+    const report = vi.fn();
+    const { result } = renderHook(() => useAudioPlayback(dubs, vi.fn(), "user", null, undefined, { onTutorialActivity: report }));
+    expect(report).not.toHaveBeenCalled();
+    const play = vi.spyOn(FakeAudio.latest, "play").mockRejectedValueOnce(new Error("Blocked"));
+    await act(async () => result.current.togglePlayback(dubs[0]));
+    expect(report).not.toHaveBeenCalled();
+    play.mockRestore();
+    await act(async () => result.current.togglePlayback(dubs[0]));
+    expect(report).toHaveBeenLastCalledWith({ type: "playback-started", subjectId: "one" });
+    act(() => result.current.togglePlayback(dubs[0]));
+    expect(report).toHaveBeenLastCalledWith({ type: "playback-paused", subjectId: "one" });
+    report.mockClear();
+    act(() => result.current.pausePlayback());
+    expect(report).not.toHaveBeenCalled();
+  });
+  it("plays owner-only draft files from the community catalog and stops when access disappears", async () => {
+    let draftDubs = [dubs[1], dubs[2]];
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({
+      member: { id: "owner", username: "artist" },
+      artists: [], dubs: [dubs[0]], draftDubs, packs: [], buddies: [], conversations: [],
+      sharedDubIds: [], sharedPackIds: [], likedDubIds: [], suggestedMembers: [], crates: [], library: [], notifications: [],
+      lastPlayback: null, windowWorkspace: null, aListApplication: null,
+    }), { status: 200, headers: { "content-type": "application/json" } })));
+    const { result } = renderHook(() => useCommunity());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.state.dubs.map((dub) => dub.id)).toEqual(["one"]);
+    act(() => result.current.playPack(draftDubs, "owner-draft"));
+    expect(result.current.state).toMatchObject({ nowPlayingId: "two", isPlaying: true, queuePackId: "owner-draft" });
+    act(() => result.current.playNextDub());
+    expect(result.current.state).toMatchObject({ nowPlayingId: "three", isPlaying: true, queuePackId: "owner-draft" });
+    draftDubs = [];
+    await act(async () => { await result.current.refreshCommunity(); });
+    expect(result.current.state.isPlaying).toBe(false);
+    expect(FakeAudio.latest.paused).toBe(true);
+  });
+
+  it("selects the window queue in the main controller on playback and seek, preserving independent progress", () => {
+    const { result } = renderHook(() => useAudioPlayback(dubs, vi.fn(), "user", null));
+    act(() => result.current.activateWindowQueue([dubs[0], dubs[1]], "first"));
+    act(() => result.current.togglePlayback(dubs[0]));
+    act(() => FakeAudio.latest.loadMetadata(180));
+    act(() => result.current.seekPlayback(42));
+    act(() => result.current.selectPlayerContext("second", [dubs[2]], "second"));
+    act(() => result.current.activateWindowQueue([dubs[0], dubs[1]], "first"));
+    expect(result.current.mainPlayer.state).toMatchObject({ nowPlayingId: "one", currentTime: 42, isPlaying: true, queuePackId: "first" });
+    act(() => result.current.activateWindowQueue([dubs[2]], "second"));
+    act(() => result.current.seekPlaybackProgress(0.5, dubs[2]));
+    act(() => FakeAudio.latest.loadMetadata(180));
+    expect(result.current.mainPlayer.state).toMatchObject({ nowPlayingId: "three", currentTime: 90, queuePackId: "second" });
+    act(() => result.current.activateWindowQueue([dubs[0], dubs[1]], "first"));
+    act(() => FakeAudio.latest.loadMetadata(180));
+    expect(result.current.mainPlayer.state).toMatchObject({ nowPlayingId: "one", currentTime: 42, queuePackId: "first" });
+  });
+
+  it("selects window settings in the main player without interrupting another audible queue", () => {
+    const { result } = renderHook(() => useAudioPlayback(dubs, vi.fn(), "user", null));
+    act(() => result.current.activateWindowQueue([dubs[0]], "first"));
+    act(() => result.current.togglePlayback(dubs[0]));
+    act(() => result.current.setWindowSettings("second", { repeat: true, shuffle: true }, [dubs[1], dubs[2]]));
+    expect(result.current.mainPlayer.state).toMatchObject({ nowPlayingId: "one", repeat: false, shuffle: false, isPlaying: true });
+    expect(result.current.state).toMatchObject({ nowPlayingId: "one", audibleContextId: "first", isPlaying: true });
+    act(() => result.current.activateWindowQueue([dubs[1], dubs[2]], "second"));
+    act(() => result.current.mainPlayer.togglePlayback(dubs[1]));
+    expect(result.current.mainPlayer.state).toMatchObject({ nowPlayingId: "two", queuePackId: "second", isPlaying: true, repeat: true });
+  });
+
+  it("suspends audible playback idempotently without clearing position or switching context", () => {
+    const { result } = renderHook(() => useAudioPlayback(dubs, vi.fn(), "user", null));
+    act(() => result.current.activateWindowQueue([dubs[0], dubs[1]], "studio"));
+    act(() => result.current.togglePlayback(dubs[0]));
+    act(() => FakeAudio.latest.loadMetadata(180));
+    act(() => result.current.seekPlayback(42));
+    act(() => { result.current.pausePlayback(); result.current.pausePlayback(); });
+    expect(FakeAudio.latest.paused).toBe(true);
+    expect(result.current.state).toMatchObject({ nowPlayingId: "one", currentTime: 42, isPlaying: false, audibleContextId: "studio" });
+    expect(FakeAudio.latest.src).toBe("/audio/one");
+  });
+
+  it("keeps the global player on audible playback when focus moves between groups and outside", () => {
+    const { result } = renderHook(() => useAudioPlayback(dubs, vi.fn(), "user", null));
+    act(() => result.current.togglePlayback(dubs[2]));
+    act(() => FakeAudio.latest.loadMetadata(180));
+    act(() => result.current.seekPlayback(37));
+    act(() => result.current.selectPlayerContext("first", [dubs[0], dubs[1]], "first"));
+    expect(result.current.mainPlayer.state).toMatchObject({ nowPlayingId: "three", isPlaying: true, queuePackId: null });
+    expect(result.current.state).toMatchObject({ nowPlayingId: "three", isPlaying: true });
+    expect(FakeAudio.latest.src).toBe("/audio/three");
+    act(() => result.current.activateWindowQueue([dubs[0], dubs[1]], "first"));
+    act(() => result.current.mainPlayer.togglePlayback(dubs[0]));
+    act(() => FakeAudio.latest.loadMetadata(180));
+    act(() => result.current.mainPlayer.seekPlayback(12));
+    expect(result.current.state).toMatchObject({ nowPlayingId: "one", audibleContextId: "first", isPlaying: true });
+    act(() => result.current.selectPlayerContext("second", [dubs[1]], "second"));
+    expect(result.current.mainPlayer.state).toMatchObject({ nowPlayingId: "one", currentTime: 12, isPlaying: true });
+    expect(FakeAudio.latest.src).toBe("/audio/one");
+    expect(FakeAudio.latest.paused).toBe(false);
+    act(() => result.current.selectPlayerContext(null));
+    expect(result.current.mainPlayer.state).toMatchObject({ nowPlayingId: "one", currentTime: 12, isPlaying: true });
+    expect(FakeAudio.latest.paused).toBe(false);
+    act(() => result.current.activateGlobalContext());
+    act(() => result.current.mainPlayer.togglePlayback(dubs[2]));
+    act(() => FakeAudio.latest.loadMetadata(180));
+    expect(FakeAudio.latest.currentTime).toBe(37);
+    expect(result.current.state.audibleContextId).toBeNull();
+    act(() => result.current.selectPlayerContext("first", [dubs[0], dubs[1]], "first"));
+    expect(result.current.mainPlayer.state).toMatchObject({ nowPlayingId: "three", currentTime: 37, isPlaying: true });
+  });
+
+  it("keeps tracklist queues and settings separate when switching the group controller", () => {
+    const { result } = renderHook(() => useAudioPlayback(dubs, vi.fn(), "user", null));
+    act(() => result.current.selectPlayerContext("first", [dubs[0], dubs[1]], "first"));
+    act(() => result.current.mainPlayer.setRepeat(true));
+    act(() => result.current.mainPlayer.togglePlayback(dubs[0]));
+    act(() => result.current.mainPlayer.playNextDub());
+    expect(result.current.state.nowPlayingId).toBe("two");
+    act(() => result.current.mainPlayer.playNextDub());
+    expect(result.current.state.nowPlayingId).toBe("one");
+    act(() => result.current.selectPlayerContext("second", [dubs[2]], "second"));
+    act(() => result.current.activateWindowQueue([dubs[2]], "second"));
+    expect(result.current.mainPlayer.state.repeat).toBe(false);
+    act(() => result.current.mainPlayer.togglePlayback(dubs[2]));
+    act(() => result.current.mainPlayer.playNextDub());
+    expect(result.current.state.nowPlayingId).toBe("three");
+    act(() => result.current.selectPlayerContext("first", [dubs[0], dubs[1]], "first"));
+    act(() => result.current.activateWindowQueue([dubs[0], dubs[1]], "first"));
+    expect(result.current.mainPlayer.state.repeat).toBe(true);
+    expect(result.current.mainPlayer.state.nowPlayingId).toBe("one");
+    expect(result.current.mainPlayer.state.isPlaying).toBe(false);
+  });
+
+  it("does not confuse global pack playback with a window playing the same track", () => {
+    const { result } = renderHook(() => useAudioPlayback(dubs, vi.fn(), "user", null));
+    act(() => result.current.playQueue([dubs[0]], "pack"));
+    act(() => FakeAudio.latest.loadMetadata(180));
+    act(() => result.current.seekPlayback(40));
+    act(() => result.current.activateWindowQueue([dubs[0]], "pack"));
+    expect(result.current.state.currentTime).toBe(0);
+    act(() => FakeAudio.latest.loadMetadata(180));
+    act(() => result.current.seekPlayback(15));
+    act(() => result.current.activateGlobalContext());
+    act(() => FakeAudio.latest.loadMetadata(180));
+    expect(FakeAudio.latest.currentTime).toBe(40);
+    expect(result.current.state.queuePackId).toBe("pack");
+    expect(result.current.state.audibleContextId).toBeNull();
+    act(() => result.current.activateWindowQueue([dubs[0]], "pack"));
+    act(() => FakeAudio.latest.loadMetadata(180));
+    expect(FakeAudio.latest.currentTime).toBe(15);
+  });
+
+  it("clears pack identity when playing a standalone file that is also in the loaded pack", () => {
+    const { result } = renderHook(() => useAudioPlayback(dubs, vi.fn(), "user", null));
+    act(() => result.current.playQueue([dubs[0], dubs[1]], "pack"));
+    expect(result.current.mainPlayer.state.queuePackId).toBe("pack");
+    act(() => result.current.toggleSinglePlayback(dubs[1]));
+    expect(result.current.mainPlayer.state).toMatchObject({ nowPlayingId: "two", queuePackId: null, isPlaying: true });
+    expect(result.current.state.audibleContextId).toBeNull();
+    act(() => result.current.playNextDub());
+    expect(result.current.state.nowPlayingId).toBe("three");
+  });
+
+  it("edits inactive global settings without hiding the window's audible player", () => {
+    const { result } = renderHook(() => useAudioPlayback(dubs, vi.fn(), "user", null));
+    act(() => result.current.togglePlayback(dubs[2]));
+    act(() => result.current.activateWindowQueue([dubs[0]], "first"));
+    act(() => result.current.togglePlayback(dubs[0]));
+    act(() => result.current.setGlobalShuffle(true));
+    act(() => result.current.setGlobalRepeat(true));
+    act(() => result.current.selectPlayerContext(null));
+    expect(result.current.mainPlayer.state).toMatchObject({ nowPlayingId: "one", shuffle: false, repeat: false, isPlaying: true });
+    expect(result.current.state).toMatchObject({ nowPlayingId: "one", shuffle: false, repeat: false, isPlaying: true });
+    expect(FakeAudio.latest.paused).toBe(false);
+    expect(FakeAudio.latest.src).toBe("/audio/one");
+  });
+
+  it("synchronizes window players and the main controller without losing inactive window progress", () => {
+    vi.stubGlobal("innerWidth", 1440);
+    const packs: DubPack[] = ["first", "second"].map((id, index) => ({
+      id, title: id, description: "", kind: index ? "sample" : "dub", status: "published",
+      distribution: "worldwide", aListPublic: false, licence: "", ownerUsername: "artist",
+      ownerDisplayName: "Artist", items: [{ dub: dubs[index] }, { dub: dubs[2] }],
+      totalBytes: 0, createdAt: "2026-01-01", updatedAt: "2026-01-01",
+    }));
+    function Players() {
+      const engine = useAudioPlayback(dubs, vi.fn(), "user", null);
+      const state = engine.state;
+      const mainState = engine.mainPlayer.state;
+      const track = dubs.find((dub) => dub.id === mainState.nowPlayingId);
+      return <>
+        <section aria-label="Main controller"><AudioPlayer track={track} playing={mainState.isPlaying}
+          currentTimeSeconds={mainState.currentTime} durationSeconds={mainState.duration}
+          onSeekProgress={(progress) => { if (track) engine.mainPlayer.seekPlaybackProgress(progress, track); }}
+          onPlayChange={() => { if (track) engine.mainPlayer.togglePlayback(track); }} /></section>
+        <PackWindows windows={packs.map((pack) => ({ pack, openRequest: 0 }))} stack={["first", "second"]}
+          username="artist" authenticated playback={state} activePackId={state.queuePackId}
+          contexts={state.packContexts} onActivateWindowQueue={engine.activateWindowQueue}
+          onWindowSettingsChange={engine.setWindowSettings}
+          onPlay={engine.togglePlayback} onPlayAll={engine.playQueue} onSeek={engine.seekPlaybackProgress}
+          onVolume={engine.setVolume} onPrevious={engine.playPreviousDub} onNext={engine.playNextDub}
+          shuffle={state.shuffle} repeat={state.repeat} onShuffleChange={engine.setShuffle} onRepeatChange={engine.setRepeat}
+          onDownloadDub={async () => {}} onCommunityChange={async () => {}}
+          onActivate={vi.fn()} onClose={vi.fn()} onEdit={vi.fn()} />
+      </>;
+    }
+    render(<Players />);
+    const first = within(screen.getByRole("region", { name: "first window player" }));
+    const second = within(screen.getByRole("region", { name: "second window player" }));
+    const main = within(screen.getByRole("region", { name: "Main controller" }));
+    expect(first.getByRole("button", { name: "Play", exact: true })).toBeVisible();
+    expect(second.getByRole("button", { name: "Play", exact: true })).toBeVisible();
+    fireEvent.click(first.getByRole("button", { name: "Play", exact: true }));
+    act(() => FakeAudio.latest.loadMetadata(180));
+    act(() => { FakeAudio.latest.currentTime = 42; FakeAudio.latest.dispatchEvent(new Event("timeupdate")); });
+    expect(main.getByRole("region", { name: "Audio player: one" })).toBeVisible();
+    expect(first.getByRole("button", { name: "Pause", exact: true })).toBeVisible();
+    fireEvent.click(second.getByRole("button", { name: "Enable repeat" }));
+    expect(first.getByRole("button", { name: "Pause", exact: true })).toBeVisible();
+    expect(second.getByRole("button", { name: "Disable repeat" })).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Play audio in Sample Pack: second", exact: true }));
+    expect(main.getByRole("region", { name: "Audio player: two" })).toBeVisible();
+    expect(first.getByText("00:42")).toBeVisible();
+    expect(first.getByRole("button", { name: "Play", exact: true })).toBeVisible();
+    expect(screen.getByRole("status", { name: "Playing audio in Sample Pack: second or its tabs" })).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Play audio in Dub Pack: first", exact: true }));
+    act(() => FakeAudio.latest.loadMetadata(180));
+    expect(FakeAudio.latest.currentTime).toBe(42);
+    fireEvent.keyDown(main.getByRole("slider", { name: "one playback progress" }), { key: "ArrowRight" });
+    expect(FakeAudio.latest.currentTime).toBeCloseTo(43.8);
+    expect(screen.getByRole("region", { name: "Minimized window: Dub Pack: first" })).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Restore Dub Pack: first", exact: true }));
+    expect(first.getByText("00:43")).toBeVisible();
+    fireEvent.click(main.getByRole("button", { name: "Pause", exact: true }));
+    fireEvent.click(screen.getByRole("button", { name: "Restore Dub Pack: first", exact: true }));
+    fireEvent.click(screen.getByRole("button", { name: "Restore Sample Pack: second", exact: true }));
+    expect(first.getByRole("button", { name: "Play", exact: true })).toBeVisible();
+    expect(second.getByRole("button", { name: "Play", exact: true })).toBeVisible();
+    fireEvent.click(first.getByRole("button", { name: "Next track" }));
+    expect(main.getByRole("region", { name: "Audio player: three" })).toBeVisible();
+    expect(first.getByRole("region", { name: "Audio player: three" })).toBeVisible();
+  });
+  it("remembers each window's track, position and modes while sharing one audible engine", () => {
+    const { result } = renderHook(() => useAudioPlayback(dubs, vi.fn(), "user", null));
+    act(() => {
+      result.current.activateWindowQueue([dubs[0], dubs[1]], "first");
+      result.current.togglePlayback(dubs[0]);
+    });
+    const audio = FakeAudio.latest;
+    act(() => audio.loadMetadata(180));
+    act(() => result.current.seekPlayback(42));
+    act(() => result.current.setShuffle(true));
+    act(() => result.current.setRepeat(true));
+    act(() => {
+      result.current.activateWindowQueue([dubs[0], dubs[2]], "second");
+      result.current.togglePlayback(dubs[0]);
+    });
+    expect(FakeAudio.latest).toBe(audio);
+    expect(result.current.state.queuePackId).toBe("second");
+    expect(result.current.state.shuffle).toBe(false);
+    expect(result.current.state.repeat).toBe(false);
+    expect(result.current.state.packContexts.first).toMatchObject({
+      nowPlayingId: "one", currentTime: 42, isPlaying: false, shuffle: true, repeat: true,
+    });
+    act(() => audio.loadMetadata(180));
+    act(() => result.current.seekPlayback(12));
+    act(() => {
+      result.current.activateWindowQueue([dubs[0], dubs[1]], "first");
+      result.current.togglePlayback(dubs[0]);
+    });
+    act(() => audio.loadMetadata(180));
+    expect(audio.currentTime).toBe(42);
+    expect(result.current.state).toMatchObject({ queuePackId: "first", isPlaying: true, shuffle: true, repeat: true });
+    expect(result.current.state.packContexts.second).toMatchObject({ currentTime: 12, isPlaying: false });
+    act(() => result.current.togglePlayback(dubs[0]));
+    expect(result.current.state.isPlaying).toBe(false);
+    act(() => result.current.togglePlayback(dubs[0]));
+    expect(audio.currentTime).toBe(42);
+    expect(result.current.state.isPlaying).toBe(true);
+  });
+
+  it("resumes a window after standalone playback and drops inaccessible remembered tracks", () => {
+    const error = vi.fn();
+    const { result } = renderHook(() => useAudioPlayback(dubs, error, "user", null));
+    act(() => {
+      result.current.activateWindowQueue([dubs[0], dubs[1]], "pack");
+      result.current.togglePlayback(dubs[0]);
+    });
+    act(() => FakeAudio.latest.loadMetadata(180));
+    act(() => result.current.seekPlayback(30));
+    act(() => result.current.togglePlayback(dubs[2]));
+    expect(result.current.state.queuePackId).toBeNull();
+    act(() => result.current.activateWindowQueue([dubs[0], dubs[1]], "pack"));
+    act(() => FakeAudio.latest.loadMetadata(180));
+    expect(result.current.state.nowPlayingId).toBe("one");
+    expect(FakeAudio.latest.currentTime).toBe(30);
+    act(() => result.current.togglePlayback(dubs[2]));
+    act(() => result.current.activateWindowQueue([dubs[1]], "pack"));
+    expect(result.current.state.nowPlayingId).toBe("two");
+    expect(result.current.state.currentTime).toBe(0);
+    act(() => result.current.reset());
+    expect(result.current.state.packContexts).toEqual({});
+    expect(error).not.toHaveBeenCalled();
+  });
   it("keeps standalone Next/Previous and shuffle inside the current media kind without changing pack scope", () => {
     const sample = { ...dubs[1], mediaKind: "sample" as const };
     const { result } = renderHook(() => useAudioPlayback([dubs[0], sample, dubs[2]], vi.fn(), "user", null));
@@ -107,6 +419,7 @@ describe("useAudioPlayback", () => {
     act(() => result.current.playQueue([dubs[0], dubs[2]]));
     act(() => {
       expect(result.current.activateQueue([dubs[0], { ...dubs[1], id: "removed" }])).toBe(false);
+      expect(result.current.activateWindowQueue([dubs[0], { ...dubs[1], id: "removed" }], "missing")).toBe(false);
     });
     expect(onError).toHaveBeenCalledWith(expect.stringContaining("Some pack files are unavailable"), "error");
     act(() => result.current.playNextDub());
@@ -303,6 +616,19 @@ describe("useAudioPlayback", () => {
     act(() => audio.loadMetadata(100));
     expect(audio.currentTime).toBe(42);
     expect(save).not.toHaveBeenCalled();
+  });
+
+  it("preserves restored playback progress when restoring the same window track", () => {
+    const { result } = renderHook(() => useAudioPlayback(dubs, vi.fn(), "user", { dubId: "two", positionSeconds: 42 }));
+    act(() => result.current.restoreWindowTrack(dubs[1]));
+    act(() => FakeAudio.latest.loadMetadata(100));
+    expect(FakeAudio.latest.currentTime).toBe(42);
+    expect(result.current.state.currentTime).toBe(42);
+    expect(FakeAudio.latest.paused).toBe(true);
+    act(() => result.current.restoreWindowTrack(dubs[0]));
+    expect(result.current.state.nowPlayingId).toBe("one");
+    expect(result.current.state.currentTime).toBe(0);
+    expect(FakeAudio.latest.paused).toBe(true);
   });
 
   it("seeks a different track, navigates, shuffles with history and advances on end", async () => {

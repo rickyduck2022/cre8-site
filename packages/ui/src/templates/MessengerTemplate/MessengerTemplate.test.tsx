@@ -17,6 +17,7 @@ it.each(["dub", "sample"] as const)("shares and renders a %s pack through the Me
     distribution: "private", aListPublic: false, licence: "Original works", ownerUsername: "you", ownerDisplayName: "You",
     items: [], totalBytes: 0, createdAt: "2026-11-10", updatedAt: "2026-11-10" };
   const onSendPack = vi.fn(async () => true);
+  const onOpenSharedPack = vi.fn();
   render(<MessengerTemplate
     buddies={[{ id: "friend", username: "amber", displayName: "Amber", presence: "online", genre: "Jungle", role: "DJ", bio: "", groups: [] }]}
     conversations={[{ buddyId: "friend", messages: [{ id: "message", sender: "them", text: "Shared pack", packId: "pack", sentAt: "2026-11-10T12:00:00Z" }] }]}
@@ -24,7 +25,7 @@ it.each(["dub", "sample"] as const)("shares and renders a %s pack through the Me
     chatConnectionStatus="connected" nowPlayingId={null} isPlaying={false}
     onOpenProfile={vi.fn()} onPlay={vi.fn()} onStartConversation={vi.fn()}
     onSelectConversation={vi.fn()} onLoadOlderMessages={vi.fn(async () => null)} onSendMessage={vi.fn(async () => true)}
-    onSendPack={onSendPack} onPlayPack={vi.fn()} onOpenPack={vi.fn()} />);
+    onSendPack={onSendPack} onPlayPack={vi.fn()} onOpenPack={vi.fn()} onOpenSharedPack={onOpenSharedPack} />);
   expect(screen.getByRole("article", { name: `${kind === "sample" ? "Sample" : "Dub"} Pack: Toolkit` })).toBeVisible();
   expect(within(screen.getByRole("log", { name: "Conversation messages" })).getByText("Shared pack")).toBeVisible();
   fireEvent.click(screen.getByRole("button", { name: "Share a pack" }));
@@ -35,6 +36,7 @@ it.each(["dub", "sample"] as const)("shares and renders a %s pack through the Me
   fireEvent.click(within(dialog).getByRole("checkbox", { name: /Grant selected friends access/ }));
   fireEvent.click(within(dialog).getByRole("button", { name: "Send pack" }));
   await waitFor(() => expect(onSendPack).toHaveBeenCalledWith("friend", pack, true));
+  await waitFor(() => expect(onOpenSharedPack).toHaveBeenCalledWith("friend", pack));
 });
 
 describe("MessengerTemplate message submission", () => {

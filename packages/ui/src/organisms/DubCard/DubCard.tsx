@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Check, Download, Heart, MessageCircle, Plus } from "@craft/icons";
+import { Check, DownloadSolid as Download, Heart, MessageSolid as MessageCircle, Plus, WindowRestore } from "@craft/icons";
 import { Avatar } from "../../atoms/Avatar/Avatar";
 import { AListBadge } from "../../atoms/AListBadge/AListBadge";
 import { Button } from "../../atoms/Button/Button";
@@ -44,6 +44,7 @@ export interface DubCardProps {
   onRepeatChange?: (enabled: boolean) => void;
   onDownload: (dub: Dub) => void;
   onOpenProfile?: (username: string) => void;
+  onOpenDub?: (dub: Dub) => void;
   onPlay: (dub: Dub) => void;
   onAddToCrate?: (dubId: string) => void;
   onRemoveFromCrate?: (crateId: string, dubId: string) => void;
@@ -151,6 +152,7 @@ function TrackDubCard({
   onRepeatChange,
   onDownload,
   onOpenProfile,
+  onOpenDub,
   onPlay,
   onAddToCrate,
   onRemoveFromCrate,
@@ -172,6 +174,13 @@ function TrackDubCard({
     />
   ) : null;
   const downloadAndShare = [
+      variant !== "playlist" && onOpenDub && (
+        <Button key="open" aria-label={`Open ${dub.mediaKind === "vocal" ? "vocal" : dub.mediaKind === "sample" ? "sample" : "dub"}: ${dub.title}`}
+          title="Open in workspace without starting playback" leadingIcon={<WindowRestore />}
+          onClick={() => onOpenDub(dub)} size="small" variant="secondary">
+          {dub.mediaKind === "vocal" ? "Open Vocal" : dub.mediaKind === "sample" ? "Open Sample" : "Open Dub"}
+        </Button>
+      ),
       <Button
         key="download"
         disabled={downloadDisabled}

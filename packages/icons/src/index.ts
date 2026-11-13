@@ -1,7 +1,61 @@
 import * as React from "react";
 import { IconBase, type IconProps } from "./IconBase";
+export * from "./SolidMediaIcons";
 
 type IconComponent = React.FC<IconProps>;
+
+export const Microphone: IconComponent = (props) =>
+  React.createElement(IconBase, { ...withIconColor(props),
+    children: [
+      React.createElement("rect", { key: "capsule", x: 9, y: 2, width: 6, height: 12, rx: 3 }),
+      React.createElement("path", { key: "stand", d: "M5 10v2a7 7 0 0 0 14 0v-2M12 19v3M8 22h8" }),
+    ],
+  });
+
+export const Sun: IconComponent = (props) =>
+  React.createElement(IconBase, { ...withIconColor(props), fill: "currentColor", stroke: "none",
+    children: React.createElement("path", { d: "M12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10ZM11 1h2v3h-2zm0 19h2v3h-2zM1 11h3v2H1zm19 0h3v2h-3zM3.5 4.9l1.4-1.4L7 5.6 5.6 7zm13.5.7 2.1-2.1 1.4 1.4L18.4 7zM3.5 19.1 5.6 17 7 18.4l-2.1 2.1zm13.5-.7 1.4-1.4 2.1 2.1-1.4 1.4z" }),
+  });
+
+export const Moon: IconComponent = (props) =>
+  React.createElement(IconBase, { ...withIconColor(props), fill: "currentColor", stroke: "none",
+    children: React.createElement("path", { d: "M10 2a10 10 0 1 0 12 12 8 8 0 0 1-12-12Z" }),
+  });
+
+export const WindowMinimize: IconComponent = (props) =>
+  React.createElement(IconBase, { ...withIconColor(props), fill: "currentColor", stroke: "none",
+    children: React.createElement("path", { d: "M5 17h14v2H5z" }),
+  });
+
+export const WindowMinimizeAll: IconComponent = (props) =>
+  React.createElement(IconBase, { ...withIconColor(props),
+    children: React.createElement("path", { d: "M8 3h13v10M3 7h14v8H3zM10 15v6m-3-3 3 3 3-3" }),
+  });
+
+export const WindowMaximize: IconComponent = (props) =>
+  React.createElement(IconBase, { ...withIconColor(props), fill: "currentColor", stroke: "none",
+    children: React.createElement("path", { fillRule: "evenodd", d: "M4 4h16v16H4zm2 2v12h12V6z" }),
+  });
+
+export const WindowRestore: IconComponent = (props) =>
+  React.createElement(IconBase, { ...withIconColor(props), fill: "currentColor", stroke: "none",
+    children: React.createElement("path", { fillRule: "evenodd", d: "M8 2h14v14h-5v-2h3V4H10v3H8zM2 8h14v14H2zm2 2v10h10V10z" }),
+  });
+
+export const Eye: IconComponent = (props) =>
+  React.createElement(IconBase, { ...withIconColor(props),
+    children: React.createElement(React.Fragment, null,
+      React.createElement("path", { d: "M2 12c2-4 5-6 10-6s8 2 10 6c-2 4-5 6-10 6S4 16 2 12Z" }),
+      React.createElement("circle", { cx: 12, cy: 12, r: 3 }),
+    ),
+  });
+
+export const EyeOff: IconComponent = (props) =>
+  React.createElement(IconBase, { ...withIconColor(props),
+    children: React.createElement(React.Fragment, null,
+      React.createElement("path", { d: "m3 3 18 18M9 6.3A16 16 0 0 1 12 6c5 0 8 2 10 6a17 17 0 0 1-3 3.8M6.2 6.2A17 17 0 0 0 2 12c2 4 5 6 10 6 1.8 0 3.3-.3 4.7-.8M10 10a3 3 0 0 0 4 4" }),
+    ),
+  });
 
 function withIconColor(props: IconProps): IconProps {
   return {
@@ -144,6 +198,13 @@ export const Plus: IconComponent = (props) => {
   );
   return React.createElement(IconBase, { ...withIconColor(props), children });
 };
+export const FolderOpen: IconComponent = (props) => React.createElement(IconBase, {
+  ...withIconColor(props),
+  children: React.createElement("path", {
+    d: "M3 10V6a2 2 0 0 1 2-2h4l2 3h7a2 2 0 0 1 2 2v1M3 10h18l-3 10H3a1 1 0 0 1-1-1l1-9Z",
+    strokeWidth: 1.7, strokeLinecap: "round", strokeLinejoin: "round",
+  }),
+});
 export const Folder: IconComponent = (props) => {
   const icon = React.createElement(
     "g",
@@ -325,7 +386,7 @@ export const MessageCircle: IconComponent = (props) => {
 export const Play: IconComponent = (props) => {
   const icon = React.createElement(
     "g",
-    { transform: "translate(-86.29 -3473.50)" },
+    { transform: "translate(-86.29 -3473.50)", fill: "currentColor" },
     React.createElement("path", { ...{ "d": "M91.9575 3479.96C91.9574 3479.68 92.0309 3479.41 92.1704 3479.17C92.31 3478.92 92.5107 3478.72 92.7523 3478.59C92.9939 3478.45 93.2678 3478.37 93.5464 3478.38C93.825 3478.38 94.0985 3478.45 94.3391 3478.59L103.838 3484.13C104.078 3484.27 104.277 3484.47 104.415 3484.71C104.554 3484.95 104.626 3485.22 104.627 3485.5C104.627 3485.78 104.554 3486.05 104.416 3486.29C104.278 3486.53 104.08 3486.73 103.84 3486.87L94.3391 3492.41C94.0985 3492.55 93.825 3492.62 93.5464 3492.62C93.2678 3492.63 92.9939 3492.55 92.7523 3492.41C92.5107 3492.28 92.31 3492.08 92.1704 3491.83C92.0309 3491.59 91.9574 3491.32 91.9575 3491.04V3479.96Z", "strokeWidth": "1.7", "strokeLinecap": "round" }, key: 0 }),
   );
   const children = React.createElement(
@@ -511,6 +572,17 @@ export const Volume2: IconComponent = (props) => {
   );
   return React.createElement(IconBase, { ...withIconColor(props), children });
 };
+export const VolumeX: IconComponent = (props) =>
+  React.createElement(IconBase, {
+    ...withIconColor(props),
+    children: React.createElement("path", {
+      d: "M11 5 6 9H3v6h3l5 4V5ZM16 9l6 6M22 9l-6 6",
+      strokeWidth: 1.7,
+      strokeLinecap: "round",
+      strokeLinejoin: "round",
+    }),
+  });
+
 export const Minimize2: IconComponent = (props) =>
   React.createElement(IconBase, {
     ...withIconColor(props),

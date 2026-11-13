@@ -25,12 +25,13 @@ export interface PackPlaylistProps extends PackQueueControls, Pick<DubCardProps,
   disabled?: boolean;
   label?: string;
   showControls?: boolean;
+  preview?: boolean;
 }
 
 export function PackPlaylist({
   pack, nowPlayingId, isPlaying, likedDubIds, onPlayAll, matchingDubIds, disabled = false, label,
   activePackId, onActivateQueue, onPrevious, onNext, onShuffleChange, onRepeatChange, shuffle, repeat,
-  onPlay, onSeek, onSeekProgress, showControls = true, ...playback
+  onPlay, onSeek, onSeekProgress, showControls = true, preview = false, ...playback
 }: PackPlaylistProps) {
   const tracks = pack.items.map(({ dub }) => dub);
   const active = activePackId === undefined || activePackId === pack.id;
@@ -49,6 +50,7 @@ export function PackPlaylist({
     </fieldset>}
     <ol className="dub-pack-card__playlist" aria-label={label ?? `${pack.title} playlist`}>
       {pack.items.map(({ dub, key }, index) => (!matchingDubIds || matchingDubIds.has(dub.id)) && <li key={dub.id}>
+        {preview && <p className="pack-muted">Preview &middot; {dub.duration} maximum &middot; reduced quality</p>}
         <DubCard {...playback} dub={dub} mediaKind={pack.kind} variant="playlist" trackNumber={index + 1} musicalKey={key}
           playbackDisabled={disabled} hasLiked={likedDubIds ? likedDubIds.has(dub.id) : dub.likedByCurrentUser === true}
           isCurrentTrack={active && dub.id === nowPlayingId} isPlaying={active && dub.id === nowPlayingId && isPlaying}

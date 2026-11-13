@@ -1,5 +1,9 @@
 # User journey video guides
 
+For contributor setup and test ownership, see the
+[developer handbook](../developer/README.md). These generated videos complement
+the [interactive in-app tutorials](../onboarding.md); they are separate systems.
+
 Each video is defined by a JSON template in
 [`scripts/video-guides/templates`](../../scripts/video-guides/templates).
 The shared recorder runs the **real built app** and API against a temporary,

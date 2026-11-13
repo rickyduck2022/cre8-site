@@ -14,8 +14,10 @@ export interface PackDetails {
   licence: string;
 }
 
-export function canAddDubToPack(pack: Pick<Pack, "distribution" | "aListPublic">, dub: Dub) {
-  return (dub.distribution ?? "worldwide") === pack.distribution
+export function canAddDubToPack(pack: Pick<Pack, "kind" | "distribution" | "aListPublic">, dub: Dub) {
+  const kind = dub.mediaKind ?? "dub";
+  return (pack.kind === "sample" ? kind === "sample" || kind === "vocal" : kind === pack.kind)
+    && (dub.distribution ?? "worldwide") === pack.distribution
     && (pack.distribution !== "alist" || (dub.aListPublic === true) === pack.aListPublic);
 }
 

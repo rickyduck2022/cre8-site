@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Pause, Play, Repeat, Shuffle, SkipBack, SkipForward } from "@craft/icons";
+import { PauseSolid as Pause, Play, RepeatSolid as Repeat, ShuffleSolid as Shuffle, SkipBackSolid as SkipBack, SkipForwardSolid as SkipForward } from "@craft/icons";
 import { Button } from "../../atoms/Button/Button";
 import "../Molecules.css";
 

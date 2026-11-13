@@ -5,6 +5,7 @@ import { App } from "../../../apps/web/src/app/App";
 
 const upload = vi.hoisted(() => ({ addDub: vi.fn() }));
 beforeAll(() => {
+  HTMLDialogElement.prototype.show = function () { this.open = true; };
   HTMLDialogElement.prototype.showModal = function () { this.open = true; };
   HTMLDialogElement.prototype.close = function () { this.open = false; };
 });

@@ -1,10 +1,27 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { Navigation } from "./Navigation";
 
 afterEach(cleanup);
 
 describe("Navigation", () => {
+  it("collapses media menus independently and reveals a newly active destination", () => {
+    const sections = (["dub", "sample", "vocal"] as const).map((mediaKind) => ({
+      label: `${mediaKind}s`, mediaKind, items: [{ label: `${mediaKind} vault`, href: `#${mediaKind}`, icon: <span /> }],
+    }));
+    const app = render(<Navigation sections={sections} activeItem="dub vault" />);
+    expect(screen.getByRole("button", { name: "dubs menu" })).toHaveAttribute("aria-expanded", "true");
+    const samples = screen.getByRole("button", { name: "samples menu" });
+    expect(samples).toHaveAttribute("aria-expanded", "false");
+    expect(samples).toHaveClass("button--audio", "media-kind--sample");
+    expect(screen.queryByRole("link", { name: "sample vault" })).not.toBeInTheDocument();
+    fireEvent.click(samples);
+    expect(screen.getByRole("link", { name: "sample vault" })).toBeVisible();
+    fireEvent.click(samples);
+    app.rerender(<Navigation sections={sections} activeItem="sample vault" />);
+    expect(screen.getByRole("link", { name: "sample vault", current: "page" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "vocals menu" })).toHaveAttribute("aria-expanded", "false");
+  });
   it("keeps the brand and navigation labels when opting into a vault descriptor", () => {
     render(<Navigation brandDescriptor="Dub Vault" activeItem="Sample Vault" sections={[{ items: [
       { label: "Sample Vault", href: "#samples", icon: <span />, mediaKind: "sample" },

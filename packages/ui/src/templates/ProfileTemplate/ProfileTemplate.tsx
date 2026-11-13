@@ -25,6 +25,7 @@ export interface ProfileTemplateProps {
   onPlayPack?: DubPackCollectionProps["onPlayAll"];
   onOpenPack?: DubPackCollectionProps["onOpenPack"];
   onEditPack?: DubPackCollectionProps["onEditPack"];
+  onDeletePack?: DubPackCollectionProps["onDeletePack"];
   onDownloadPack?: DubPackCollectionProps["onDownloadPack"];
   onSharePack?: DubPackCollectionProps["onSharePack"];
   onActivateQueue?: DubPackCollectionProps["onActivateQueue"];
@@ -47,8 +48,10 @@ export interface ProfileTemplateProps {
   onEditProfile: () => void;
   onMessage: () => void;
   onPlay: (dub: Dub) => void;
+  onPlaySingle?: (dub: Dub) => void;
   onDownload: (dub: Dub) => void;
   onOpenProfile?: (username: string) => void;
+  onOpenDub?: (dub: Dub) => void;
   onEditDub?: (dub: Dub) => void;
   onDeleteDub?: (dub: Dub) => void;
   onShareWithFriend?: (dub: Dub) => void;
@@ -63,6 +66,7 @@ export function ProfileTemplate({
   onPlayPack,
   onOpenPack,
   onEditPack,
+  onDeletePack,
   onDownloadPack,
   onSharePack,
   onActivateQueue,
@@ -86,8 +90,10 @@ export function ProfileTemplate({
   onEditProfile,
   onMessage,
   onPlay,
+  onPlaySingle,
   onDownload,
   onOpenProfile,
+  onOpenDub,
   onEditDub,
   onDeleteDub,
   onShareWithFriend,
@@ -171,7 +177,7 @@ export function ProfileTemplate({
             nowPlayingId={playingDubId} isPlaying={isPlaying} currentTimeSeconds={currentTimeSeconds}
             durationSeconds={durationSeconds} volume={volume} shuffle={shuffle} repeat={repeat} playbackError={playbackError}
             onPlay={onPlay} onPlayAll={onPlayPack} onOpenPack={onOpenPack} onDownloadPack={onDownloadPack} onSharePack={onSharePack}
-            onEditPack={onEditPack} currentUsername={currentUsername}
+            onEditPack={onEditPack} onDeletePack={onDeletePack} currentUsername={currentUsername}
             onDownload={onDownload} onOpenProfile={onOpenProfile} onSeek={onSeek} onSeekProgress={onSeekProgress}
             activePackId={activePackId} onActivateQueue={onActivateQueue} onPrevious={onPrevious} onNext={onNext}
             onShuffleChange={onShuffleChange} onRepeatChange={onRepeatChange} onVolumeChange={onVolumeChange} />}
@@ -183,7 +189,7 @@ export function ProfileTemplate({
           </div>
           {uploads.length > 0 ? (
             <>
-              <div className="profile-uploads__list feed-list">
+              <div className="profile-uploads__list feed-list" ref={uploadsPagination.listRef}>
                 {uploadsPagination.items.map((dub) => (
                   <DubCard
                     dub={dub}
@@ -205,7 +211,8 @@ export function ProfileTemplate({
                     onNext={onNext}
                     onDownload={onDownload}
                     onOpenProfile={onOpenProfile}
-                    onPlay={onPlay}
+                    onPlay={onPlaySingle ?? onPlay}
+                    onOpenDub={onOpenDub}
                     manageable={isOwnProfile}
                     onEdit={onEditDub}
                     onDelete={onDeleteDub}

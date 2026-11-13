@@ -34,6 +34,34 @@ describe("community connection recovery", () => {
     expect(result.current.error).toBe("");
   });
 
+  describe("tutorial action acknowledgements", () => {
+    it("reports messages, media sharing and adding friends only after successful requests", async () => {
+      let succeeds = false;
+      vi.stubGlobal("fetch", vi.fn(async (_url: string, options?: RequestInit) => new Response(JSON.stringify(
+        options?.method === "POST" && !succeeds ? { error: "Request failed." }
+          : { ...snapshot, buddies: [{ id: "friend", username: "friend", displayName: "Friend" }] },
+      ), { status: options?.method === "POST" && !succeeds ? 500 : 200 })));
+      const report = vi.fn();
+      const { result } = renderHook(() => useCommunity(report));
+      await waitFor(() => expect(result.current.loading).toBe(false));
+      expect(report).not.toHaveBeenCalled();
+      await act(async () => {
+        expect(await result.current.sendMessage("friend", "Hello", "track")).toBe(false);
+        expect(await result.current.addBuddy("friend")).toBeNull();
+      });
+      expect(report).not.toHaveBeenCalled();
+      succeeds = true;
+      await act(async () => { expect(await result.current.sendMessage("friend", "Hello")).toBe(true); });
+      expect(report.mock.calls.map(([event]) => event.type)).toEqual(["message-sent"]);
+      report.mockClear();
+      await act(async () => { expect(await result.current.sendMessage("friend", "Listen", "track")).toBe(true); });
+      expect(report.mock.calls.map(([event]) => event.type)).toEqual(["message-sent", "media-shared"]);
+      report.mockClear();
+      await act(async () => { expect(await result.current.addBuddy("friend")).toBe("friend"); });
+      expect(report).toHaveBeenCalledWith({ type: "friend-added" });
+    });
+  });
+
   it("allows manual retry when the browser reports online but the server was unavailable", async () => {
     const fetch = vi.fn()
       .mockRejectedValueOnce(new TypeError("Failed to fetch"))

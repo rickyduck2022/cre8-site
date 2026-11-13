@@ -1,0 +1,121 @@
+.workspace-domain--current { --workspace-manager-accent: var(--window-manager-current-accent); }
+.workspace-domain--explorer { --workspace-manager-accent: var(--window-manager-explorer-accent); }
+.workspace-manager-tabs > .filter-tab:first-child {
+  --window-tab-border: var(--window-manager-current-accent);
+  --window-tab-indicator: var(--window-manager-current-accent);
+  --focus-ring: var(--window-manager-current-accent);
+}
+.workspace-manager-tabs > .filter-tab:last-child {
+  --window-tab-border: var(--window-manager-explorer-accent);
+  --window-tab-indicator: var(--window-manager-explorer-accent);
+  --focus-ring: var(--window-manager-explorer-accent);
+}
+.workspace-palette--charcoal {
+  color-scheme: dark;
+  color: var(--window-manager-text);
+  --surface-canvas: var(--window-manager-canvas);
+  --surface-raised: var(--window-manager-surface);
+  --surface-control: var(--window-manager-control);
+  --text-primary: var(--window-manager-text);
+  --text-secondary: var(--window-manager-muted);
+  --border-default: var(--window-manager-border);
+  --window-border: var(--window-manager-border);
+  --window-header: var(--window-manager-canvas);
+  --window-header-active: var(--window-manager-control);
+  --window-tab-surface: var(--window-manager-canvas);
+  --window-tab-selected: var(--window-manager-surface);
+  --window-tab-hover: var(--window-manager-control);
+  --window-tab-border: var(--window-manager-border);
+  --window-dialog-tab-border: var(--window-manager-text);
+  --window-dock-surface: var(--window-manager-surface);
+  --window-highlight-surface: var(--window-manager-control);
+  --window-focus: var(--window-indicator);
+  --focus-ring: var(--window-indicator);
+  --status-error: var(--color-orange-400);
+  --window-manager-current-accent: var(--window-manager-text);
+  --window-manager-explorer-accent: var(--window-manager-muted);
+  --workspace-chrome-surface: var(--window-manager-surface);
+  --workspace-navigation-surface: var(--window-manager-control);
+  --workspace-actions-surface: var(--window-manager-canvas);
+  --workspace-content-surface: var(--window-manager-surface);
+  --workspace-item-surface: var(--window-manager-canvas);
+  --workspace-item-selected: var(--window-manager-control);
+}
+.workspace-card--other {
+  --workspace-card-accent: var(--window-manager-selection-surface);
+  --workspace-card-muted: var(--window-manager-other-muted);
+  --workspace-card-hover: var(--window-manager-selection-hover);
+  --workspace-card-text: var(--window-manager-selection-text);
+  --workspace-card-open: var(--window-manager-selection-surface);
+}
+.workspace-card--sample {
+  --workspace-card-accent: var(--audio-sample-active);
+  --workspace-card-muted: var(--window-manager-sample-muted);
+  --workspace-card-hover: var(--audio-highlight);
+  --workspace-card-text: var(--window-manager-media-text);
+  --workspace-card-open: var(--window-manager-sample-open);
+}
+.workspace-card--vocal {
+  --workspace-card-accent: var(--audio-vocal-active);
+  --workspace-card-muted: var(--window-manager-vocal-muted);
+  --workspace-card-hover: var(--audio-highlight);
+  --workspace-card-text: var(--window-manager-media-text);
+  --workspace-card-open: var(--window-manager-vocal-open);
+}
+.workspace-card--dub {
+  --workspace-card-accent: var(--audio-dub-active);
+  --workspace-card-muted: var(--window-manager-dub-muted);
+  --workspace-card-hover: var(--audio-highlight);
+  --workspace-card-text: var(--window-manager-media-text);
+  --workspace-card-open: var(--window-manager-dub-open);
+}
+.workspace-card {
+  --workspace-item-surface: var(--workspace-card-muted);
+  --workspace-item-selected: var(--workspace-card-muted);
+  --workspace-actions-surface: var(--workspace-card-muted);
+  --window-focus: var(--workspace-card-accent);
+  --window-border: var(--workspace-card-accent);
+}
+.workspace-card--open {
+  --workspace-item-surface: var(--workspace-card-open);
+  --workspace-item-selected: var(--workspace-card-open);
+  --workspace-actions-surface: var(--workspace-card-open);
+  --surface-canvas: var(--workspace-card-open);
+  --surface-control: var(--workspace-card-hover);
+  --surface-raised: var(--workspace-card-hover);
+  --text-primary: var(--workspace-card-text);
+  --text-secondary: var(--workspace-card-text);
+  --border-default: var(--workspace-card-text);
+  --window-focus: var(--workspace-card-text);
+  --focus-ring: var(--workspace-card-text);
+  color: var(--text-primary);
+}
+.workspace-card--open .badge--audio { --audio-active: var(--workspace-card-text); }
+.window-layer__visibility[data-selected] { color: var(--action-primary); }
+.floating-window[data-window-kind] { --window-focus: var(--window-manager-text); }
+.floating-window[data-window-kind="sample"] { --window-focus: var(--audio-sample-active); }
+.floating-window[data-window-kind="vocal"] { --window-focus: var(--audio-vocal-active); }
+.floating-window[data-window-kind="dub"] { --window-focus: var(--audio-dub-active); }
+.floating-window.floating-window--active[data-window-kind] { --window-focus: var(--action-primary); }
+.window-layer__restore {
+  --window-restore-accent: var(--window-manager-surface);
+  --window-restore-focus-border: var(--window-manager-text);
+  --window-restore-open-surface: color-mix(in srgb, var(--window-restore-accent) 35%, var(--color-neutral-950));
+  --window-restore-focused-surface: color-mix(in srgb, var(--window-restore-accent) 18%, var(--color-neutral-950));
+  --window-restore-hover-surface: color-mix(in srgb, var(--window-restore-accent) 28%, var(--color-neutral-950));
+}
+.window-layer__restore[data-window-kind="sample"] {
+  --window-restore-accent: var(--audio-sample-active);
+  --window-restore-focus-border: var(--audio-sample-active);
+}
+.window-layer__restore[data-window-kind="vocal"] {
+  --window-restore-accent: var(--audio-vocal-active);
+  --window-restore-focus-border: var(--audio-vocal-active);
+}
+.window-layer__restore[data-window-kind="dub"] {
+  --window-restore-accent: var(--audio-dub-active);
+  --window-restore-focus-border: var(--audio-dub-active);
+}
+.window-layer__restore[data-window-state="focused"] {
+  --window-restore-focus-border: var(--action-primary);
+}

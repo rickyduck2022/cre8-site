@@ -1,7 +1,9 @@
 import { useEffect, useId, useRef, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { Button } from "../../atoms/Button/Button";
 import { ModalFooterOutlet } from "../../molecules/ModalFooter/ModalFooter";
 import { cn } from "../../utils/cn";
+import { FloatingWindow, useFeatureWindowSystem, type FeatureWindowSystem } from "../Window/Window";
 import "../Organisms.css";
 
 /**
@@ -16,15 +18,48 @@ export interface ModalProps {
   children: ReactNode;
   className?: string;
   closeDisabled?: boolean;
+  presentation?: "feature" | "modal";
+  nonModal?: boolean;
+  openRequest?: number;
 }
 
-export function Modal({
+function FeatureDialogWindow({ title, onClose, closeDisabled, className, children, system, openRequest = 1 }: Omit<ModalProps, "isOpen"> & { system: FeatureWindowSystem }) {
+  const generatedId = useId();
+  const id = `dialog:${generatedId}`;
+  const { onActivate, onRemove, stack } = system;
+  const remove = useRef(onRemove);
+  remove.current = onRemove;
+  useEffect(() => { if (!stack.includes(id)) onActivate(id); });
+  useEffect(() => () => remove.current(id), [id]);
+  if (!stack.includes(id)) return null;
+  return <FloatingWindow windowId={id} title={title} kind="dialog" autoGroup persistent={false} openRequest={openRequest}
+    className={cn("feature-window", className)} active={stack.at(-1) === id} order={Math.max(0, stack.indexOf(id))}
+    onActivate={() => onActivate(id)} onClose={onClose} closeDisabled={closeDisabled}>
+    <ModalFooterOutlet>
+      <div className="feature-window__body">
+      {closeDisabled && <p role="status">Please wait for the current action to finish before closing.</p>}
+      {children}
+      </div>
+    </ModalFooterOutlet>
+  </FloatingWindow>;
+}
+
+export function Modal(props: ModalProps) {
+  const system = useFeatureWindowSystem();
+  if (system && props.presentation !== "modal") {
+    return props.isOpen ? <FeatureDialogWindow {...props} system={system} /> : null;
+  }
+  return <BlockingModal key={props.nonModal ? "non-modal" : "modal"} {...props} />;
+}
+
+function BlockingModal({
   children,
   className,
   isOpen,
   onClose,
   title,
   closeDisabled = false,
+  nonModal = false,
 }: ModalProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const titleId = useId();
@@ -35,14 +70,17 @@ export function Modal({
   useEffect(() => {
     const dialog = dialogRef.current;
     if (!dialog) return;
-    if (isOpen && !dialog.open) dialog.showModal();
+    if (isOpen && !dialog.open) { if (nonModal) dialog.show(); else dialog.showModal(); }
     if (!isOpen && dialog.open) dialog.close();
-  }, [isOpen]);
+  }, [isOpen, nonModal]);
 
-  return (
+  const content = (
     <dialog
       aria-labelledby={titleId}
-      className={cn("modal", className)}
+      className={cn("modal", nonModal && "modal--non-modal", className)}
+      onKeyDown={(event) => {
+        if (nonModal && event.key === "Escape") { event.preventDefault(); requestClose(); }
+      }}
       onCancel={(event) => {
         event.preventDefault();
         requestClose();
@@ -69,4 +107,5 @@ export function Modal({
       </div>
     </dialog>
   );
+  return nonModal ? createPortal(content, document.body) : content;
 }

@@ -1,0 +1,9 @@
+.tutorial-focus {
+  background: var(--overlay-modal);
+  backdrop-filter: blur(var(--overlay-blur));
+  inset: 0;
+  mask-repeat: no-repeat;
+  pointer-events: none;
+  position: fixed;
+  z-index: var(--layer-notification);
+}

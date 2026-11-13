@@ -7,6 +7,44 @@ afterEach(cleanup);
 const track = { title: "Night Drive", artist: "Amber" };
 
 describe("AudioPlayer playback indicator", () => {
+  it("uses solid transport, volume and layout icons in every player variant", () => {
+    const { rerender } = render(<AudioPlayer track={track} />);
+    for (const variant of ["full", "compact", "mini", "docked", "inline"] as const) {
+      rerender(<AudioPlayer track={track} variant={variant} playing onClose={vi.fn()} onMinimizedChange={vi.fn()} />);
+      for (const name of ["Pause", "Previous track", "Next track", "Enable shuffle", "Enable repeat", "Mute", "Minimize audio player", "Close audio player"]) {
+        const icon = screen.getByRole("button", { name, exact: true }).querySelector("svg");
+        expect(icon).toHaveAttribute("fill", "currentColor");
+        expect(icon).toHaveAttribute("stroke", "none");
+      }
+    }
+  });
+  it("mutes and restores the last audible level without changing playback", () => {
+    const volumeChange = vi.fn();
+    const play = vi.fn();
+    render(<AudioPlayer track={track} onVolumeChange={volumeChange} onPlayChange={play} />);
+    fireEvent.change(screen.getByRole("slider", { name: "Volume", exact: true }), { target: { value: "35" } });
+    fireEvent.click(screen.getByRole("button", { name: "Mute", exact: true }));
+    expect(screen.getByRole("slider", { name: "Volume", exact: true })).toHaveValue("0");
+    expect(screen.getByRole("button", { name: "Unmute", exact: true })).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(screen.getByRole("button", { name: "Unmute", exact: true }));
+    expect(screen.getByRole("slider", { name: "Volume", exact: true })).toHaveValue("35");
+    expect(volumeChange.mock.calls.map(([volume]) => volume)).toEqual([0.35, 0, 0.35]);
+    expect(play).not.toHaveBeenCalled();
+  });
+
+  it("respects controlled volume changes and provides an audible fallback when initially muted", () => {
+    const change = vi.fn();
+    const { rerender } = render(<AudioPlayer track={track} volume={0} onVolumeChange={change} />);
+    fireEvent.click(screen.getByRole("button", { name: "Unmute", exact: true }));
+    expect(change).toHaveBeenLastCalledWith(0.7);
+    rerender(<AudioPlayer track={track} volume={0.45} onVolumeChange={change} />);
+    fireEvent.click(screen.getByRole("button", { name: "Mute", exact: true }));
+    expect(change).toHaveBeenLastCalledWith(0);
+    rerender(<AudioPlayer track={track} volume={0} onVolumeChange={change} />);
+    fireEvent.click(screen.getByRole("button", { name: "Unmute", exact: true }));
+    expect(change).toHaveBeenLastCalledWith(0.45);
+  });
+
   it("groups layout actions in one ordered rail independently of playback controls", () => {
     const { rerender } = render(<AudioPlayer track={track} minimized
       dragHandle={<button>Move player</button>} onMinimizedChange={vi.fn()} onClose={vi.fn()}

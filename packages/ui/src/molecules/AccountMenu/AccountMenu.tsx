@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Avatar } from "../../atoms/Avatar/Avatar";
+import { ThemeToggle } from "../ThemeToggle/ThemeToggle";
 import "../Molecules.css";
 
 export interface AccountMenuProps {
@@ -7,19 +8,27 @@ export interface AccountMenuProps {
   userAvatarUrl?: string;
   onEditProfile: () => void;
   onLogout: () => void;
+  onHelp?: () => void;
 }
 
 export function AccountMenu({
   onEditProfile,
   onLogout,
+  onHelp,
   userName,
   userAvatarUrl,
 }: AccountMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const keyboardTarget = useRef<"first" | "last" | null>(null);
 
   useEffect(() => {
     if (!isOpen) return;
+    if (keyboardTarget.current) {
+      const items = menuRef.current?.querySelectorAll<HTMLButtonElement>('[role="menuitem"], [role="menuitemcheckbox"]');
+      (keyboardTarget.current === "last" ? items?.item(items.length - 1) : items?.item(0))?.focus();
+      keyboardTarget.current = null;
+    }
 
     function closeOnOutsideClick(event: PointerEvent) {
       if (!menuRef.current?.contains(event.target as Node)) setIsOpen(false);
@@ -48,8 +57,6 @@ export function AccountMenu({
   return (
     <div
       className="account-menu"
-      onMouseEnter={() => setIsOpen(true)}
-      onMouseLeave={() => setIsOpen(false)}
       onBlur={(event) => {
         const nextFocusedElement =
           event.relatedTarget instanceof Node ? event.relatedTarget : null;
@@ -59,8 +66,14 @@ export function AccountMenu({
       }}
       onKeyDown={(event) => {
         if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
+        if (!isOpen) {
+          event.preventDefault();
+          keyboardTarget.current = event.key === "ArrowUp" || event.key === "End" ? "last" : "first";
+          setIsOpen(true);
+          return;
+        }
         const menuItems = Array.from(
-          menuRef.current?.querySelectorAll<HTMLButtonElement>('[role="menuitem"]') ?? [],
+          menuRef.current?.querySelectorAll<HTMLButtonElement>('[role="menuitem"], [role="menuitemcheckbox"]') ?? [],
         );
         if (menuItems.length === 0) return;
         event.preventDefault();
@@ -82,8 +95,7 @@ export function AccountMenu({
         aria-haspopup="menu"
         aria-label={`Account menu for ${userName}`}
         className="account-menu__trigger"
-        onClick={() => setIsOpen(true)}
-        onFocus={() => setIsOpen(true)}
+        onClick={() => setIsOpen((open) => !open)}
         type="button"
       >
         <Avatar name={userName} size="small" src={userAvatarUrl} />
@@ -91,6 +103,8 @@ export function AccountMenu({
       {isOpen && (
         <div aria-label="Account options" className="account-menu__popover" role="menu">
           <span className="account-menu__name">{userName}</span>
+          <ThemeToggle menuItem />
+          {onHelp && <button onClick={() => closeAndRun(onHelp)} role="menuitem" type="button">Help &amp; tutorials</button>}
           <button
             onClick={() => closeAndRun(onEditProfile)}
             role="menuitem"

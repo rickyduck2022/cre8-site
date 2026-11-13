@@ -17,6 +17,10 @@
 .pack-view > p { margin: 0; }
 .pack-playlist { display: grid; gap: 0.75rem; min-width: 0; }
 .pack-window .dub-pack-card__playlist { max-height: none; overflow: visible; }
+.pack-window__player { min-width: 0; }
+.player-window { height: auto; }
+.player-window .floating-window__content { display: grid; align-content: start; padding: 0; }
+.player-window .app-player--windowed { align-content: start; border-radius: 0; }
 .pack-playlist h2, .pack-notice h2 { font-size: var(--type-size-body); margin: 0; }
 .pack-workspace label, .pack-editor label, .pack-share label {
   display: grid;
@@ -59,6 +63,8 @@
 .pack-volume input { max-width: 8rem; }
 .pack-editor textarea { min-height: 6rem; resize: vertical; }
 .pack-fields { border: 0; margin: 0; padding: 0; }
+.pack-editor__section-heading { grid-template-columns: auto minmax(0, 1fr); }
+.pack-editor__section-heading p { color: var(--text-secondary); font-size: var(--type-size-compact); margin: 0; }
 .pack-fields p { margin: 0; }
 .pack-check { display: flex !important; align-items: center; gap: 0.75rem; }
 .pack-check input { flex: 0 0 auto; }
@@ -76,8 +82,10 @@
 }
 .pack-card { display: grid; gap: 1rem; height: 100%; box-sizing: border-box; }
 .pack-card > .pack-toolbar { align-self: end; }
+.pack-card > .card-actions .button { min-height: 2.75rem; }
 @media (max-width: 760px) {
   .pack-card > .card-actions { flex-wrap: nowrap; }
+  .pack-editor .button, .pack-editor .pack-check { min-height: 2.75rem; }
 }
 .pack-upload { display: grid; gap: 0.75rem; }
 .pack-upload > strong { overflow-wrap: anywhere; }

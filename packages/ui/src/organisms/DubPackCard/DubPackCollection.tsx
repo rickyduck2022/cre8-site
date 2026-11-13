@@ -16,8 +16,8 @@ export function DubPackCollection({ packs, ownerUsername, query = "", mediaKind,
     .some((value) => value.toLocaleLowerCase().includes(needle)));
   const pagination = usePagination(filtered, `${ownerUsername}|${query}`);
   if (!owned.length) return null;
-  const title = mediaKind === "sample" ? "Sample Packs" : mediaKind === "dub" ? "Dub Packs" : "Dub & Sample Packs";
-  return <section className="dub-pack-collection" aria-label={mediaKind ? title : "Dub and Sample Packs"}>
+  const title = mediaKind === "vocal" ? "Vocal Packs" : mediaKind === "sample" ? "Sample Packs" : mediaKind === "dub" ? "Dub Packs" : "Dub, Sample & Vocal Packs";
+  return <section className="dub-pack-collection" aria-label={mediaKind ? title : "Dub, Sample and Vocal Packs"} ref={pagination.listRef}>
     <h2>{title} <span className="pack-muted">({filtered.length})</span></h2>
     {!filtered.length && <p className="pack-muted">No packs match your search.</p>}
     {pagination.items.map((pack) => <DubPackCard key={pack.id} {...playback} pack={pack} />)}

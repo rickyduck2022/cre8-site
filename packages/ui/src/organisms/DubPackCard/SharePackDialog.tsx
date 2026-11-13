@@ -41,7 +41,7 @@ export function SharePackDialog({ pack, buddies, onClose, onSend, initialBuddyId
       if (failed.length) throw new Error("Some friends did not receive the pack. Retry the remaining recipients.");
     });
   }
-  return <Modal isOpen title={`Share ${packTypeLabel(pack.kind)}`} onClose={() => submission.requestClose(onClose)}>
+  return <Modal isOpen className="pack-share" title={`Share ${packTypeLabel(pack.kind)}`} onClose={() => submission.requestClose(onClose)}>
     <DubPackIdentity pack={pack} compact />
     <p>Send this pack to a friend in Messenger.</p>
     <FriendPicker buddies={eligible} selectedIds={selected} onChange={setSelected} disabled={submission.pending} disabledIds={sent} />

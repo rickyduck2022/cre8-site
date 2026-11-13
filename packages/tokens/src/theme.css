@@ -3,6 +3,7 @@
   --layer-mini-player: 100;
   --layer-windows: 110;
   --layer-popover: 120;
+  --layer-modal: 200;
   --layer-notification: 1000;
 
   /* Primitives */
@@ -19,25 +20,32 @@
 
   --color-cyan-400: #35C5D8;
   --color-green-400: #4DD89A;
+  --color-violet-400: #B49AFF;
   --color-blue-500: #4285F4;
 
   /* Semantics */
   --surface-canvas: var(--color-neutral-950);
   --surface-raised: var(--color-neutral-900);
   --surface-control: var(--color-neutral-800);
+  --surface-frosted: color-mix(in srgb, var(--surface-raised) 88%, transparent);
+  --overlay-modal: rgb(5 8 12 / 78%);
+  --overlay-blur: 0.25rem;
   --surface-media-controller: color-mix(in srgb, var(--color-cyan-400) 25%, var(--color-neutral-950));
   --surface-media-section: color-mix(in srgb, var(--color-blue-500) 10%, var(--color-neutral-950));
 
   --border-default: var(--color-neutral-700);
+  --tutorial-outline-gradient: linear-gradient(120deg, var(--action-primary), var(--audio-dub-active), var(--audio-sample-active), var(--audio-vocal-active), var(--action-primary));
+  --tutorial-panel-outline-gradient: linear-gradient(120deg, color-mix(in srgb, var(--action-primary) 40%, var(--surface-raised)), color-mix(in srgb, var(--audio-dub-active) 40%, var(--surface-raised)), color-mix(in srgb, var(--audio-sample-active) 40%, var(--surface-raised)), color-mix(in srgb, var(--audio-vocal-active) 40%, var(--surface-raised)), color-mix(in srgb, var(--action-primary) 40%, var(--surface-raised)));
+  --brand-mark-filter: none;
   --vault-label: var(--text-secondary);
   --vault-rail-surface: var(--surface-canvas);
   --vault-rail-edge: var(--border-default);
   --vault-hardware: var(--color-neutral-700);
   --vault-panel-highlight: color-mix(in srgb, var(--color-neutral-50) 7%, transparent);
   --vault-panel-shadow: inset 0 1px var(--vault-panel-highlight), inset 0 -1px var(--vault-rail-surface), var(--shadow-card);
-  --window-border: var(--color-neutral-950);
+  --window-border: var(--border-default);
   --window-header: var(--surface-canvas);
-  --window-header-active: color-mix(in srgb, var(--color-blue-500) 18%, var(--surface-canvas));
+  --window-header-active: var(--surface-control);
   --window-indicator: var(--color-cyan-400);
   --window-focus: color-mix(in srgb, var(--color-blue-500) 65%, var(--surface-canvas));
   --window-shadow: 0 0.75rem 1.5rem rgb(0 0 0 / 55%), 0 1.5rem 3.5rem rgb(0 0 0 / 60%);
@@ -47,6 +55,37 @@
   --window-tab-hover: var(--surface-control);
   --window-tab-border: var(--border-default);
   --window-tab-indicator: var(--focus-ring);
+  --window-dialog-tab-border: var(--text-primary);
+  --window-highlight-surface: var(--surface-control);
+  --window-highlight-border: var(--action-primary);
+  --window-addition-accent: var(--action-primary);
+  --window-addition-mixed-accent: initial;
+  --window-addition-shadow: 0 0 0.875rem var(--window-addition-accent);
+  --window-dock-surface: color-mix(in srgb, var(--surface-canvas) 88%, transparent);
+  --window-preview-opacity: 0.5;
+  --window-manager-current-accent: var(--text-primary);
+  --window-manager-explorer-accent: color-mix(in srgb, var(--text-primary) 55%, var(--text-secondary));
+  --window-manager-canvas: var(--color-neutral-800);
+  --window-manager-surface: var(--color-neutral-700);
+  --window-manager-control: color-mix(in srgb, var(--color-neutral-700) 90%, var(--color-neutral-50));
+  --window-manager-border: color-mix(in srgb, var(--color-neutral-700) 65%, var(--color-neutral-50));
+  --window-manager-text: var(--color-neutral-50);
+  --window-manager-selection-surface: var(--color-neutral-950);
+  --window-manager-selection-hover: var(--color-neutral-900);
+  --window-manager-selection-text: var(--color-neutral-50);
+  --window-manager-media-text: var(--color-neutral-50);
+  --window-restore-accent: var(--color-neutral-700);
+  --window-restore-surface: var(--window-manager-canvas);
+  --window-restore-open-surface: color-mix(in srgb, var(--window-restore-accent) 35%, var(--color-neutral-950));
+  --window-restore-focused-surface: color-mix(in srgb, var(--window-restore-accent) 18%, var(--color-neutral-950));
+  --window-restore-hover-surface: color-mix(in srgb, var(--window-restore-accent) 28%, var(--color-neutral-950));
+  --window-restore-text: var(--color-neutral-50);
+  --window-manager-sample-muted: color-mix(in srgb, var(--audio-sample-active) 22%, var(--window-manager-canvas));
+  --window-manager-dub-muted: color-mix(in srgb, var(--audio-dub-active) 22%, var(--window-manager-canvas));
+  --window-manager-sample-open: color-mix(in srgb, var(--audio-sample-active) 30%, var(--window-manager-canvas));
+  --window-manager-dub-open: color-mix(in srgb, var(--audio-dub-active) 30%, var(--window-manager-canvas));
+  --window-manager-other-muted: var(--color-neutral-900);
+  --window-manager-muted: color-mix(in srgb, var(--color-neutral-50) 80%, var(--color-neutral-400));
   --glow-amber: #673a1b;
   --glow-teal: #164750;
   --glow-navy: #1d365b;
@@ -79,6 +118,9 @@
   --audio-highlight: var(--color-neutral-50);
   --audio-dub-active: var(--color-cyan-400);
   --audio-sample-active: var(--color-green-400);
+  --audio-vocal-active: var(--color-violet-400);
+  --window-manager-vocal-muted: color-mix(in srgb, var(--audio-vocal-active) 22%, var(--window-manager-canvas));
+  --window-manager-vocal-open: color-mix(in srgb, var(--audio-vocal-active) 30%, var(--window-manager-canvas));
   --audio-inactive: var(--color-neutral-700);
 
   --focus-ring: var(--color-cyan-400);
@@ -165,6 +207,33 @@
   --text-label: var(--type-size-label);
   --text-body: var(--type-size-body);
   --text-title: var(--type-size-heading);
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+  --brand-mark-filter: invert(1);
+  --surface-canvas: var(--surface-inverse);
+  --surface-raised: var(--surface-inverse-raised);
+  --surface-control: var(--surface-inverse-control);
+  --surface-media-section: color-mix(in srgb, var(--color-blue-500) 8%, var(--surface-inverse));
+  --border-default: var(--border-inverse);
+  --text-primary: var(--text-inverse);
+  --text-secondary: var(--text-inverse-secondary);
+  --focus-ring: var(--audio-inverse-active);
+  --link-default: color-mix(in srgb, var(--color-blue-500) 65%, var(--text-inverse));
+  --status-error: var(--status-inverse-error);
+  --window-shadow: 0 0.75rem 1.5rem rgb(0 0 0 / 12%), 0 1.5rem 3.5rem rgb(0 0 0 / 10%);
+  --window-shadow-active: 0 1rem 2rem rgb(0 0 0 / 18%), 0 2rem 5rem rgb(0 0 0 / 15%);
+  --shadow-card: 0 0.125rem 0.375rem rgb(0 0 0 / 8%), 0 0.5rem 1rem rgb(0 0 0 / 6%);
+  --shadow-floating: 0 0.25rem 0.5rem rgb(0 0 0 / 12%), 0 0.75rem 2rem rgb(0 0 0 / 15%);
+  --shadow-input: inset 0 1px 3px rgb(0 0 0 / 10%);
+  --shadow-media-inset: inset 0 1px 3px rgb(0 0 0 / 8%);
+  --shadow-control: 0 1px 3px rgb(0 0 0 / 12%);
+  --color-background: var(--surface-inverse);
+  --color-surface: var(--surface-inverse-raised);
+  --color-text: var(--text-inverse);
+  --color-muted: var(--text-inverse-secondary);
+  --color-border: var(--border-inverse);
 }
 
 body {

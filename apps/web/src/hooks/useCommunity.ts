@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
   ArtistOption,
   Buddy,
@@ -15,12 +15,15 @@ import type {
   AListApplication,
   AListApplicationFields,
   NotificationMessage,
+  WindowWorkspace,
+  TutorialActivity,
 } from "@craft/ui";
 import { uploadFile } from "../services/uploadFile";
 import { readAudioDurationSeconds } from "../services/readAudioDuration";
 import { useAudioPlayback, type PlaybackPosition } from "./useAudioPlayback";
 import { useChatConnection } from "./useChatConnection";
 import { useNotifications } from "./useNotifications";
+import { useUploadResults } from "./useUploadResults";
 import { downloadDubFile } from "../services/downloadDubFile";
 
 export interface Crate {
@@ -30,10 +33,12 @@ export interface Crate {
 }
 
 interface CommunitySnapshot {
+  windowWorkspace?: WindowWorkspace | null;
   member: MemberProfile;
   lastPlayback: PlaybackPosition | null;
   artists: ArtistOption[];
   dubs: Dub[];
+  draftDubs?: Dub[];
   packs?: DubPack[];
   sharedDubIds: string[];
   sharedPackIds?: string[];
@@ -48,10 +53,12 @@ interface CommunitySnapshot {
 }
 
 interface CommunityState {
+  windowWorkspace: WindowWorkspace | null;
   member: MemberProfile | null;
   lastPlayback: PlaybackPosition | null;
   artists: ArtistOption[];
   dubs: Dub[];
+  draftDubs: Dub[];
   packs: DubPack[];
   sharedDubIds: Set<string>;
   sharedPackIds: Set<string>;
@@ -70,10 +77,12 @@ interface ApiError {
 }
 
 const initialState: CommunityState = {
+  windowWorkspace: null,
   member: null,
   lastPlayback: null,
   artists: [],
   dubs: [],
+  draftDubs: [],
   packs: [],
   sharedDubIds: new Set(),
   sharedPackIds: new Set(),
@@ -117,8 +126,15 @@ function mergeMessages(...groups: ChatMessage[][]) {
   return [...byId.values()].sort((left, right) => Date.parse(left.sentAt) - Date.parse(right.sentAt));
 }
 
-export function useCommunity() {
+export function useCommunity(onTutorialActivity?: (activity: TutorialActivity) => void) {
+  const tutorialActivity = useRef(onTutorialActivity);
+  tutorialActivity.current = onTutorialActivity;
   const [state, setState] = useState(initialState);
+  const tutorialOwner = useRef(state.member?.id);
+  tutorialOwner.current = state.member?.id;
+  function reportTutorialActivity(activity: TutorialActivity) {
+    if (state.member?.id && tutorialOwner.current === state.member.id) tutorialActivity.current?.(activity);
+  }
   const [loading, setLoading] = useState(true);
   const [uploadProgress, setUploadProgress] = useState<UploadProgressState | null>(null);
   const [uploadError, setUploadError] = useState("");
@@ -127,9 +143,11 @@ export function useCommunity() {
   const initialLoadFailed = useRef(false);
   const notificationState = useNotifications();
   const { notify } = notificationState;
-  const playback = useAudioPlayback(state.dubs, notify, state.member?.id, state.lastPlayback, async (position) => {
+  const { uploadResults, finishUpload, dismissUploadResult } = useUploadResults(notify, state.member?.id);
+  const playbackTracks = useMemo(() => [...state.dubs, ...state.draftDubs], [state.dubs, state.draftDubs]);
+  const playback = useAudioPlayback(playbackTracks, notify, state.member?.id, state.lastPlayback, async (position) => {
     await requestApi("/api/playback", { method: "PUT", body: jsonBody(position), keepalive: true });
-  });
+  }, { onTutorialActivity: reportTutorialActivity });
 
   function applySnapshot(
     snapshot: CommunitySnapshot,
@@ -154,9 +172,11 @@ export function useCommunity() {
     setState((current) => ({
       ...current,
       member: snapshot.member,
+      windowWorkspace: snapshot.windowWorkspace ?? null,
       lastPlayback: snapshot.lastPlayback,
       artists: snapshot.artists,
       dubs: snapshot.dubs,
+      draftDubs: snapshot.draftDubs ?? [],
       packs: snapshot.packs ?? [],
       sharedDubIds: new Set(snapshot.sharedDubIds),
       sharedPackIds: new Set(snapshot.sharedPackIds ?? []),
@@ -319,6 +339,7 @@ export function useCommunity() {
         method: "POST",
         body: jsonBody({
           title: values.title.trim(),
+          mediaKind: values.mediaKind,
           artistId: values.artistId,
           tags: values.tags,
           bpm: values.bpm,
@@ -332,15 +353,15 @@ export function useCommunity() {
       });
       temporaryUploadIds = [];
       await refreshCommunity();
-      notify(`${values.title.trim()} was uploaded${dub.distribution === "private" ? " privately" : dub.distribution === "alist" ? " to A-List" : " to the Dub Vault"}.`);
+      finishUpload(`${values.title.trim()} was uploaded${dub.distribution === "private" ? " privately" : dub.distribution === "alist" ? " to A-List" : dub.mediaKind === "vocal" ? " to the Vocal Vault" : " to the Dub Vault"}.`);
       return dub;
     } catch (requestError) {
       const message = requestError instanceof Error
         ? requestError.message
-        : "The dub could not be uploaded.";
+        : `The ${values.mediaKind === "vocal" ? "vocal" : "dub"} could not be uploaded.`;
       setUploadError(message);
       await cleanupDubUploads(temporaryUploadIds);
-      notify(message, "error");
+      finishUpload(message, "error");
       return null;
     } finally {
       setUploadProgress(null);
@@ -403,6 +424,7 @@ export function useCommunity() {
         method: "PATCH",
         body: jsonBody({
           title: values.title.trim(),
+          mediaKind: values.mediaKind,
           artistId: values.artistId,
           tags: values.tags,
           bpm: values.bpm,
@@ -416,13 +438,13 @@ export function useCommunity() {
       temporaryUploadIds = [];
       if (values.audioFile && playback.state.nowPlayingId === dubId) playback.reset();
       await refreshCommunity();
-      notify(`${dub.title} was updated.`);
+      finishUpload(`${dub.title} was updated.`);
       return dub;
     } catch (requestError) {
       const message = requestError instanceof Error ? requestError.message : "The dub could not be updated.";
       setUploadError(message);
       await cleanupDubUploads(temporaryUploadIds);
-      notify(message, "error");
+      finishUpload(message, "error");
       return null;
     } finally {
       setUploadProgress(null);
@@ -430,14 +452,16 @@ export function useCommunity() {
   }
 
   async function deleteDub(dubId: string): Promise<boolean> {
+    const kind = state.dubs.find((dub) => dub.id === dubId)?.mediaKind;
+    const label = kind === "vocal" ? "Vocal" : kind === "sample" ? "Sample" : "Dub";
     try {
       await requestApi(`/api/dubs/${encodeURIComponent(dubId)}`, { method: "DELETE" });
       if (playback.state.nowPlayingId === dubId) playback.reset();
       await refreshCommunity();
-      notify("Dub deleted.");
+      notify(`${label} deleted.`);
       return true;
     } catch (requestError) {
-      notify(requestError instanceof Error ? requestError.message : "The dub could not be deleted.", "error");
+      notify(requestError instanceof Error ? requestError.message : `The ${label.toLowerCase()} could not be deleted.`, "error");
       return false;
     }
   }
@@ -463,6 +487,7 @@ export function useCommunity() {
       });
       applySnapshot(snapshot);
       notify(`${username} added to your Friend List.`);
+      reportTutorialActivity({ type: "friend-added" });
       return snapshot.buddies.find((buddy) => buddy.username === username)?.id ?? null;
     } catch (requestError) {
       notify(requestError instanceof Error ? requestError.message : "The friend could not be added.", "error");
@@ -532,6 +557,8 @@ export function useCommunity() {
         `/api/conversations/${encodeURIComponent(buddyId)}/messages`,
         { method: "POST", body: jsonBody({ text, dubId, packId, confirmPackAccess }) },
       ));
+      reportTutorialActivity({ type: "message-sent" });
+      if (dubId || packId) reportTutorialActivity({ type: "media-shared" });
       return true;
     } catch (requestError) {
       notify(requestError instanceof Error ? requestError.message : "Message could not be sent.", "error");
@@ -546,6 +573,7 @@ export function useCommunity() {
         { method: "POST", body: jsonBody({ userId, text }) },
       );
       applySnapshot(result.snapshot);
+      reportTutorialActivity({ type: "media-shared" });
       return result.buddyId;
     } catch (requestError) {
       notify(requestError instanceof Error ? requestError.message : "The dub could not be sent.", "error");
@@ -663,6 +691,9 @@ export function useCommunity() {
   }
 
   const unreadCount = state.buddies.reduce((total, buddy) => total + (buddy.unread ?? 0), 0);
+  const saveWindowWorkspace = useCallback(async (ownerId: string, workspace: WindowWorkspace) => {
+    await requestApi("/api/workspace", { method: "PUT", body: jsonBody({ ownerId, workspace }), keepalive: true });
+  }, []);
   return {
     state: { ...state, ...playback.state },
     loading,
@@ -683,8 +714,11 @@ export function useCommunity() {
       if (state.serverNotifications.some((item) => !item.read)) void updateServerNotifications("/api/notifications/read", "POST");
     },
     uploadProgress,
+    uploadResults,
+    dismissUploadResult,
     uploadError,
     notify,
+    saveWindowWorkspace,
     submitAListApplication,
     login,
     registerArtist,
@@ -693,17 +727,32 @@ export function useCommunity() {
     refreshCommunity,
     downloadDub,
     updateDubPreview,
-    togglePlayback: playback.togglePlayback,
+    mainPlayer: playback.mainPlayer,
+    selectPlayerContext: playback.selectPlayerContext,
+    pausePlayback: playback.pausePlayback,
+    windowPlayback: {
+      togglePlayback: playback.togglePlayback,
+      seekPlayback: playback.seekPlayback,
+      seekPlaybackProgress: playback.seekPlaybackProgress,
+      playPack: playback.playQueue,
+      playNextDub: playback.playNextDub,
+      playPreviousDub: playback.playPreviousDub,
+    },
+    togglePlayback: (dub: Dub) => { playback.activateGlobalContext(); playback.togglePlayback(dub); },
+    toggleSinglePlayback: playback.toggleSinglePlayback,
     closePlayer: playback.closePlayer,
-    seekPlayback: playback.seekPlayback,
-    seekPlaybackProgress: playback.seekPlaybackProgress,
+    restoreWindowTrack: playback.restoreWindowTrack,
+    seekPlayback: (time: number, dub?: Dub) => { playback.activateGlobalContext(); playback.seekPlayback(time, dub); },
+    seekPlaybackProgress: (progress: number, dub: Dub) => { playback.activateGlobalContext(); playback.seekPlaybackProgress(progress, dub); },
     setVolume: playback.setVolume,
-    setShuffle: playback.setShuffle,
-    setRepeat: playback.setRepeat,
-    playNextDub: playback.playNextDub,
-    playPreviousDub: playback.playPreviousDub,
-    playPack: playback.playQueue,
-    activatePackQueue: playback.activateQueue,
+    setShuffle: playback.setGlobalShuffle,
+    setRepeat: playback.setGlobalRepeat,
+    playNextDub: () => { playback.activateGlobalContext(); playback.playNextDub(); },
+    playPreviousDub: () => { playback.activateGlobalContext(); playback.playPreviousDub(); },
+    playPack: (tracks: Dub[], packId?: string) => { playback.activateGlobalContext(); playback.playQueue(tracks, packId); },
+    activatePackQueue: (tracks: Dub[], packId?: string) => { playback.activateGlobalContext(); return playback.activateQueue(tracks, packId); },
+    activateWindowQueue: playback.activateWindowQueue,
+    setWindowSettings: playback.setWindowSettings,
     addDub,
     updateDub,
     deleteDub,
@@ -714,7 +763,7 @@ export function useCommunity() {
     loadOlderMessages,
     sendMessage,
     sendPackMessage: (buddyId: string, pack: DubPack, confirmAccess: boolean) =>
-      sendMessage(buddyId, `Shared a ${pack.kind === "sample" ? "Sample" : "Dub"} Pack: ${pack.title}`, undefined, pack.id, confirmAccess),
+      sendMessage(buddyId, `Shared a ${pack.kind === "vocal" ? "Vocal" : pack.kind === "sample" ? "Sample" : "Dub"} Pack: ${pack.title}`, undefined, pack.id, confirmAccess),
     shareDubWithAListMember,
     unsendMessage,
     createCrate,

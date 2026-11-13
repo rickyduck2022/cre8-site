@@ -1,0 +1,769 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="A UK-first validation proposal for cre8, prepared for shareholder discussion.">
+  <title>cre8 | Shareholder discussion</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --ink: #edf5f1;
+      --muted: #a4b8af;
+      --dim: #71877d;
+      --bg: #07130f;
+      --panel: #10231b;
+      --panel-2: #172d23;
+      --line: #2a4739;
+      --mint: #a9f5c2;
+      --lime: #d7ff70;
+      --amber: #ffce75;
+      --coral: #ff9a83;
+      --blue: #a9d8ff;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      width: 100%;
+      min-height: 100%;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: Aptos, "Segoe UI", Arial, sans-serif;
+    }
+
+    body { overflow: hidden; }
+
+    a { color: var(--mint); text-decoration-thickness: 1px; text-underline-offset: 3px; }
+    a:hover { color: var(--lime); }
+
+    .deck {
+      width: 100vw;
+      height: 100vh;
+      display: grid;
+      place-items: center;
+      background:
+        radial-gradient(ellipse at 82% 18%, rgba(86, 164, 112, .13), transparent 34%),
+        var(--bg);
+    }
+
+    .slide {
+      position: relative;
+      display: none;
+      width: min(100vw, 177.7778vh);
+      height: min(56.25vw, 100vh);
+      aspect-ratio: 16 / 9;
+      overflow: hidden;
+      padding: 5.2% 6.2% 4.6%;
+      background:
+        radial-gradient(ellipse at 96% 0%, rgba(95, 188, 128, .09), transparent 36%),
+        linear-gradient(145deg, #0b1b14 0%, #07130f 66%);
+    }
+
+    .slide.active { display: block; }
+
+    .slide::after {
+      content: "";
+      position: absolute;
+      z-index: 0;
+      width: 35%;
+      height: 1px;
+      right: 6.2%;
+      top: 0;
+      background: linear-gradient(90deg, transparent, var(--mint), transparent);
+      opacity: .7;
+    }
+
+    .slide > * { position: relative; z-index: 1; }
+
+    .eyebrow {
+      margin: 0 0 1.1rem;
+      color: var(--mint);
+      font-size: clamp(11px, 1vw, 16px);
+      font-weight: 700;
+      letter-spacing: .16em;
+      text-transform: uppercase;
+    }
+
+    h1, h2, h3, p { margin-top: 0; }
+
+    h1 {
+      max-width: 900px;
+      margin-bottom: 1.4rem;
+      font-size: clamp(44px, 6vw, 92px);
+      line-height: .98;
+      letter-spacing: -.055em;
+      font-weight: 650;
+    }
+
+    h2 {
+      max-width: 1120px;
+      margin-bottom: 1.8rem;
+      font-size: clamp(30px, 3.2vw, 50px);
+      line-height: 1.06;
+      letter-spacing: -.035em;
+      font-weight: 650;
+    }
+
+    h3 {
+      margin-bottom: .65rem;
+      font-size: clamp(17px, 1.55vw, 24px);
+      line-height: 1.15;
+      font-weight: 650;
+    }
+
+    p, li {
+      color: var(--muted);
+      font-size: clamp(14px, 1.25vw, 19px);
+      line-height: 1.42;
+    }
+
+    .lead {
+      max-width: 850px;
+      color: var(--ink);
+      font-size: clamp(21px, 2vw, 31px);
+      line-height: 1.28;
+      letter-spacing: -.02em;
+    }
+
+    .small { font-size: clamp(11px, .92vw, 14px); line-height: 1.35; }
+    .tiny { font-size: clamp(10px, .76vw, 12px); line-height: 1.35; }
+    .muted { color: var(--muted); }
+    .dim { color: var(--dim); }
+    .mint { color: var(--mint); }
+    .lime { color: var(--lime); }
+    .amber { color: var(--amber); }
+    .coral { color: var(--coral); }
+    .blue { color: var(--blue); }
+    .strong { color: var(--ink); font-weight: 650; }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      gap: .45rem;
+      padding: .42rem .72rem;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      color: var(--mint);
+      font-size: clamp(10px, .84vw, 13px);
+      font-weight: 700;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+
+    .grid { display: grid; gap: 1rem; }
+    .cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .card {
+      min-width: 0;
+      padding: 1.2rem 1.3rem;
+      border: 1px solid var(--line);
+      border-radius: 15px;
+      background: linear-gradient(145deg, rgba(23, 45, 35, .92), rgba(13, 30, 22, .9));
+    }
+
+    .card p:last-child, .card ul:last-child { margin-bottom: 0; }
+    .card .metric { margin: .2rem 0 .45rem; color: var(--lime); font-size: clamp(29px, 3vw, 46px); font-weight: 700; letter-spacing: -.045em; }
+    .card .label { color: var(--dim); font-size: clamp(10px, .85vw, 13px); letter-spacing: .1em; text-transform: uppercase; }
+
+    .callout {
+      padding: 1rem 1.2rem;
+      border-left: 3px solid var(--mint);
+      border-radius: 0 12px 12px 0;
+      background: rgba(169, 245, 194, .07);
+      color: var(--ink);
+      font-size: clamp(16px, 1.5vw, 23px);
+      line-height: 1.35;
+    }
+
+    ul.clean { margin: .35rem 0 0; padding: 0; list-style: none; }
+    ul.clean li { position: relative; margin: .42rem 0; padding-left: 1.15rem; }
+    ul.clean li::before {
+      content: "";
+      position: absolute;
+      top: .55em;
+      left: .05rem;
+      width: .42rem;
+      height: .42rem;
+      border-radius: 50%;
+      background: var(--mint);
+    }
+
+    .split {
+      display: grid;
+      grid-template-columns: 1.08fr .92fr;
+      gap: 2rem;
+      align-items: center;
+    }
+
+    .flow {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: .65rem;
+      align-items: stretch;
+    }
+
+    .step {
+      min-height: 155px;
+      padding: 1rem;
+      border: 1px solid var(--line);
+      border-radius: 13px;
+      background: var(--panel);
+    }
+
+    .step-num {
+      display: inline-grid;
+      width: 1.8rem;
+      height: 1.8rem;
+      place-items: center;
+      margin-bottom: .7rem;
+      border-radius: 50%;
+      background: var(--mint);
+      color: #0a1a11;
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .divider { height: 1px; margin: 1rem 0; background: var(--line); }
+
+    .status {
+      display: inline-block;
+      margin-bottom: .55rem;
+      padding: .3rem .55rem;
+      border-radius: 5px;
+      background: rgba(169, 245, 194, .12);
+      color: var(--mint);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: .09em;
+      text-transform: uppercase;
+    }
+
+    .status.proposed { background: rgba(255, 206, 117, .11); color: var(--amber); }
+    .status.risk { background: rgba(255, 154, 131, .11); color: var(--coral); }
+
+    .bar-row {
+      display: grid;
+      grid-template-columns: 145px 1fr 54px;
+      gap: .7rem;
+      align-items: center;
+      margin: .8rem 0;
+      color: var(--muted);
+      font-size: clamp(11px, .95vw, 14px);
+    }
+
+    .bar {
+      height: 10px;
+      overflow: hidden;
+      border-radius: 99px;
+      background: #20372b;
+    }
+
+    .bar > span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--mint), var(--lime)); }
+
+    .mini-table { width: 100%; border-collapse: collapse; }
+    .mini-table th, .mini-table td {
+      padding: .55rem .65rem;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+      color: var(--muted);
+      font-size: clamp(11px, .94vw, 14px);
+      line-height: 1.32;
+    }
+
+    .mini-table th { color: var(--ink); font-weight: 650; }
+    .mini-table tr:last-child td { border-bottom: 0; }
+
+    .source-mark { margin-left: .12em; font-size: .72em; vertical-align: super; }
+    .source-mark a { text-decoration: none; }
+
+    .footer {
+      position: absolute;
+      right: 6.2%;
+      bottom: 2.2%;
+      left: 6.2%;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      color: var(--dim);
+      font-size: clamp(9px, .74vw, 11px);
+      letter-spacing: .04em;
+    }
+
+    .cover h1 { font-size: clamp(64px, 9.5vw, 145px); }
+    .cover-mark {
+      position: absolute;
+      top: 5%;
+      right: 1%;
+      width: 48%;
+      opacity: .76;
+      pointer-events: none;
+    }
+    .cover-content { max-width: 850px; padding-top: 4%; }
+    .cover .lead { max-width: 720px; margin: 1.3rem 0 2rem; }
+    .cover .disclaimer { max-width: 670px; margin-top: 2.5rem; }
+
+    .source-list { columns: 2; column-gap: 2.2rem; }
+    .source-list li { break-inside: avoid; margin: 0 0 .65rem; }
+    .source-list a { overflow-wrap: anywhere; }
+    .ask-box {
+      padding: 1.4rem;
+      border: 1px solid rgba(169, 245, 194, .5);
+      border-radius: 16px;
+      background: linear-gradient(145deg, rgba(169, 245, 194, .1), rgba(16, 35, 27, .7));
+    }
+
+    .controls {
+      position: fixed;
+      z-index: 5;
+      right: 18px;
+      bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: rgba(7, 19, 15, .92);
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .controls button {
+      width: 32px;
+      height: 32px;
+      border: 1px solid var(--line);
+      border-radius: 50%;
+      background: var(--panel);
+      color: var(--ink);
+      cursor: pointer;
+    }
+
+    .controls button:hover, .controls button:focus-visible { border-color: var(--mint); outline: none; }
+
+    @media (max-width: 760px) {
+      body { overflow: auto; }
+      .deck { display: block; width: 100%; height: auto; }
+      .slide {
+        width: 100%;
+        height: auto;
+        min-height: 100vh;
+        aspect-ratio: auto;
+        padding: 42px 25px 70px;
+      }
+      .slide.active { display: block; }
+      .slide:not(.active) { display: none; }
+      .cols-2, .cols-3, .cols-4, .split, .flow { grid-template-columns: 1fr; }
+      .cover-mark { top: 5%; right: -15%; width: 78%; opacity: .36; }
+      .bar-row { grid-template-columns: 100px 1fr 44px; }
+      .footer { right: 25px; bottom: 20px; left: 25px; }
+      .source-list { columns: 1; }
+    }
+
+    @page { size: 13.333in 7.5in; margin: 0; }
+
+    @media print {
+      :root { color-scheme: dark; }
+      html, body {
+        width: 13.333in;
+        height: 7.5in;
+        overflow: visible;
+        print-color-adjust: exact;
+        -webkit-print-color-adjust: exact;
+      }
+      .deck { display: block; width: auto; height: auto; background: var(--bg); }
+      .slide, .slide.active {
+        display: block !important;
+        width: 13.333in;
+        height: 7.5in;
+        padding: .39in .83in .35in;
+        page-break-after: always;
+        break-after: page;
+      }
+      .slide:last-child { page-break-after: auto; break-after: auto; }
+      .slide::after { right: .83in; }
+      .footer { right: .83in; bottom: .17in; left: .83in; }
+      .controls { display: none !important; }
+      a { color: var(--mint); }
+    }
+  </style>
+</head>
+<body>
+  <main class="deck" aria-label="cre8 shareholder discussion presentation">
+    <section class="slide cover active" aria-label="Title">
+      <svg class="cover-mark" viewBox="0 0 600 600" aria-hidden="true">
+        <defs>
+          <linearGradient id="orb" x1="0" x2="1" y1="0" y2="1">
+            <stop offset="0" stop-color="#a9f5c2" stop-opacity=".8"/>
+            <stop offset="1" stop-color="#d7ff70" stop-opacity=".08"/>
+          </linearGradient>
+        </defs>
+        <circle cx="300" cy="300" r="220" fill="none" stroke="url(#orb)" stroke-width="1"/>
+        <circle cx="300" cy="300" r="170" fill="none" stroke="#a9f5c2" stroke-opacity=".3" stroke-width="1"/>
+        <circle cx="300" cy="300" r="110" fill="none" stroke="#d7ff70" stroke-opacity=".24" stroke-width="1"/>
+        <path d="M75 300h100l40-85 75 170 64-130 40 45h130" fill="none" stroke="#a9f5c2" stroke-width="3"/>
+        <circle cx="300" cy="300" r="7" fill="#d7ff70"/>
+      </svg>
+      <div class="cover-content">
+        <p class="eyebrow">Shareholder discussion · UK-first</p>
+        <h1>cre8<span class="mint">.</span></h1>
+        <p class="lead">A trusted release workflow for producers and DJs — built around community, permission and repeat use.</p>
+        <span class="tag">Validation proposal · 11 November 2026</span>
+        <p class="small disclaimer">Discussion material only. This is not an investment offer, audited forecast, or evidence of product-market fit. Commercial features and prices remain proposals.</p>
+      </div>
+      <div class="footer"><span>CRE8 · SHAREHOLDER DISCUSSION MATERIAL</span><span>01 / 12</span></div>
+    </section>
+
+    <section class="slide" aria-label="Investment thesis">
+      <p class="eyebrow">01 · The thesis</p>
+      <h2>Make the release workflow the reason to return.</h2>
+      <div class="split">
+        <div>
+          <p class="lead">Creators share unreleased music across chats, drives and promo tools. cre8 brings permissioned sharing and scene discovery into one focused place.</p>
+          <div class="callout">“Share unreleased music with the people you choose. Keep your dubs, packs and DJ community organized in one trusted place.”</div>
+          <p class="small dim" style="margin-top: .8rem;">Positioning direction to test — not approved marketing copy or a claim that the service is leak-proof.</p>
+        </div>
+        <div class="grid">
+          <div class="card"><span class="label">Workflow</span><h3>Less scattered release admin</h3><p>Organize packs, sharing and recipients around the music itself.</p></div>
+          <div class="card"><span class="label">Trust</span><h3>Creator-controlled access</h3><p>Keep permission and revocation distinct from paid promotion or fan paywalls.</p></div>
+          <div class="card"><span class="label">Community</span><h3>Context creates repeat value</h3><p>Discovery, crates and relationships give the workflow a reason to recur.</p></div>
+        </div>
+      </div>
+      <div class="footer"><span>Hypothesis to validate with active creators and listeners.</span><span>02 / 12</span></div>
+    </section>
+
+    <section class="slide" aria-label="Product stage">
+      <p class="eyebrow">02 · Product and stage</p>
+      <h2>A working product foundation; commerce is a separate build.</h2>
+      <div class="grid cols-2">
+        <div class="card">
+          <span class="status">Existing product surfaces</span>
+          <ul class="clean">
+            <li>Dub and Sample Vault discovery, profiles and listening crates</li>
+            <li>Ordered packs, sharing and ZIP downloads</li>
+            <li>Private and A-List distribution with explicit access grants</li>
+            <li>Messaging, notifications and basic creator statistics</li>
+          </ul>
+        </div>
+        <div class="card">
+          <span class="status proposed">Proposed / not yet delivered</span>
+          <ul class="clean">
+            <li>Checkout, subscription billing and purchase entitlements</li>
+            <li>Paid Sample Pack seller onboarding, payouts and refunds</li>
+            <li>Advanced analytics, scheduling, team roles and watermarking</li>
+            <li>Rights, tax and consumer-law approvals for paid activity</li>
+          </ul>
+        </div>
+      </div>
+      <div class="divider"></div>
+      <p class="small"><span class="strong">Shareholder takeaway:</span> the pilot should monetize a small, genuinely delivered workflow bundle — not a roadmap or feature list.</p>
+      <p class="tiny dim">Source: cre8 monetization strategy and business plan; product capabilities should be checked against the live release before external circulation.</p>
+      <div class="footer"><span>Separate delivered product from future scope.</span><span>03 / 12</span></div>
+    </section>
+
+    <section class="slide" aria-label="Competitive positioning">
+      <p class="eyebrow">03 · Positioning</p>
+      <h2>The whitespace is a combination, not a feature moat.</h2>
+      <div class="grid cols-3">
+        <div class="card">
+          <span class="status">Free substitutes</span>
+          <h3>Chat + cloud links</h3>
+          <p>Discord, messaging, Dropbox and WeTransfer are familiar and often “good enough” for basic sharing.</p>
+          <p class="small coral"><strong>Threat:</strong> creators may not feel enough pain to switch.</p>
+        </div>
+        <div class="card">
+          <span class="status">Adjacent platforms</span>
+          <h3>Creator & promo tools</h3>
+          <p>SoundCloud, sample subscriptions and label-facing promo products bundle reach, production or campaign features.</p>
+          <p class="small amber"><strong>Threat:</strong> incumbents can add adjacent workflows quickly.</p>
+        </div>
+        <div class="card">
+          <span class="status">cre8 hypothesis</span>
+          <h3>Niche release relationship</h3>
+          <p>Combine trusted community, pack organization and explicitly granted pre-release listening.</p>
+          <p class="small mint"><strong>Test:</strong> does this save repeated effort and bring people back?</p>
+        </div>
+      </div>
+      <div class="callout" style="margin-top: 1.1rem;">Avoid competing as a smaller SoundCloud. The sharper bet is scene-level trust around creator-controlled access.</div>
+      <p class="tiny dim" style="margin-top: .65rem;">Desk research is not a complete competitor census. Public prices are snapshots and are not directly comparable.<sup class="source-mark"><a href="#sources">[1]</a></sup></p>
+      <div class="footer"><span>Possible position; not demonstrated differentiation or defensibility.</span><span>04 / 12</span></div>
+    </section>
+
+    <section class="slide" aria-label="Demand evidence">
+      <p class="eyebrow">04 · Demand evidence</p>
+      <h2>There is category context — but no validated niche market size.</h2>
+      <div class="grid cols-3">
+        <div class="card">
+          <span class="label">Global category context</span>
+          <p class="metric">$15.1B</p>
+          <h3>Electronic music economy</h3>
+          <p>IMS/MIDiA estimate for 2025, up 7% year over year.<sup class="source-mark"><a href="#sources">[2]</a></sup></p>
+          <p class="small amber">Not cre8’s addressable market.</p>
+        </div>
+        <div class="card">
+          <span class="label">UK industry context</span>
+          <p class="metric">£8B</p>
+          <h3>UK music GVA</h3>
+          <p>UK Music’s estimate for the entire UK music industry in 2024.<sup class="source-mark"><a href="#sources">[3]</a></sup></p>
+          <p class="small amber">Not a revenue forecast for this product.</p>
+        </div>
+        <div class="card">
+          <span class="label">Behavioral analogue</span>
+          <p class="metric">~£25</p>
+          <h3>Dubplate cutting</h3>
+          <p>UK services advertise physical cuts from around this price.<sup class="source-mark"><a href="#sources">[4]</a></sup></p>
+          <p class="small amber">Supports cultural relevance, not software willingness to pay.</p>
+        </div>
+      </div>
+      <p class="lead" style="margin: 1.2rem 0 .6rem;">The commercial question is narrower: will active creators pay repeatedly to solve a real release-sharing problem?</p>
+      <p class="tiny dim">Research found no reliable UK revenue estimate for the target genres. Sample-pack TAM claims and generic freemium benchmarks are excluded from the investment case.</p>
+      <div class="footer"><span>Evidence is directional; paid commitments and renewals matter more.</span><span>05 / 12</span></div>
+    </section>
+
+    <section class="slide" aria-label="Business model">
+      <p class="eyebrow">05 · Revenue sequence</p>
+      <h2>Start with one paid workflow. Defer the marketplace.</h2>
+      <div class="grid cols-3">
+        <div class="card">
+          <span class="status">Always accessible</span>
+          <h3>Free community</h3>
+          <p class="metric">£0</p>
+          <ul class="clean">
+            <li>Discovery and ordinary participation</li>
+            <li>Basic sharing and access controls</li>
+            <li>A-List approval never for sale</li>
+          </ul>
+        </div>
+        <div class="card" style="border-color: rgba(169,245,194,.58);">
+          <span class="status proposed">Price experiment</span>
+          <h3>Creator Pro</h3>
+          <p class="metric">£9<span class="small"> / month</span></p>
+          <ul class="clean">
+            <li>Test against £7 and £12</li>
+            <li>Charge for delivered repeat value</li>
+            <li>Keep existing permission controls free</li>
+          </ul>
+        </div>
+        <div class="card">
+          <span class="status proposed">Later, gated</span>
+          <h3>Curated Sample Packs</h3>
+          <p class="metric">15<span class="small">%</span></p>
+          <ul class="clean">
+            <li>Proposed platform commission</li>
+            <li>Test real packs, price and licence</li>
+            <li>Only after rights, tax and payouts work</li>
+          </ul>
+        </div>
+      </div>
+      <div class="divider"></div>
+      <p class="small"><span class="strong">Optional supporter:</span> £5/month, separate from Pro; not included in the base cash model. These are pricing experiments, not approved or proven prices.<sup class="source-mark"><a href="#sources">[1]</a></sup></p>
+      <div class="footer"><span>Do not manufacture conversion by restricting ordinary community use.</span><span>06 / 12</span></div>
+    </section>
+
+    <section class="slide" aria-label="Unit economics">
+      <p class="eyebrow">06 · Conservative economics</p>
+      <h2>At 100 registrations, the goal is learning — not founder income.</h2>
+      <div class="split">
+        <div class="card">
+          <span class="label">Illustrative Pro contribution per £9 subscriber</span>
+          <div class="bar-row"><span>Not VAT-registered</span><div class="bar"><span style="width: 90.6%;"></span></div><strong>£8.15</strong></div>
+          <div class="bar-row"><span>20% VAT included</span><div class="bar"><span style="width: 73.9%;"></span></div><strong>£6.65</strong></div>
+          <p class="small">After example payment, billing and 5% refund/dispute reserve; before delivery, support and overheads.</p>
+          <div class="divider"></div>
+          <p class="small"><strong class="strong">Whole operating allowance:</strong> ~24 subscribers if not VAT-registered; ~29 if registered at the same consumer price.</p>
+        </div>
+        <div>
+          <div class="grid cols-2">
+            <div class="card"><span class="label">Monthly cash allowance</span><p class="metric">£190</p><p class="small">Planning allowance, not a quote; no founder pay.</p></div>
+            <div class="card"><span class="label">Illustrative year gross</span><p class="metric">£1,755</p><p class="small">Scenario: quarterly averages of 5 / 10 / 20 / 30 Pro users.</p></div>
+          </div>
+          <div class="card" style="margin-top: 1rem;">
+            <span class="label">Illustrative year result</span>
+            <h3 class="coral" style="margin-top: .45rem;">~£690 shortfall</h3>
+            <p class="small">After estimated subscription contribution versus £2,280 annual cash allowance — before setup, tax, rights costs and founder pay.</p>
+          </div>
+        </div>
+      </div>
+      <p class="tiny dim" style="margin-top: .55rem;">Scenarios, not forecasts. Payment fees, VAT status, costs and adoption must be confirmed. See business plan for assumptions.</p>
+      <div class="footer"><span>Cash planning is not statutory profit or an investment return.</span><span>07 / 12</span></div>
+    </section>
+
+    <section class="slide" aria-label="Funding discussion">
+      <p class="eyebrow">07 · Funding discussion</p>
+      <h2>Fund a bounded validation phase, not a scale-up.</h2>
+      <div class="split">
+        <div class="grid">
+          <div class="card">
+            <span class="label">Illustrative initial cash headroom</span>
+            <p class="metric">£3.0k–£5.7k</p>
+            <p>Setup allowances + illustrative first-year shortfall + three-month operating buffer.</p>
+          </div>
+          <div class="card">
+            <span class="label">If there are no sales</span>
+            <p class="metric amber">£4.55k–£7.2k</p>
+            <p>Setup + one year of operating allowance + three-month buffer.</p>
+          </div>
+        </div>
+        <div>
+          <h3>What the plan includes</h3>
+          <ul class="clean">
+            <li>£1,700–£4,350 one-off setup allowances</li>
+            <li>£190/month provisional operating allowance</li>
+            <li>Three-month operating buffer: £570</li>
+            <li>Founder-led pilot; remain on Render while validating</li>
+          </ul>
+          <div class="callout" style="margin-top: 1rem;">Music-rights/licence costs are not included and may materially change the required funding.</div>
+          <p class="small" style="margin-top: .8rem;"><strong class="strong">No valuation, share price, dilution or equity terms are set in the source plan.</strong> Agree any investment structure separately after quotes and legal advice.</p>
+        </div>
+      </div>
+      <p class="tiny dim">These are planning allowances, not supplier quotes or a funding commitment. Zero-revenue scenario also excludes rights quotes, founder labour, royalties, tax and major incidents.</p>
+      <div class="footer"><span>Approval requested: quote and validate before committing to scale.</span><span>08 / 12</span></div>
+    </section>
+
+    <section class="slide" aria-label="Pilot plan">
+      <p class="eyebrow">08 · Go-to-market pilot</p>
+      <h2>Prove repeat behavior with a small, relevant cohort.</h2>
+      <div class="flow">
+        <div class="step"><span class="step-num">1</span><h3>Listen</h3><p class="small">Interview 10 active creators and 5 DJs/listeners about their last real release-share workflow.</p></div>
+        <div class="step"><span class="step-num">2</span><h3>Recruit</h3><p class="small">Find 5–10 anchor creators with cleared content and relevant collaborators.</p></div>
+        <div class="step"><span class="step-num">3</span><h3>Charge honestly</h3><p class="small">Ask for paid commitments at the shown price; launch only a delivered Pro workflow.</p></div>
+        <div class="step"><span class="step-num">4</span><h3>Observe renewals</h3><p class="small">Track repeat use, renewals, support hours, contribution and access incidents.</p></div>
+      </div>
+      <div class="grid cols-2" style="margin-top: 1.2rem;">
+        <div class="card">
+          <span class="label">Proposed decision gate · not achieved yet</span>
+          <h3>Five credible paid pilot commitments</h3>
+          <p class="small">Then 5–10 paying pilot creators and at least 4 of the first 5 renewing after two billing cycles.</p>
+        </div>
+        <div class="card">
+          <span class="label">Measure the right denominator</span>
+          <h3>Eligible active creators, not registrations</h3>
+          <p class="small">A 100-user waitlist is not product-market fit. Track activation, repeat use, paid conversion and renewal separately.</p>
+        </div>
+      </div>
+      <div class="footer"><span>Small-pilot gates are learning thresholds, not statistical proof.</span><span>09 / 12</span></div>
+    </section>
+
+    <section class="slide" aria-label="Risks and mitigations">
+      <p class="eyebrow">09 · Principal risks</p>
+      <h2>Trust and rights are launch conditions, not footnotes.</h2>
+      <table class="mini-table">
+        <thead><tr><th style="width: 22%;">Risk</th><th style="width: 45%;">Why it matters</th><th>Control / gate</th></tr></thead>
+        <tbody>
+          <tr><td class="coral">Rights & licensing</td><td>Uploaded or sold recordings may include uncleared masters, compositions, samples or performances.</td><td>Rights audit and specialist quote; keep affected content out until cleared.</td></tr>
+          <tr><td class="amber">Free substitutes & retention</td><td>Chat and cloud links may be sufficient; niche communities can struggle to sustain repeat activity.</td><td>Measure recurring workflow pain, return use and renewals; stop or revise if weak.</td></tr>
+          <tr><td class="amber">Payments & consumer duties</td><td>Subscriptions, refunds, seller payouts and marketplace tax add legal and operational complexity.</td><td>Defer paid packs; approve terms, billing and payout flows before accepting money.</td></tr>
+          <tr><td class="amber">Infrastructure & support</td><td>Media delivery, backups and founder support may exceed the small-launch allowance.</td><td>Measure media and service costs; cap usage; test restores; reforecast before growth.</td></tr>
+          <tr><td class="blue">Competitive response</td><td>Large creator platforms can extend distribution, access and monetization features.</td><td>Compete on focused scene relationships and workflow quality; revisit landscape often.</td></tr>
+        </tbody>
+      </table>
+      <p class="small" style="margin-top: .9rem;"><strong class="strong">No “leak-proof” promise, guaranteed promotion, exclusive-rights claim or A-List paywall.</strong></p>
+      <div class="footer"><span>Source: UK launch checklist, business plan and positioning research.</span><span>10 / 12</span></div>
+    </section>
+
+    <section class="slide" aria-label="Shareholder decision">
+      <p class="eyebrow">10 · Decision for discussion</p>
+      <h2>Back evidence-gathering before scale.</h2>
+      <div class="split">
+        <div class="ask-box">
+          <span class="status">Proposed next decision</span>
+          <h3 style="font-size: clamp(24px, 2.4vw, 36px);">Approve a UK-first validation phase</h3>
+          <ul class="clean">
+            <li>Commission rights, payment and tax quotes</li>
+            <li>Recruit a focused creator/listener cohort</li>
+            <li>Ship one narrow, delivered Pro workflow</li>
+            <li>Review after two paid renewal cycles</li>
+          </ul>
+        </div>
+        <div>
+          <h3>Do not approve yet</h3>
+          <ul class="clean">
+            <li>Broad marketplace launch or seller payouts</li>
+            <li>Expensive cloud migration before measured need</li>
+            <li>Founder salary or a scale-up hiring plan</li>
+            <li>Equity valuation or investment terms not yet modeled</li>
+          </ul>
+          <div class="divider"></div>
+          <p class="small"><span class="strong">Decision checkpoint:</span> return with actual supplier/legal quotes, paid commitments, usage, renewal data and revised runway.</p>
+        </div>
+      </div>
+      <p class="tiny dim">This is a proposal for discussion, not a formal shareholder resolution or securities offer.</p>
+      <div class="footer"><span>Earn the right to scale with evidence.</span><span>11 / 12</span></div>
+    </section>
+
+    <section class="slide" id="sources" aria-label="Sources and caveats">
+      <p class="eyebrow">11 · Sources & caveats</p>
+      <h2>Research base and disclosure</h2>
+      <div class="grid cols-2">
+        <div>
+          <h3>Supporting cre8 documents</h3>
+          <ul class="clean small">
+            <li><a href="./business-plan-uk.md">UK business plan</a> — cash plan, pilot gates and assumptions</li>
+            <li><a href="./market-research-positioning.md">Positioning research</a> — competitor review, demand evidence and confidence limits</li>
+            <li><a href="./monetization-strategy.md">Monetization strategy</a> — price tests and unit-economics assumptions</li>
+            <li><a href="./uk-licensing-and-payments.md">UK licensing & payments checklist</a> — unresolved launch gates</li>
+            <li><a href="./aws-whole-stack-cost-model.md">Whole-stack cost model</a> — larger-scale infrastructure sensitivity</li>
+          </ul>
+        </div>
+        <div>
+          <h3>Selected external context</h3>
+          <ol class="clean source-list small">
+            <li><a href="https://artists.soundcloud.com/">SoundCloud artist plans</a> and <a href="https://www.musicbusinessworldwide.com/soundcloud-starts-letting-artists-sell-downloads-direct-from-their-profiles-and-says-its-taking-zero-commission/">direct sales launch</a></li>
+            <li><a href="https://www.internationalmusicsummit.com/news/ims-electronic-music-business-report-2025-26">IMS/MIDiA 2025–26 report</a></li>
+            <li><a href="https://www.ukmusic.org/news/new-report-reveals-uk-music-industry-contributes-record-8-billion-to-uk-economy/">UK Music 2024 industry GVA</a></li>
+            <li><a href="https://dizlathecuts.co.uk/dubplate-cutting-uk">Diz Lathe Cuts UK dubplate listings</a></li>
+            <li><a href="https://www.musicbusinessworldwide.com/splice-acquires-spitfire-audio-for-a-reported-50m-as-it-bets-on-ai-music-creation/">Splice scale (trade reporting)</a></li>
+            <li><a href="https://get.bandcamp.help/en/articles/15263193-what-are-bandcamp-s-fees">Bandcamp digital fees</a> (comparison only)</li>
+          </ol>
+        </div>
+      </div>
+      <div class="divider"></div>
+      <p class="small"><strong class="strong">Disclosure:</strong> Research snapshot 11 November 2026. Figures are planning assumptions or dated public-source context, not independently audited. No validated niche TAM, customer traction, rights clearance, final pricing, legal approval, valuation or investment terms are claimed.</p>
+      <p class="tiny dim">Source prices and platform features can change. Verify all numbers and legal requirements before external use or accepting investment.</p>
+      <div class="footer"><span>CRE8 · SHAREHOLDER DISCUSSION MATERIAL · NOVEMBER 2026</span><span>12 / 12</span></div>
+    </section>
+  </main>
+
+  <nav class="controls" aria-label="Presentation controls">
+    <button type="button" id="previous" aria-label="Previous slide">←</button>
+    <span id="counter" aria-live="polite">1 / 12</span>
+    <button type="button" id="next" aria-label="Next slide">→</button>
+  </nav>
+
+  <script>
+    (() => {
+      const slides = [...document.querySelectorAll(".slide")];
+      const counter = document.querySelector("#counter");
+      let current = 0;
+
+      function show(index) {
+        current = (index + slides.length) % slides.length;
+        slides.forEach((slide, i) => slide.classList.toggle("active", i === current));
+        counter.textContent = `${current + 1} / ${slides.length}`;
+        history.replaceState(null, "", `#slide-${current + 1}`);
+      }
+
+      document.querySelector("#previous").addEventListener("click", () => show(current - 1));
+      document.querySelector("#next").addEventListener("click", () => show(current + 1));
+      document.querySelectorAll('a[href="#sources"]').forEach(link => {
+        link.addEventListener("click", event => {
+          event.preventDefault();
+          show(slides.findIndex(slide => slide.id === "sources"));
+        });
+      });
+      document.addEventListener("keydown", event => {
+        if (event.key === "ArrowRight" || event.key === " ") show(current + 1);
+        if (event.key === "ArrowLeft") show(current - 1);
+        if (event.key === "Home") show(0);
+        if (event.key === "End") show(slides.length - 1);
+      });
+
+      const match = location.hash.match(/^#slide-(\d+)$/);
+      if (match) show(Number(match[1]) - 1);
+    })();
+  </script>
+</body>
+</html>

@@ -53,3 +53,4 @@
 .shared-dub-page__player .audio-player__volume { grid-column: 1 / -1; justify-self: center; }
 .shared-dub-page__player .audio-player__error { grid-column: 1 / -1; }
 .shared-dub-page__player .audio-player__waveform { min-width: 0; width: 100%; }
+.shared-dub-page__actions { display: grid; gap: var(--spacing-2); }

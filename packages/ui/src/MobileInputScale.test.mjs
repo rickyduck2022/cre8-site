@@ -3,6 +3,42 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 describe("mobile zoom lock", () => {
+  it("keeps Pack form controls at least 16px while sharing A-List form styling", () => {
+    const css = readFileSync(resolve("..", "..", "apps", "web", "src", "components", "AListApplication.css"), "utf8");
+    const style = document.createElement("style");
+    style.textContent = css;
+    document.head.append(style);
+    try {
+      const rule = Array.from(style.sheet.cssRules).find((candidate) =>
+        candidate instanceof CSSStyleRule
+        && candidate.selectorText.includes(".pack-editor .pack-editor__form input")
+        && candidate.style.getPropertyValue("font-size") === "max(16px, var(--type-size-input))",
+      );
+      expect(rule).toBeDefined();
+      expect(rule.selectorText).toContain(".pack-editor .pack-editor__form textarea");
+      expect(rule.selectorText).toContain(".pack-editor .pack-editor__form select");
+    } finally {
+      style.remove();
+    }
+  });
+
+  it("keeps inline pack editor actions and selection labels touch-sized on mobile", () => {
+    const css = readFileSync(resolve("..", "..", "apps", "web", "src", "components", "Packs.css"), "utf8");
+    const style = document.createElement("style");
+    style.textContent = css;
+    document.head.append(style);
+    try {
+      const media = Array.from(style.sheet.cssRules).find(
+        (rule) => rule instanceof CSSMediaRule && rule.conditionText === "(max-width: 760px)",
+      );
+      const rule = Array.from(media.cssRules).find(
+        (candidate) => candidate instanceof CSSStyleRule && candidate.selectorText.includes(".pack-editor .button"),
+      );
+      expect(rule.selectorText).toContain(".pack-editor .pack-check");
+      expect(rule.style.getPropertyValue("min-height")).toBe("2.75rem");
+    } finally { style.remove(); }
+  });
+
   it("locks the viewport against zooming and keeps touch selects at least 16px", () => {
     const html = readFileSync(resolve("..", "..", "apps", "web", "index.html"), "utf8");
     expect(html).toContain(

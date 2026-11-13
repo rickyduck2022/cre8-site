@@ -153,7 +153,7 @@ export function BuddyListTemplate({
         />
       </div>
 
-      <section className="buddy-list" aria-label="Contacts">
+      <section className="buddy-list" aria-label="Contacts" ref={buddyPagination.listRef}>
         {buddyPagination.items.map((buddy) => (
           <article className="buddy-row" key={buddy.id}>
             <button
@@ -230,7 +230,7 @@ export function BuddyListTemplate({
             <h2>People you may know</h2>
           </div>
         </div>
-        <div className="discover-buddies__grid">
+        <div className="discover-buddies__grid" ref={suggestionPagination.listRef}>
           {suggestionPagination.items.map((suggestion) => (
               <article className="suggestion-card" key={suggestion.username}>
                 <ArtistCard name={suggestion.displayName} username={suggestion.username} avatarUrl={suggestion.avatarUrl} aListApproved={suggestion.aListApproved} detail={suggestion.genre} onOpenProfile={onSelectProfile} size="medium" action={

@@ -3,6 +3,9 @@
   min-height: 0;
   min-width: 0;
 }
+.messenger-template--window .messenger { display: grid; grid-template-columns: minmax(0, 1fr); height: 100%; }
+.messenger-template--window .chat-panel { display: grid; min-height: 0; min-width: 0; }
+.conversation-window .floating-window__content { overflow: hidden; padding: 0; }
 
 .messenger {
   border: 0;
@@ -183,7 +186,7 @@
   .shared-dub-message { box-sizing: border-box; }
   .share-a-dub { position: static; }
   .share-a-dub__modal .modal__content,
-  .share-a-dub__modal #share-a-dub-menu { display: flex; flex: 1; flex-direction: column; min-height: 0; }
+  .share-a-dub__modal .share-a-dub__menu { display: flex; flex: 1; flex-direction: column; min-height: 0; }
   .share-a-dub__modal .share-a-dub__list.scroll-viewport { flex: 1; max-height: none; min-height: 0; }
   .chat-compose input {
     box-sizing: border-box;

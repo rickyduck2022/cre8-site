@@ -11,12 +11,12 @@ export function useNotifications() {
   }, []);
   function notify(message: string, type: NotificationType = "success", conversationId?: string) {
     const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-    setNotifications((current) => [{ id, message, type, createdAt: new Date().toISOString(), read: false, conversationId }, ...current].slice(0, 20));
-    setActiveNotificationIds((current) => [id, ...current].slice(0, 3));
+    setNotifications((current) => [{ id, message, type, createdAt: new Date().toISOString(), read: false, conversationId }, ...current]);
+    setActiveNotificationIds((current) => [id, ...current]);
     const timeout = window.setTimeout(() => {
       setActiveNotificationIds((current) => current.filter((item) => item !== id));
       notificationTimers.current.delete(id);
-    }, type === "error" ? 7000 : 4500);
+    }, 5000);
     notificationTimers.current.set(id, timeout);
   }
   function dismissNotification(id: string) {

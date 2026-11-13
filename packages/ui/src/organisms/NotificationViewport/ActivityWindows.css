@@ -1,0 +1,12 @@
+.activity-windows { align-items: flex-end; display: flex; flex: 0 0 auto; flex-direction: column; gap: var(--spacing-2); max-width: 100%; pointer-events: auto; width: min(26rem, 100%); }
+.activity-windows:empty { display: none; }
+.activity-windows--overlay { bottom: var(--spacing-3); max-height: 45dvh; max-width: calc(100% - 1rem); overflow: auto; position: fixed; right: var(--spacing-2); z-index: var(--layer-notification); }
+.activity-window { background: var(--surface-raised); border: 1px solid var(--window-border); border-radius: var(--radius-md); box-shadow: var(--window-shadow); color: var(--text-primary); min-width: 0; overflow: hidden; width: 100%; }
+.activity-window > .floating-window__header { cursor: default; touch-action: auto; }
+.activity-window h2 { flex: 1; font-size: var(--type-size-label); margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.activity-window .button { min-height: 2.75rem; }
+.activity-window__content { display: grid; gap: var(--spacing-2); max-height: 40dvh; overflow: auto; padding: var(--spacing-2); }
+.activity-window__content[hidden] { display: none; }
+.activity-window .notification-toast { box-shadow: none; max-width: 100%; min-width: 0; width: 100%; }
+.activity-window__result { align-items: center; display: flex; gap: var(--spacing-2); }
+.activity-window__result p { flex: 1; margin: 0; min-width: 0; overflow-wrap: anywhere; }

@@ -1,4 +1,4 @@
-import type { FormEvent } from "react";
+import { useId, type FormEvent } from "react";
 import { Send } from "@craft/icons";
 import { Button } from "../../atoms/Button/Button";
 import "../Molecules.css";
@@ -19,13 +19,14 @@ export function ChatComposer({
   recipientName,
   value,
 }: ChatComposerProps) {
+  const messageId = useId();
   return (
     <form className="chat-compose" onSubmit={onSubmit}>
-      <label className="sr-only" htmlFor="chat-message">
+      <label className="sr-only" htmlFor={messageId}>
         Message {recipientName}
       </label>
       <input
-        id="chat-message"
+        id={messageId}
         maxLength={2000}
         onChange={(event) => onChange(event.currentTarget.value)}
         placeholder="Write a message..."
